@@ -1,0 +1,1581 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Antenna.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\CalculateWaveImpactResponseDBm.Output.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\CalculateWaveImpactResponseDBmUnderCircularPolarization3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\ElectricFieldPath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Material.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Point3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\RT.Sbr3D.CircularPolarization3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\RtoiOutputInformation.Output.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Sbr3DFindPathConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Scenario3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffractionWaveLoss.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffuseScatteringWaveLoss.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateReflectionWaveLoss.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateTransmissionWaveLoss.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveImpactResponseDBmComplex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveLossCoefficientBase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveLossCoefficientConstant.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalOfElectricFieldLossUnderCircularPolarization3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQElectricalParametersOfMaterialModule\Impl\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQElectricalParametersOfMaterialModule\Impl\OneMaterialObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.DxQElectricalParametersOfMaterialModule\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.HdQGeometryModule\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.LxQSbr3DRay3DGenerationModule\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Interface\RayScenarioIntersectNull.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.QzQAccelerateRayIntersectScenarioModule\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.QzQAntennaModule\Impl\Interface.Antenna\TransmittingAntennaDatabaseObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.QzQAntennaModule\Impl\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.QzQAntennaModule\Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\0.Ray3DIntersectGeometry3DElementsModule.Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\0.Ray3DIntersectGeometry3DElementsModule.Output.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\Ray3DIntersectGeometry3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\Ray3DIntersectGeometry3DElementsResults.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree1.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree3.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree4.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Base\Ray3DIntersectGeometry3DElementsBase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Exhaust\Ray3DIntersectGeometry3DElementsExhaust.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\0.Ray3DIntersectGeometry3DElementsModule.Impl.Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Solve1SPathByIm3DModule\0.Solve1SPathByIm3DModule.Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Solve1SPathByIm3DModule\0.Solve1SPathByIm3DModule.Output.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Solve1SPathByIm3DModule\Solve1SPathByIm3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Solve1SPathByIm3DModule.Impl\0.Solve1SPathByIm3DModule.Impl.Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.Solve1SPathByIm3DModule.Impl\S1Ray3DIntersectTriangle3DBallBvhTree.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule\0.SolveOneTimeDiffractionPathByEquationModule.Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule\0.SolveOneTimeDiffractionPathByEquationModule.Output.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule\SolveOneTimeDiffractionPathByEquation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\0.SolveOneTimeDiffractionPathByEquationModule.Impl.Input.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\SotdpbeRay3DIntersectTriangle3DBallBvhTree.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRangeDouble.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRay3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRay3DCorner3DIntersectResult.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRay3DScenario3DIntersectResult.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRay3DTriangle3DIntersectResult.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRay3DTriangle3DIntersectResultObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayEjectionParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayEjectionParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayScenarioIntersect.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayScenarioIntersectResult.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayScenarioIntersectType.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeSIMO.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeSISO.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeSISOOnePath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeToMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRDToMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQReceiverAntenna.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRootMeanSquareDelayExtension.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DParameterConfigJsonFileOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DPrivateParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtIm3DPrivateParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtProgramReadsDataAndPreprocessesData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQRunExe.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQSbrDiffuseScatteringConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQSbrRayGeneratedByReflection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQSbrRayGeneratedByTransmission.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQSbrRayGeneratedByTransmittingAntenna.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQScenarioCorner3DIndex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQScenarioDataInformation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQScenarioDiffuseScatteringFace.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQScenarioObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQScenarioTriangle3DIndex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQSpaceSubregionParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQSpaceSubregionParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQStringOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQStringToStructure.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQStructureToString.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTest.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQThreadPool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQThreadSafeVector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQThreadTest.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQThreadTool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTransmittingAntenna.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFileJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTriangle3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTriangleAccelerateStruct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTriangleAccelerateStructDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQTriangleI.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQVectorOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQWirelessPropagationTestDataSourceConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\DxQWirelessPropagationTestDataSourceConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaMIMO.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaMIMOPath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaMIMOPathElectricFieldFileOutput.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaMIMOPathFileOutput.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternDatabaseObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternJsonObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternJsonObjectJsonFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternJsonObjectJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaPatternObjectJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaProperty.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaSIMO.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaSIMOPath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaSISOOnePath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAntennaSISOPath.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQArrayInt.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQAverageAdditionalDelay.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBall3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBaseCoordinateSystem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBaseToMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBigChannelParameter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBoundingBox3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildBvhBall3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDDTest.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDR.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDRTest.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDTest.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathRD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathRDTest.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBvhBall3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBvhBall3DNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBvhBall3DParameter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBvhParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQBvhParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCalAntennaPathElectricField.Interface.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCalDBm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCalRunTime.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQcase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQChannelDataBool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQChannelDataDouble.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQChannelDataInt.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCommonParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCommonParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQComplex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQComplexOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCornerAccelerateStruct.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCornerAccelerateStructDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCRandom.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\HdQCRandomOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQLine3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQLinearPolarization3DObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQLineSegment3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMaterialObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMaterialObjectDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundary.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundaryJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMathOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMatrixObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMatrixOperator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJson.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoDiffraction.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoDiffuseScattering.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoOperate.Ptr.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoReceiverAntenna.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoReflection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoTransmission.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoTransmittingAntenna.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultithreadParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQMultithreadParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQNumericalMethodParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQNumericalMethodParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOneLinearPolarization3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterLinearConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterLinearConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQOutputCalculationTimeToLogFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPixelParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPixelParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPlane3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPoint2D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPoint2I.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPoint3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPoint3DI.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPoint3F.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPoint3I.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPolarization2D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPolarization3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQProjectDependencies.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\LxQPropagationType.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDataInputCsvFileParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDataInputCsvFileParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDataOutputParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDataOutputParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDDToMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDeterminant.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDeterminantOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDiffuseScatteringParameter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDiffuseScatteringParameterJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDirectoryOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDoWithString.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDRToMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQDToMultiPathNodeInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQEMField.BaseCoordinateSystem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQEquation1VariableObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQEquation2VariableObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQEquation3VariableObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQExampleOfSolving2DdimensionalEquation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQExampleOfSolving3DdimensionalEquation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQFileBase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQFindMaterialObjectByDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQFunctionOperator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfigJsonOperate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DIntersect.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Area.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Assignment.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Center.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Check.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.CoordinateSystem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Create.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Discretizing.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Distance.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Equals.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Length.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Location.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Normalization.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.NormalVector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Point3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Set.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Shadow.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathBaseNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathDNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathRNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathRxNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathTxNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQGlobalConstant.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQInputConfigO01.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQInputConfigO02.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQIntArray.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQJson.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\QzQJsonFileOperateBase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CoreCode\XdQRtSbr3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\ElectricFieldPath.Impl\CalculateWaveImpactResponseDBmUnderCircularPolarization3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffractionWaveLoss.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffuseScatteringWaveLoss.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateReflectionWaveLoss.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateTransmissionWaveLoss.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveImpactResponseDBmComplex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveLossCoefficientBase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalOfElectricFieldLossUnderCircularPolarization3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Material.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\RT.Sbr3D.CircularPolarization3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\RtoiOutputInformation.Output.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQElectricalParametersOfMaterialModule\Impl\MaterialObjectDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.DxQElectricalParametersOfMaterialModule\Impl\OneMaterialObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DIntersect.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Area.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Assignment.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Center.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Check.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.CoordinateSystem.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Create.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Discretizing.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Distance.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Equals.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Length.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Location.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Normalization.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.NormalVector.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Point3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Set.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Shadow.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.LxQSbr3DRay3DGenerationModule\Sbr3DRay3DGeneration\SbrRayGeneratedByReflection.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.LxQSbr3DRay3DGenerationModule\Sbr3DRay3DGeneration\SbrRayGeneratedByTransmission.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.LxQSbr3DRay3DGenerationModule\Sbr3DRay3DGeneration\SbrRayGeneratedByTransmittingAntenna.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Interface\RayScenarioIntersect.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Interface\RayScenarioIntersectNull.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.Antenna\TransmittingAntennaDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.Antenna\TransmittingAntennaDatabaseObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.AntennaPattern\AntennaPatternDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.AntennaPolarization3D\MultiLinearPolarization3DDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree1.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree2.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree3.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree4.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Base\Ray3DIntersectGeometry3DElementsBase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Exhaust\Ray3DIntersectGeometry3DElementsExhaust.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Ray3DIntersectGeometry3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Solve1SPathByIm3DModule.Impl\S1Ray3DIntersectTriangle3DBallBvhTree.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.Solve1SPathByIm3DModule.Impl\Solve1SPathByIm3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\SolveOneTimeDiffractionPathByEquation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\SotdpbeRay3DIntersectTriangle3DBallBvhTree.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRangeDouble.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRay3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRay3DCorner3DIntersectResult.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRay3DScenario3DIntersectResult.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRay3DTriangle3DIntersectResult.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRay3DTriangle3DIntersectResultObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayEjectionParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayEjectionParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayScenarioIntersectResult.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeSIMO.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeSISO.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeSISOOnePath.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeToMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRDToMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQReceiverAntenna.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRootMeanSquareDelayExtension.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DParameterConfigJsonFileOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DPrivateParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtIm3DPrivateParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtProgramReadsDataAndPreprocessesData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQRunExe.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQSbrDiffuseScatteringConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQScenarioCorner3DIndex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQScenarioDataInformation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQScenarioDiffuseScatteringFace.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQScenarioObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQScenarioTriangle3DIndex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQSpaceSubregionParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQSpaceSubregionParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQStringOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQStringToStructure.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQStructureToString.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQThreadSafeVector.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQThreadTool.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTransmittingAntenna.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFileJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTransmittingAntennaJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTriangle3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTriangleAccelerateStruct.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTriangleAccelerateStructDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQTriangleI.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQVectorOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQWirelessPropagationTestDataSourceConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\DxQWirelessPropagationTestDataSourceConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaMIMO.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaMIMOPath.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaMIMOPathElectricFieldFileOutput.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaMIMOPathFileOutput.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaPatternDatabaseObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaPatternJsonObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaPatternJsonObjectJsonFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaPatternJsonObjectJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaPatternObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaPatternObjectJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaProperty.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaSIMO.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaSIMOPath.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaSISOOnePath.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAntennaSISOPath.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQArrayInt.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQAverageAdditionalDelay.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBall3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBaseCoordinateSystem.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBaseToMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBigChannelParameter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBoundingBox3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildBvhBall3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDDTest.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDR.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDRTest.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDTest.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathRD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathRDTest.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBvhBall3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBvhBall3DNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBvhBall3DParameter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBvhParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQBvhParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCalDBm.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCalRunTime.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQChannelDataBool.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQChannelDataDouble.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQChannelDataInt.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCommonParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCommonParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQComplex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQComplexOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCornerAccelerateStruct.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCornerAccelerateStructDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCRandom.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\HdQCRandomOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQLine3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQLinearPolarization3DObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQLineSegment3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMaterialObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundary.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundaryJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMathOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMatrixObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMatrixOperator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJson.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoDiffraction.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoDiffuseScattering.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoOperate.Ptr.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoReceiverAntenna.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoReflection.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoTransmission.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoTransmittingAntenna.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultithreadParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQMultithreadParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQNumericalMethodParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQNumericalMethodParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOneLinearPolarization3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterLinearConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterLinearConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQOutputCalculationTimeToLogFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPixelParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPixelParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPlane3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPoint2D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPoint2I.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPoint3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPoint3DI.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPoint3F.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPoint3I.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPolarization2D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQPolarization3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\LxQProjectDependencies.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDataInputCsvFileParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDataInputCsvFileParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDataOutputParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDataOutputParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDDToMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDeterminant.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDeterminantOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDiffuseScatteringParameter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDiffuseScatteringParameterJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDirectoryOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDoWithString.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDRToMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQDToMultiPathNodeInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQEMField.BaseCoordinateSystem.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQEquation1VariableObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQEquation2VariableObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQEquation3VariableObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQExampleOfSolving2DdimensionalEquation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQExampleOfSolving3DdimensionalEquation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQFileBase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQFindMaterialObjectByDatabase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQFunctionOperator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfig.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfigJsonOperate.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathBaseNode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathDNode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathRNode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathRxNode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathTxNode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQGlobalConstant.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQInputConfigO01.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQInputConfigO02.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQIntArray.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\QzQJsonFileOperateBase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CoreCode\XdQRtSbr3D.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

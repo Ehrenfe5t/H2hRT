@@ -1,0 +1,54 @@
+{
+    "a1_describe": "(1).This document describes the database of antenna polarization. ",
+    "a2_describe": "(2).The polarization3DModelId represents a unique identifier. If there is a repetition, the subsequent ones will be invalid, and only the first initialization will be taken as the standard.",
+    "a3_describe": "(3).If polarization3DModelId == -1, it indicates an illegal value. Please do not set its value to -1.",
+    "a4_describe": "(4).When polarization3DModelId == 0, it indicates full polarization, and there is no need to set the initial phase, polarization direction, or energy proportion.",
+    "a5_describe": "(5).When polarization3DModelId == 1, it indicates the default single linear polarization, with an initial phase of 0, polarization direction of (0, 0, 1), and energy proportion of 100%. ",
+    "a6_describe": "(6).When polarization3DModelId == 2, it indicates a default dual-linear polarization representation of a left-handed circular polarization. The initial phase of the first linear polarization is 0, with a polarization direction of (0, 0, 1) and an energy proportion of 50%. The initial phase of the second linear polarization is 0.5 * pi, with a polarization direction of (0, 1, 0) and an energy proportion of 50%.",
+    "a7_describe": "In conclusion, the polarization3DModelId cannot be set to -1, 0, 1, or 2.",
+    "database": [
+        {
+            "multiLinearPolarization3D": [
+                {
+                    "linearPolarization3DObject": {
+                        "phi0": 0.0,
+                        "vec": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "z": 1.0
+                        }
+                    },
+                    "weight": 1.0
+                }
+            ],
+            "polarization3DModelId": 1
+        },
+        {
+            "multiLinearPolarization3D": [
+                {
+                    "linearPolarization3DObject": {
+                        "phi0": 0.0,
+                        "vec": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "z": 1.0
+                        }
+                    },
+                    "weight": 1.0
+                },
+                {
+                    "linearPolarization3DObject": {
+                        "phi0": 1.5707963267948966,
+                        "vec": {
+                            "x": 0.0,
+                            "y": 1.0,
+                            "z": 0.0
+                        }
+                    },
+                    "weight": 1.0
+                }
+            ],
+            "polarization3DModelId": 2
+        }
+    ]
+}

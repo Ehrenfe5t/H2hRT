@@ -1,0 +1,64 @@
+{
+    "commonParameterConfig": {
+        "airSubstanceType": -999,
+        "deduplicateRadius": 1.2,
+        "electricFieldCalculationMode": 1,
+        "energyOutputMode": 0,
+        "powerThreshold": -327.0,
+        "rebuildEdge": true
+    },
+    "dataInputCsvFileParameterConfig": {
+        "inputMaterialTableCsvFileName": "ModelSci4\\ScenarioMaterial.csv",
+        "inputScenarioCorner3DCsvFileName": "ModelSci4\\ScenarioAccelerateCorner3D.csv",
+        "inputScenarioPoint3DCsvFileName": "ModelSci4\\ScenarioAcceleratePoint3D.csv",
+        "inputScenarioTriangle3DCsvFileName": "ModelSci4\\ScenarioAccelerateTriangle3D.csv",
+        "inputTransmittingAntennaDatabaseJsonFileName": "ModelSci4\\TransmittingAntennaDatabase1.json"
+    },
+    "dataOutputParameterConfig": {
+        "outPutDirectoryPathName": "OutPutDirectory5",
+        "outPutLogTxtFileName": "Log.txt",
+        "switchOfBigChannelParameterInfo": true,
+        "switchOfMultipleSignalSourceSuperposition": false,
+        "switchOfPathInfo": false,
+        "switchOfSmallChannelParameterInfo": true,
+        "switchOfStatisticChannelParameterInfo": false
+    },
+    "geometricSpaceAccelerateParameterConfig": {
+        "geometricSpaceAccelerateType": 1,
+        "lengthOfPixel": 1.97
+    },
+    "multithreadParameterConfig": {
+        "multithreadConfigSwitchOfMultithread": true,
+        "multithreadConfigThreadNum": 20,
+        "multithreadConfigThreadOneCpuCalNum": 1000
+    },
+    "numericalMethodParameterConfig": {
+        "numericalMethodMaxLevelOfGuess": 6,
+        "numericalMethodNumbersOfGuess": 3
+    },
+    "rayEjectionParameterConfig": {
+        "ejectionsMaxTotalNumber": 10,
+        "ejectionsOfDiffractionMaxNumber": 0,
+        "ejectionsOfDiffuseScatteringMaxNumber": 0,
+        "ejectionsOfReflectionMaxNumber": 4,
+        "ejectionsOfTransmissionMaxNumber": 4,
+        "switchOfLos": true
+    },
+    "rtSbr3DForRay3DPrivateParameterConfig": {
+        "cylindricalTube": false,
+        "diffuseScatteringParameter": {
+            "diffuseScatteringAr": 2,
+            "diffuseScatteringCoefficient": 0.05,
+            "diffuseScatteringRayleighRange": 8.0
+        },
+        "gapDiffractionRad": 0.05,
+        "gapDiffuseScatteringAzimuth": 0.05,
+        "gapDiffuseScatteringPitchAngle": 0.05,
+        "radiusCorner": 0.02,
+        "radiusRx": 0.03,
+        "rayNumber": 2000000,
+        "realWorldRefraction": true
+    }
+}
+
+程序运行总时长为 2.3643e+06 ms.

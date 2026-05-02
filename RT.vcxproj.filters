@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\app">
+      <UniqueIdentifier>{DE340101-390D-4B7B-A07E-2E9FD40D57B2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\common\config">
+      <UniqueIdentifier>{AC6D7652-7DE9-476B-A9AE-88935EF1A1A6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\common\error">
+      <UniqueIdentifier>{8C252370-2F73-4D50-BD85-BE2DB88DD112}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\common\log">
+      <UniqueIdentifier>{D923F8AE-FD5A-4CB3-8F14-14EA8AC0BE7E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\common\numeric">
+      <UniqueIdentifier>{980E98CC-4A5C-4E24-B7D2-9076E88D7D45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\common\version">
+      <UniqueIdentifier>{9D08C441-8D03-44D7-A336-3DA2C3B1D593}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\app">
+      <UniqueIdentifier>{0939F84F-E13A-4E83-8E1B-39786B070122}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\common\config">
+      <UniqueIdentifier>{C01A5F69-A75B-4337-9D9D-AE1083346E38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\common\error">
+      <UniqueIdentifier>{491B89E7-46A7-4E6F-83D4-D39DB7D9BA8F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\common\log">
+      <UniqueIdentifier>{63973443-1C44-4A5F-9B69-D30E8E1E1715}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\common\numeric">
+      <UniqueIdentifier>{74240BB8-6F0C-4D73-8E1E-6D07A982E20D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\common\version">
+      <UniqueIdentifier>{9DF1FB31-D061-430C-8D40-431CC6E5447D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="app\main.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\RtPipeline.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\config\AppConfigJsonCodec.cpp">
+      <Filter>源文件\core\common\config</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\config\AppConfigLoader.cpp">
+      <Filter>源文件\core\common\config</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\config\Module1SelfCheck.cpp">
+      <Filter>源文件\core\common\config</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\config\AppConfigSnapshotWriter.cpp">
+      <Filter>源文件\core\common\config</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\config\AppConfigValidator.cpp">
+      <Filter>源文件\core\common\config</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\error\RtError.cpp">
+      <Filter>源文件\core\common\error</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\log\Logger.cpp">
+      <Filter>源文件\core\common\log</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\numeric\NumericToleranceConfig.cpp">
+      <Filter>源文件\core\common\numeric</Filter>
+    </ClCompile>
+    <ClCompile Include="core\common\version\VersionInfo.cpp">
+      <Filter>源文件\core\common\version</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app\RtPipeline.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\config\AppConfig.h">
+      <Filter>头文件\core\common\config</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\config\AppConfigJsonCodec.h">
+      <Filter>头文件\core\common\config</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\config\AppConfigLoader.h">
+      <Filter>头文件\core\common\config</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\config\Module1SelfCheck.h">
+      <Filter>头文件\core\common\config</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\config\AppConfigSnapshotWriter.h">
+      <Filter>头文件\core\common\config</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\config\AppConfigValidator.h">
+      <Filter>头文件\core\common\config</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\error\ErrorCode.h">
+      <Filter>头文件\core\common\error</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\error\RtError.h">
+      <Filter>头文件\core\common\error</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\log\Logger.h">
+      <Filter>头文件\core\common\log</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\numeric\NumericToleranceConfig.h">
+      <Filter>头文件\core\common\numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="core\common\version\VersionInfo.h">
+      <Filter>头文件\core\common\version</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

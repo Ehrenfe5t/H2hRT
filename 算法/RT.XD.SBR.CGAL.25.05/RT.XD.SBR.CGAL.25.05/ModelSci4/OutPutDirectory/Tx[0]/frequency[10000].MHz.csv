@@ -1,0 +1,3 @@
+transmittingAntennaId,tx_x(m),tx_y(m),tx_z(m),receiverAntennaId,rx_x(m),rx_y(m),rx_z(m),power(dBm),pathloss(dB)
+0,0.6,10,1,1,3,6,1,-30.72958218911648,70.72958218911648,
+0,0.6,10,1,2,3,14,1,-30.756676462623666,70.75667646262366,

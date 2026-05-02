@@ -1,0 +1,19 @@
+#pragma once
+
+#include"LxQMultiLinearPolarization3D.h"
+#include"LxQMultiLinearPolarization3DObjectDatabase.h"
+#include"HdQConfig.h"
+
+namespace MultiLinearPolarization3DDatabaseStd {
+
+
+	INTERFACE_API void InitLinearPolarization3DZ();
+
+	INTERFACE_API bool FindMultiLinearPolarization3D(int polarization3DModelId, MultiLinearPolarization3DStd::MultiLinearPolarization3D& multiLinearPolarization3D);
+
+	INTERFACE_API void InitDatabaseByMultiLinearPolarization3DObjectDatabase(const MultiLinearPolarization3DObjectDatabaseStd::MultiLinearPolarization3DObjectDatabase& multiLinearPolarization3DObjectDatabase);
+
+	INTERFACE_API MultiLinearPolarization3DObjectDatabaseStd::MultiLinearPolarization3DObjectDatabase ToMultiLinearPolarization3DObjectDatabase();
+
+
+}

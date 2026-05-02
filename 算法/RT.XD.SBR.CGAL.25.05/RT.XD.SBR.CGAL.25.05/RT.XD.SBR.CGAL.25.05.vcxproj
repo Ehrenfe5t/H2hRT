@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{cc97d6dc-68de-429a-aced-5a6e47f8722e}</ProjectGuid>
+    <RootNamespace>RTXDSBRCGAL2505</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffractionWaveLoss.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffuseScatteringWaveLoss.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateReflectionWaveLoss.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateTransmissionWaveLoss.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveImpactResponseDBmComplex.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveLossCoefficientBase.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveLossCoefficientConstant.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalOfElectricFieldLossUnderCircularPolarization3D.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Input.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Antenna.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\CalculateWaveImpactResponseDBm.Output.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\CalculateWaveImpactResponseDBmUnderCircularPolarization3D.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\ElectricFieldPath.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Material.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Point3D.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\RT.Sbr3D.CircularPolarization3D.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\RtoiOutputInformation.Output.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Sbr3DFindPathConfig.h" />
+    <ClInclude Include="0.DxQCalculateWaveImpactResponseDBmModule\Scenario3D.h" />
+    <ClInclude Include="0.DxQElectricalParametersOfMaterialModule\Impl\Input.h" />
+    <ClInclude Include="0.DxQElectricalParametersOfMaterialModule\Impl\OneMaterialObject.h" />
+    <ClInclude Include="0.DxQElectricalParametersOfMaterialModule\Input.h" />
+    <ClInclude Include="0.HdQGeometryModule\Input.h" />
+    <ClInclude Include="0.LxQSbr3DRay3DGenerationModule\Input.h" />
+    <ClInclude Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Input.h" />
+    <ClInclude Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Interface\RayScenarioIntersectNull.h" />
+    <ClInclude Include="0.QzQAccelerateRayIntersectScenarioModule\Input.h" />
+    <ClInclude Include="0.QzQAntennaModule\Impl\Input.h" />
+    <ClInclude Include="0.QzQAntennaModule\Impl\Interface.Antenna\TransmittingAntennaDatabaseObject.h" />
+    <ClInclude Include="0.QzQAntennaModule\Input.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\0.Ray3DIntersectGeometry3DElementsModule.Impl.Input.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree1.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree2.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree3.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree4.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Base\Ray3DIntersectGeometry3DElementsBase.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Exhaust\Ray3DIntersectGeometry3DElementsExhaust.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\0.Ray3DIntersectGeometry3DElementsModule.Input.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\0.Ray3DIntersectGeometry3DElementsModule.Output.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\Ray3DIntersectGeometry3D.h" />
+    <ClInclude Include="0.Ray3DIntersectGeometry3DElementsModule\Ray3DIntersectGeometry3DElementsResults.h" />
+    <ClInclude Include="0.Solve1SPathByIm3DModule.Impl\0.Solve1SPathByIm3DModule.Impl.Input.h" />
+    <ClInclude Include="0.Solve1SPathByIm3DModule.Impl\S1Ray3DIntersectTriangle3DBallBvhTree.h" />
+    <ClInclude Include="0.Solve1SPathByIm3DModule\0.Solve1SPathByIm3DModule.Input.h" />
+    <ClInclude Include="0.Solve1SPathByIm3DModule\0.Solve1SPathByIm3DModule.Output.h" />
+    <ClInclude Include="0.Solve1SPathByIm3DModule\Solve1SPathByIm3D.h" />
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\0.SolveOneTimeDiffractionPathByEquationModule.Impl.Input.h" />
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\SotdpbeRay3DIntersectTriangle3DBallBvhTree.h" />
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule\0.SolveOneTimeDiffractionPathByEquationModule.Input.h" />
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule\0.SolveOneTimeDiffractionPathByEquationModule.Output.h" />
+    <ClInclude Include="0.SolveOneTimeDiffractionPathByEquationModule\SolveOneTimeDiffractionPathByEquation.h" />
+    <ClInclude Include="CoreCode\DxQRangeDouble.h" />
+    <ClInclude Include="CoreCode\DxQRay3D.h" />
+    <ClInclude Include="CoreCode\DxQRay3DCorner3DIntersectResult.h" />
+    <ClInclude Include="CoreCode\DxQRay3DScenario3DIntersectResult.h" />
+    <ClInclude Include="CoreCode\DxQRay3DTriangle3DIntersectResult.h" />
+    <ClInclude Include="CoreCode\DxQRay3DTriangle3DIntersectResultObject.h" />
+    <ClInclude Include="CoreCode\DxQRayEjectionParameterConfig.h" />
+    <ClInclude Include="CoreCode\DxQRayEjectionParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRayScenarioIntersect.h" />
+    <ClInclude Include="CoreCode\DxQRayScenarioIntersectResult.h" />
+    <ClInclude Include="CoreCode\DxQRayScenarioIntersectType.h" />
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNode.h" />
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeSIMO.h" />
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeSISO.h" />
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeSISOOnePath.h" />
+    <ClInclude Include="CoreCode\DxQRayTracingGeometricPathNodeToMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\DxQRDToMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\DxQReceiverAntenna.h" />
+    <ClInclude Include="CoreCode\DxQRootMeanSquareDelayExtension.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfig.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonFile.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfig.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonFile.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DParameterConfig.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DParameterConfigJsonFileOperate.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DPrivateParameterConfig.h" />
+    <ClInclude Include="CoreCode\DxQRtIm3DPrivateParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRtProgramReadsDataAndPreprocessesData.h" />
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DParameterConfig.h" />
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonFile.h" />
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfig.h" />
+    <ClInclude Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQRunExe.h" />
+    <ClInclude Include="CoreCode\DxQSbrDiffuseScatteringConfig.h" />
+    <ClInclude Include="CoreCode\DxQSbrRayGeneratedByReflection.h" />
+    <ClInclude Include="CoreCode\DxQSbrRayGeneratedByTransmission.h" />
+    <ClInclude Include="CoreCode\DxQSbrRayGeneratedByTransmittingAntenna.h" />
+    <ClInclude Include="CoreCode\DxQScenarioCorner3DIndex.h" />
+    <ClInclude Include="CoreCode\DxQScenarioDataInformation.h" />
+    <ClInclude Include="CoreCode\DxQScenarioDiffuseScatteringFace.h" />
+    <ClInclude Include="CoreCode\DxQScenarioObject.h" />
+    <ClInclude Include="CoreCode\DxQScenarioTriangle3DIndex.h" />
+    <ClInclude Include="CoreCode\DxQSpaceSubregionParameterConfig.h" />
+    <ClInclude Include="CoreCode\DxQSpaceSubregionParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\DxQStringOperate.h" />
+    <ClInclude Include="CoreCode\DxQStringToStructure.h" />
+    <ClInclude Include="CoreCode\DxQStructureToString.h" />
+    <ClInclude Include="CoreCode\DxQTest.h" />
+    <ClInclude Include="CoreCode\DxQThreadPool.h" />
+    <ClInclude Include="CoreCode\DxQThreadSafeVector.h" />
+    <ClInclude Include="CoreCode\DxQThreadTest.h" />
+    <ClInclude Include="CoreCode\DxQThreadTool.h" />
+    <ClInclude Include="CoreCode\DxQTransmittingAntenna.h" />
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaDatabase.h" />
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFile.h" />
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFileJsonFile.h" />
+    <ClInclude Include="CoreCode\DxQTransmittingAntennaJsonFile.h" />
+    <ClInclude Include="CoreCode\DxQTriangle3D.h" />
+    <ClInclude Include="CoreCode\DxQTriangleAccelerateStruct.h" />
+    <ClInclude Include="CoreCode\DxQTriangleAccelerateStructDatabase.h" />
+    <ClInclude Include="CoreCode\DxQTriangleI.h" />
+    <ClInclude Include="CoreCode\DxQVectorOperate.h" />
+    <ClInclude Include="CoreCode\DxQWirelessPropagationTestDataSourceConfig.h" />
+    <ClInclude Include="CoreCode\DxQWirelessPropagationTestDataSourceConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\HdQAntennaMIMO.h" />
+    <ClInclude Include="CoreCode\HdQAntennaMIMOPath.h" />
+    <ClInclude Include="CoreCode\HdQAntennaMIMOPathElectricFieldFileOutput.h" />
+    <ClInclude Include="CoreCode\HdQAntennaMIMOPathFileOutput.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternDatabase.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternDatabaseObject.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternJsonObject.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternJsonObjectJsonFile.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternJsonObjectJsonOperate.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternObject.h" />
+    <ClInclude Include="CoreCode\HdQAntennaPatternObjectJsonOperate.h" />
+    <ClInclude Include="CoreCode\HdQAntennaProperty.h" />
+    <ClInclude Include="CoreCode\HdQAntennaSIMO.h" />
+    <ClInclude Include="CoreCode\HdQAntennaSIMOPath.h" />
+    <ClInclude Include="CoreCode\HdQAntennaSISOOnePath.h" />
+    <ClInclude Include="CoreCode\HdQAntennaSISOPath.h" />
+    <ClInclude Include="CoreCode\HdQArrayInt.h" />
+    <ClInclude Include="CoreCode\HdQAverageAdditionalDelay.h" />
+    <ClInclude Include="CoreCode\HdQBall3D.h" />
+    <ClInclude Include="CoreCode\HdQBaseCoordinateSystem.h" />
+    <ClInclude Include="CoreCode\HdQBaseToMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\HdQBigChannelParameter.h" />
+    <ClInclude Include="CoreCode\HdQBoundingBox3D.h" />
+    <ClInclude Include="CoreCode\HdQBuildBvhBall3D.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathD.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDD.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDDTest.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDR.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDRTest.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathDTest.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathRD.h" />
+    <ClInclude Include="CoreCode\HdQBuildGeometryPathRDTest.h" />
+    <ClInclude Include="CoreCode\HdQBvhBall3D.h" />
+    <ClInclude Include="CoreCode\HdQBvhBall3DNodeInfo.h" />
+    <ClInclude Include="CoreCode\HdQBvhBall3DParameter.h" />
+    <ClInclude Include="CoreCode\HdQBvhParameterConfig.h" />
+    <ClInclude Include="CoreCode\HdQBvhParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\HdQCalAntennaPathElectricField.Interface.h" />
+    <ClInclude Include="CoreCode\HdQCalDBm.h" />
+    <ClInclude Include="CoreCode\HdQCalRunTime.h" />
+    <ClInclude Include="CoreCode\HdQcase.h" />
+    <ClInclude Include="CoreCode\HdQChannelDataBool.h" />
+    <ClInclude Include="CoreCode\HdQChannelDataDouble.h" />
+    <ClInclude Include="CoreCode\HdQChannelDataInt.h" />
+    <ClInclude Include="CoreCode\HdQCommonParameterConfig.h" />
+    <ClInclude Include="CoreCode\HdQCommonParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\HdQComplex.h" />
+    <ClInclude Include="CoreCode\HdQComplexOperate.h" />
+    <ClInclude Include="CoreCode\HdQConfig.h" />
+    <ClInclude Include="CoreCode\HdQCornerAccelerateStruct.h" />
+    <ClInclude Include="CoreCode\HdQCornerAccelerateStructDatabase.h" />
+    <ClInclude Include="CoreCode\HdQCRandom.h" />
+    <ClInclude Include="CoreCode\HdQCRandomOperate.h" />
+    <ClInclude Include="CoreCode\LxQLine3D.h" />
+    <ClInclude Include="CoreCode\LxQLinearPolarization3DObject.h" />
+    <ClInclude Include="CoreCode\LxQLineSegment3D.h" />
+    <ClInclude Include="CoreCode\LxQMaterialObject.h" />
+    <ClInclude Include="CoreCode\LxQMaterialObjectDatabase.h" />
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundary.h" />
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfig.h" />
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQMaterialParameterChromDataBoundaryJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQMathOperate.h" />
+    <ClInclude Include="CoreCode\LxQMatrixObject.h" />
+    <ClInclude Include="CoreCode\LxQMatrixOperator.h" />
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3D.h" />
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DDatabase.h" />
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObject.h" />
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabase.h" />
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJson.h" />
+    <ClInclude Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoDiffraction.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoDiffuseScattering.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoOperate.Ptr.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoReceiverAntenna.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoReflection.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoTransmission.h" />
+    <ClInclude Include="CoreCode\LxQMultiPathNodeInfoTransmittingAntenna.h" />
+    <ClInclude Include="CoreCode\LxQMultithreadParameterConfig.h" />
+    <ClInclude Include="CoreCode\LxQMultithreadParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQNumericalMethodParameterConfig.h" />
+    <ClInclude Include="CoreCode\LxQNumericalMethodParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQOneLinearPolarization3D.h" />
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterConfig.h" />
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfig.h" />
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterLinearConfig.h" />
+    <ClInclude Include="CoreCode\LxQOptimizationMaterialParameterLinearConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQOutputCalculationTimeToLogFile.h" />
+    <ClInclude Include="CoreCode\LxQPixelParameterConfig.h" />
+    <ClInclude Include="CoreCode\LxQPixelParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\LxQPlane3D.h" />
+    <ClInclude Include="CoreCode\LxQPoint2D.h" />
+    <ClInclude Include="CoreCode\LxQPoint2I.h" />
+    <ClInclude Include="CoreCode\LxQPoint3D.h" />
+    <ClInclude Include="CoreCode\LxQPoint3DI.h" />
+    <ClInclude Include="CoreCode\LxQPoint3F.h" />
+    <ClInclude Include="CoreCode\LxQPoint3I.h" />
+    <ClInclude Include="CoreCode\LxQPolarization2D.h" />
+    <ClInclude Include="CoreCode\LxQPolarization3D.h" />
+    <ClInclude Include="CoreCode\LxQProjectDependencies.h" />
+    <ClInclude Include="CoreCode\LxQPropagationType.h" />
+    <ClInclude Include="CoreCode\QzQDataInputCsvFileParameterConfig.h" />
+    <ClInclude Include="CoreCode\QzQDataInputCsvFileParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\QzQDataOutputParameterConfig.h" />
+    <ClInclude Include="CoreCode\QzQDataOutputParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\QzQDDToMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\QzQDeterminant.h" />
+    <ClInclude Include="CoreCode\QzQDeterminantOperate.h" />
+    <ClInclude Include="CoreCode\QzQDiffuseScatteringParameter.h" />
+    <ClInclude Include="CoreCode\QzQDiffuseScatteringParameterJsonOperate.h" />
+    <ClInclude Include="CoreCode\QzQDirectoryOperate.h" />
+    <ClInclude Include="CoreCode\QzQDoWithString.h" />
+    <ClInclude Include="CoreCode\QzQDRToMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\QzQDToMultiPathNodeInfo.h" />
+    <ClInclude Include="CoreCode\QzQEMField.BaseCoordinateSystem.h" />
+    <ClInclude Include="CoreCode\QzQEquation1VariableObject.h" />
+    <ClInclude Include="CoreCode\QzQEquation2VariableObject.h" />
+    <ClInclude Include="CoreCode\QzQEquation3VariableObject.h" />
+    <ClInclude Include="CoreCode\QzQExampleOfSolving2DdimensionalEquation.h" />
+    <ClInclude Include="CoreCode\QzQExampleOfSolving3DdimensionalEquation.h" />
+    <ClInclude Include="CoreCode\QzQFileBase.h" />
+    <ClInclude Include="CoreCode\QzQFindMaterialObjectByDatabase.h" />
+    <ClInclude Include="CoreCode\QzQFunctionOperator.h" />
+    <ClInclude Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfig.h" />
+    <ClInclude Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfigJsonOperate.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DIntersect.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Area.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Assignment.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Center.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Check.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.CoordinateSystem.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Create.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Discretizing.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Distance.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Equals.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Length.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Location.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Normalization.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.NormalVector.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Point3D.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Set.h" />
+    <ClInclude Include="CoreCode\QzQGeometry3DOperate.Shadow.h" />
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathBaseNode.h" />
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathDNode.h" />
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathRNode.h" />
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathRxNode.h" />
+    <ClInclude Include="CoreCode\QzQGeometryRTMultiPathTxNode.h" />
+    <ClInclude Include="CoreCode\QzQGlobalConstant.h" />
+    <ClInclude Include="CoreCode\QzQInputConfigO01.h" />
+    <ClInclude Include="CoreCode\QzQInputConfigO02.h" />
+    <ClInclude Include="CoreCode\QzQIntArray.h" />
+    <ClInclude Include="CoreCode\QzQJson.hpp" />
+    <ClInclude Include="CoreCode\QzQJsonFileOperateBase.h" />
+    <ClInclude Include="CoreCode\XdQRtSbr3D.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\ElectricFieldPath.Impl\CalculateWaveImpactResponseDBmUnderCircularPolarization3D.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffractionWaveLoss.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateDiffuseScatteringWaveLoss.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateReflectionWaveLoss.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateTransmissionWaveLoss.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveImpactResponseDBmComplex.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalculateWaveLossCoefficientBase.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Impl\CalOfElectricFieldLossUnderCircularPolarization3D.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\Material.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\RT.Sbr3D.CircularPolarization3D.cpp" />
+    <ClCompile Include="0.DxQCalculateWaveImpactResponseDBmModule.Impl\RtoiOutputInformation.Output.cpp" />
+    <ClCompile Include="0.DxQElectricalParametersOfMaterialModule\Impl\MaterialObjectDatabase.cpp" />
+    <ClCompile Include="0.DxQElectricalParametersOfMaterialModule\Impl\OneMaterialObject.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DIntersect.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Area.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Assignment.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Center.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Check.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.CoordinateSystem.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Create.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Discretizing.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Distance.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Equals.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Length.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Location.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Normalization.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.NormalVector.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Point3D.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Set.cpp" />
+    <ClCompile Include="0.HdQGeometryModule\Impl\Geometry3DOperate.Shadow.cpp" />
+    <ClCompile Include="0.LxQSbr3DRay3DGenerationModule\Sbr3DRay3DGeneration\SbrRayGeneratedByReflection.cpp" />
+    <ClCompile Include="0.LxQSbr3DRay3DGenerationModule\Sbr3DRay3DGeneration\SbrRayGeneratedByTransmission.cpp" />
+    <ClCompile Include="0.LxQSbr3DRay3DGenerationModule\Sbr3DRay3DGeneration\SbrRayGeneratedByTransmittingAntenna.cpp" />
+    <ClCompile Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Interface\RayScenarioIntersect.cpp" />
+    <ClCompile Include="0.QzQAccelerateRayIntersectScenarioModule\Impl\Interface\RayScenarioIntersectNull.cpp" />
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.AntennaPattern\AntennaPatternDatabase.cpp" />
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.AntennaPolarization3D\MultiLinearPolarization3DDatabase.cpp" />
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.Antenna\TransmittingAntennaDatabase.cpp" />
+    <ClCompile Include="0.QzQAntennaModule\Impl\Interface.Antenna\TransmittingAntennaDatabaseObject.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree1.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree2.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree3.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\AabbBvhTree\Ray3DIntersectGeometry3DElementsAabbBvhTree4.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Base\Ray3DIntersectGeometry3DElementsBase.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Exhaust\Ray3DIntersectGeometry3DElementsExhaust.cpp" />
+    <ClCompile Include="0.Ray3DIntersectGeometry3DElementsModule.Impl\Ray3DIntersectGeometry3D.cpp" />
+    <ClCompile Include="0.Solve1SPathByIm3DModule.Impl\S1Ray3DIntersectTriangle3DBallBvhTree.cpp" />
+    <ClCompile Include="0.Solve1SPathByIm3DModule.Impl\Solve1SPathByIm3D.cpp" />
+    <ClCompile Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\SolveOneTimeDiffractionPathByEquation.cpp" />
+    <ClCompile Include="0.SolveOneTimeDiffractionPathByEquationModule.Impl\SotdpbeRay3DIntersectTriangle3DBallBvhTree.cpp" />
+    <ClCompile Include="CoreCode\DxQRangeDouble.cpp" />
+    <ClCompile Include="CoreCode\DxQRay3D.cpp" />
+    <ClCompile Include="CoreCode\DxQRay3DCorner3DIntersectResult.cpp" />
+    <ClCompile Include="CoreCode\DxQRay3DScenario3DIntersectResult.cpp" />
+    <ClCompile Include="CoreCode\DxQRay3DTriangle3DIntersectResult.cpp" />
+    <ClCompile Include="CoreCode\DxQRay3DTriangle3DIntersectResultObject.cpp" />
+    <ClCompile Include="CoreCode\DxQRayEjectionParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRayEjectionParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRayScenarioIntersectResult.cpp" />
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNode.cpp" />
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeSIMO.cpp" />
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeSISO.cpp" />
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeSISOOnePath.cpp" />
+    <ClCompile Include="CoreCode\DxQRayTracingGeometricPathNodeToMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\DxQRDToMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\DxQReceiverAntenna.cpp" />
+    <ClCompile Include="CoreCode\DxQRootMeanSquareDelayExtension.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonFile.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonFile.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DOptimizationMaterialParameterLinearConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DParameterConfigJsonFileOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DPrivateParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRtIm3DPrivateParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRtProgramReadsDataAndPreprocessesData.cpp" />
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonFile.cpp" />
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQRtSbr3DForRay3DPrivateParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQRunExe.cpp" />
+    <ClCompile Include="CoreCode\DxQSbrDiffuseScatteringConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQScenarioCorner3DIndex.cpp" />
+    <ClCompile Include="CoreCode\DxQScenarioDataInformation.cpp" />
+    <ClCompile Include="CoreCode\DxQScenarioDiffuseScatteringFace.cpp" />
+    <ClCompile Include="CoreCode\DxQScenarioObject.cpp" />
+    <ClCompile Include="CoreCode\DxQScenarioTriangle3DIndex.cpp" />
+    <ClCompile Include="CoreCode\DxQSpaceSubregionParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQSpaceSubregionParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQStringOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQStringToStructure.cpp" />
+    <ClCompile Include="CoreCode\DxQStructureToString.cpp" />
+    <ClCompile Include="CoreCode\DxQThreadSafeVector.cpp" />
+    <ClCompile Include="CoreCode\DxQThreadTool.cpp" />
+    <ClCompile Include="CoreCode\DxQTransmittingAntenna.cpp" />
+    <ClCompile Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFile.cpp" />
+    <ClCompile Include="CoreCode\DxQTransmittingAntennaDatabaseJsonFileJsonFile.cpp" />
+    <ClCompile Include="CoreCode\DxQTransmittingAntennaJsonFile.cpp" />
+    <ClCompile Include="CoreCode\DxQTriangle3D.cpp" />
+    <ClCompile Include="CoreCode\DxQTriangleAccelerateStruct.cpp" />
+    <ClCompile Include="CoreCode\DxQTriangleAccelerateStructDatabase.cpp" />
+    <ClCompile Include="CoreCode\DxQTriangleI.cpp" />
+    <ClCompile Include="CoreCode\DxQVectorOperate.cpp" />
+    <ClCompile Include="CoreCode\DxQWirelessPropagationTestDataSourceConfig.cpp" />
+    <ClCompile Include="CoreCode\DxQWirelessPropagationTestDataSourceConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaMIMO.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaMIMOPath.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaMIMOPathElectricFieldFileOutput.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaMIMOPathFileOutput.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaPatternDatabaseObject.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaPatternJsonObject.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaPatternJsonObjectJsonFile.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaPatternJsonObjectJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaPatternObject.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaPatternObjectJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaProperty.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaSIMO.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaSIMOPath.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaSISOOnePath.cpp" />
+    <ClCompile Include="CoreCode\HdQAntennaSISOPath.cpp" />
+    <ClCompile Include="CoreCode\HdQArrayInt.cpp" />
+    <ClCompile Include="CoreCode\HdQAverageAdditionalDelay.cpp" />
+    <ClCompile Include="CoreCode\HdQBall3D.cpp" />
+    <ClCompile Include="CoreCode\HdQBaseCoordinateSystem.cpp" />
+    <ClCompile Include="CoreCode\HdQBaseToMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\HdQBigChannelParameter.cpp" />
+    <ClCompile Include="CoreCode\HdQBoundingBox3D.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildBvhBall3D.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathD.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDD.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDDTest.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDR.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDRTest.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathDTest.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathRD.cpp" />
+    <ClCompile Include="CoreCode\HdQBuildGeometryPathRDTest.cpp" />
+    <ClCompile Include="CoreCode\HdQBvhBall3D.cpp" />
+    <ClCompile Include="CoreCode\HdQBvhBall3DNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\HdQBvhBall3DParameter.cpp" />
+    <ClCompile Include="CoreCode\HdQBvhParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\HdQBvhParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\HdQCalDBm.cpp" />
+    <ClCompile Include="CoreCode\HdQCalRunTime.cpp" />
+    <ClCompile Include="CoreCode\HdQChannelDataBool.cpp" />
+    <ClCompile Include="CoreCode\HdQChannelDataDouble.cpp" />
+    <ClCompile Include="CoreCode\HdQChannelDataInt.cpp" />
+    <ClCompile Include="CoreCode\HdQCommonParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\HdQCommonParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\HdQComplex.cpp" />
+    <ClCompile Include="CoreCode\HdQComplexOperate.cpp" />
+    <ClCompile Include="CoreCode\HdQCornerAccelerateStruct.cpp" />
+    <ClCompile Include="CoreCode\HdQCornerAccelerateStructDatabase.cpp" />
+    <ClCompile Include="CoreCode\HdQCRandom.cpp" />
+    <ClCompile Include="CoreCode\HdQCRandomOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQLine3D.cpp" />
+    <ClCompile Include="CoreCode\LxQLinearPolarization3DObject.cpp" />
+    <ClCompile Include="CoreCode\LxQLineSegment3D.cpp" />
+    <ClCompile Include="CoreCode\LxQMaterialObject.cpp" />
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundary.cpp" />
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundaryConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQMaterialParameterChromDataBoundaryJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQMathOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQMatrixObject.cpp" />
+    <ClCompile Include="CoreCode\LxQMatrixOperator.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3D.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObject.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabase.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJson.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiLinearPolarization3DObjectDatabaseJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoDiffraction.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoDiffuseScattering.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoOperate.Ptr.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoReceiverAntenna.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoReflection.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoTransmission.cpp" />
+    <ClCompile Include="CoreCode\LxQMultiPathNodeInfoTransmittingAntenna.cpp" />
+    <ClCompile Include="CoreCode\LxQMultithreadParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQMultithreadParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQNumericalMethodParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQNumericalMethodParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQOneLinearPolarization3D.cpp" />
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterGeneticAlgorithmConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterLinearConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQOptimizationMaterialParameterLinearConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQOutputCalculationTimeToLogFile.cpp" />
+    <ClCompile Include="CoreCode\LxQPixelParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\LxQPixelParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\LxQPlane3D.cpp" />
+    <ClCompile Include="CoreCode\LxQPoint2D.cpp" />
+    <ClCompile Include="CoreCode\LxQPoint2I.cpp" />
+    <ClCompile Include="CoreCode\LxQPoint3D.cpp" />
+    <ClCompile Include="CoreCode\LxQPoint3DI.cpp" />
+    <ClCompile Include="CoreCode\LxQPoint3F.cpp" />
+    <ClCompile Include="CoreCode\LxQPoint3I.cpp" />
+    <ClCompile Include="CoreCode\LxQPolarization2D.cpp" />
+    <ClCompile Include="CoreCode\LxQPolarization3D.cpp" />
+    <ClCompile Include="CoreCode\LxQProjectDependencies.cpp" />
+    <ClCompile Include="CoreCode\QzQDataInputCsvFileParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\QzQDataInputCsvFileParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\QzQDataOutputParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\QzQDataOutputParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\QzQDDToMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\QzQDeterminant.cpp" />
+    <ClCompile Include="CoreCode\QzQDeterminantOperate.cpp" />
+    <ClCompile Include="CoreCode\QzQDiffuseScatteringParameter.cpp" />
+    <ClCompile Include="CoreCode\QzQDiffuseScatteringParameterJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\QzQDirectoryOperate.cpp" />
+    <ClCompile Include="CoreCode\QzQDoWithString.cpp" />
+    <ClCompile Include="CoreCode\QzQDRToMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\QzQDToMultiPathNodeInfo.cpp" />
+    <ClCompile Include="CoreCode\QzQEMField.BaseCoordinateSystem.cpp" />
+    <ClCompile Include="CoreCode\QzQEquation1VariableObject.cpp" />
+    <ClCompile Include="CoreCode\QzQEquation2VariableObject.cpp" />
+    <ClCompile Include="CoreCode\QzQEquation3VariableObject.cpp" />
+    <ClCompile Include="CoreCode\QzQExampleOfSolving2DdimensionalEquation.cpp" />
+    <ClCompile Include="CoreCode\QzQExampleOfSolving3DdimensionalEquation.cpp" />
+    <ClCompile Include="CoreCode\QzQFileBase.cpp" />
+    <ClCompile Include="CoreCode\QzQFindMaterialObjectByDatabase.cpp" />
+    <ClCompile Include="CoreCode\QzQFunctionOperator.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfig.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometricSpaceAccelerateParameterConfigJsonOperate.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathBaseNode.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathDNode.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathRNode.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathRxNode.cpp" />
+    <ClCompile Include="CoreCode\QzQGeometryRTMultiPathTxNode.cpp" />
+    <ClCompile Include="CoreCode\QzQGlobalConstant.cpp" />
+    <ClCompile Include="CoreCode\QzQInputConfigO01.cpp" />
+    <ClCompile Include="CoreCode\QzQInputConfigO02.cpp" />
+    <ClCompile Include="CoreCode\QzQIntArray.cpp" />
+    <ClCompile Include="CoreCode\QzQJsonFileOperateBase.cpp" />
+    <ClCompile Include="CoreCode\XdQRtSbr3D.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

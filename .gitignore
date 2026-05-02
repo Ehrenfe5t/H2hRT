@@ -1,0 +1,13 @@
+# VS / user state
+.vs/
+*.user
+
+# Build outputs
+x64/
+RT/
+
+# Runtime outputs
+output/
+
+# Temporary / caches
+*.log
