@@ -1,10 +1,10 @@
-// File purpose:
-// - Define the unified error code enumeration shared by module 1 and later modules.
+// 文件目标：
+// - 定义模块1及后续模块共用的统一错误码枚举。
 //
-// Main responsibilities:
-// - Provide a stable typed error-code source for RtError.
-// - Avoid duplicating error code definitions across headers.
-// - Keep later module expansion compatible with one centralized enumeration.
+// 主要功能：
+// - 为 RtError 提供稳定的类型化错误码来源；
+// - 避免各头文件重复定义错误码；
+// - 为后续模块扩展保持集中且兼容的错误码体系。
 
 #pragma once
 

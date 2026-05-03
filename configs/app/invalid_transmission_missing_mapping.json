@@ -13,6 +13,7 @@
   "scene_import": {
     "source_file": "demo/meeting.txt",
     "source_format": "obj",
+    "scene_material_map_file": "configs/scenes/scene_material_map.json",
     "normalize_object_names": true,
     "allow_name_auto_cleanup": true
   },

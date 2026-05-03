@@ -1,10 +1,10 @@
 // 文件目标：
-// - 实现模块1统一 JSON 编解码层，并且不依赖额外外部 JSON 包。
+// - 实现模块1统一 JSON 编解码层。
 //
 // 主要功能：
-// - 将配置读取逻辑集中到单一 codec 层，而不是分散在多个文件中；
-// - 将配置快照写出逻辑与配置加载逻辑绑定到同一份 schema 映射；
-// - 为后续若替换成第三方 JSON 库预留稳定接口，同时保证当前批次可维护、可闭环。
+// - 把配置读取逻辑集中在 codec 层；
+// - 把配置快照写出逻辑与读取逻辑绑定到同一份 schema；
+// - 为后续替换更强 JSON 实现预留稳定接口。
 
 #include "AppConfigJsonCodec.h"
 
@@ -17,12 +17,6 @@ namespace rt {
 
 namespace {
 
-/// <summary>
-/// 读取整个文件到内存字符串。
-/// </summary>
-/// <param name="filePath">输入文件路径。</param>
-/// <param name="content">输出的文件全文缓冲区。</param>
-/// <returns>读取成功返回 true，否则返回 false。</returns>
 bool ReadWholeFile(const std::string& filePath, std::string& content)
 {
     std::ifstream input(filePath.c_str(), std::ios::in | std::ios::binary);
@@ -37,29 +31,15 @@ bool ReadWholeFile(const std::string& filePath, std::string& content)
     return true;
 }
 
-/// <summary>
-/// 从指定位置开始跳过空白字符。
-/// </summary>
-/// <param name="text">输入 JSON 文本。</param>
-/// <param name="index">起始位置。</param>
-/// <returns>跳过空白后的新位置。</returns>
 std::size_t SkipWhitespace(const std::string& text, std::size_t index)
 {
     while (index < text.size() && std::isspace(static_cast<unsigned char>(text[index])) != 0)
     {
         ++index;
     }
-
     return index;
 }
 
-/// <summary>
-/// 提取某个顶层对象对应的 JSON 对象体文本。
-/// </summary>
-/// <param name="text">完整 JSON 文本。</param>
-/// <param name="key">目标对象键名。</param>
-/// <param name="body">输出对象体文本。</param>
-/// <returns>成功提取返回 true，否则返回 false。</returns>
 bool ExtractObjectBody(const std::string& text, const std::string& key, std::string& body)
 {
     const std::string token = "\"" + key + "\"";
@@ -87,7 +67,6 @@ bool ExtractObjectBody(const std::string& text, const std::string& key, std::str
     {
         const char ch = text[i];
         const bool escaped = (i > 0U && text[i - 1U] == '\\');
-
         if (ch == '"' && !escaped)
         {
             inString = !inString;
@@ -116,13 +95,6 @@ bool ExtractObjectBody(const std::string& text, const std::string& key, std::str
     return false;
 }
 
-/// <summary>
-/// 从对象体中提取某个字段的原始值文本。
-/// </summary>
-/// <param name="objectBody">对象体文本。</param>
-/// <param name="key">字段键名。</param>
-/// <param name="rawValue">输出原始值文本。</param>
-/// <returns>成功提取返回 true，否则返回 false。</returns>
 bool ExtractRawValue(const std::string& objectBody, const std::string& key, std::string& rawValue)
 {
     const std::string token = "\"" + key + "\"";
@@ -155,10 +127,8 @@ bool ExtractRawValue(const std::string& objectBody, const std::string& key, std:
                 rawValue = objectBody.substr(valuePos, end - valuePos);
                 return true;
             }
-
             ++end;
         }
-
         return false;
     }
 
@@ -170,7 +140,6 @@ bool ExtractRawValue(const std::string& objectBody, const std::string& key, std:
         {
             break;
         }
-
         ++end;
     }
 
@@ -178,14 +147,6 @@ bool ExtractRawValue(const std::string& objectBody, const std::string& key, std:
     return !rawValue.empty();
 }
 
-/// <summary>
-/// 读取可选数值字段并写入目标变量。
-/// </summary>
-/// <typeparam name="T">目标数值类型。</typeparam>
-/// <param name="objectBody">对象体文本。</param>
-/// <param name="key">字段键名。</param>
-/// <param name="target">目标变量。</param>
-/// <returns>无返回值。</returns>
 template <typename T>
 void ReadOptionalNumber(const std::string& objectBody, const std::string& key, T& target)
 {
@@ -202,13 +163,6 @@ void ReadOptionalNumber(const std::string& objectBody, const std::string& key, T
     }
 }
 
-/// <summary>
-/// 读取可选字符串字段并写入目标变量。
-/// </summary>
-/// <param name="objectBody">对象体文本。</param>
-/// <param name="key">字段键名。</param>
-/// <param name="target">目标变量。</param>
-/// <returns>无返回值。</returns>
 void ReadOptionalString(const std::string& objectBody, const std::string& key, std::string& target)
 {
     std::string value;
@@ -218,13 +172,6 @@ void ReadOptionalString(const std::string& objectBody, const std::string& key, s
     }
 }
 
-/// <summary>
-/// 读取可选布尔字段并写入目标变量。
-/// </summary>
-/// <param name="objectBody">对象体文本。</param>
-/// <param name="key">字段键名。</param>
-/// <param name="target">目标变量。</param>
-/// <returns>无返回值。</returns>
 void ReadOptionalBool(const std::string& objectBody, const std::string& key, bool& target)
 {
     std::string value;
@@ -234,12 +181,6 @@ void ReadOptionalBool(const std::string& objectBody, const std::string& key, boo
     }
 }
 
-/// <summary>
-/// 根据 JSON 文本填充 AppConfig。
-/// </summary>
-/// <param name="text">完整 JSON 文本。</param>
-/// <param name="config">待填充的 AppConfig 对象。</param>
-/// <returns>当前实现始终返回 true；若后续扩展更严格语法检查，可在此返回 false。</returns>
 bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
 {
     std::string body;
@@ -261,6 +202,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
     {
         ReadOptionalString(body, "source_file", config.scene_import.source_file);
         ReadOptionalString(body, "source_format", config.scene_import.source_format);
+        ReadOptionalString(body, "scene_material_map_file", config.scene_import.scene_material_map_file);
         ReadOptionalBool(body, "normalize_object_names", config.scene_import.normalize_object_names);
         ReadOptionalBool(body, "allow_name_auto_cleanup", config.scene_import.allow_name_auto_cleanup);
     }
@@ -270,9 +212,16 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "rebuild_normals", config.scene_preprocess.rebuild_normals);
         ReadOptionalBool(body, "enable_wedge_build", config.scene_preprocess.enable_wedge_build);
         ReadOptionalBool(body, "enable_scene_cache", config.scene_preprocess.enable_scene_cache);
+        ReadOptionalBool(body, "enable_bvh_bruteforce_validation", config.scene_preprocess.enable_bvh_bruteforce_validation);
+        ReadOptionalBool(body, "filter_non_manifold_wedge_sources", config.scene_preprocess.filter_non_manifold_wedge_sources);
+        ReadOptionalBool(body, "skip_coplanar_edges_for_wedge", config.scene_preprocess.skip_coplanar_edges_for_wedge);
+        ReadOptionalString(body, "preprocess_mode", config.scene_preprocess.preprocess_mode);
+        ReadOptionalString(body, "scene_cache_format_version", config.scene_preprocess.scene_cache_format_version);
+        ReadOptionalString(body, "scene_preprocess_algorithm_version", config.scene_preprocess.scene_preprocess_algorithm_version);
         ReadOptionalNumber(body, "wedge_min_angle_deg", config.scene_preprocess.wedge_min_angle_deg);
         ReadOptionalNumber(body, "wedge_max_angle_deg", config.scene_preprocess.wedge_max_angle_deg);
         ReadOptionalNumber(body, "bvh_leaf_size", config.scene_preprocess.bvh_leaf_size);
+        ReadOptionalNumber(body, "bvh_bruteforce_sample_count", config.scene_preprocess.bvh_bruteforce_sample_count);
     }
 
     if (ExtractObjectBody(text, "material", body))
@@ -361,11 +310,6 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
     return true;
 }
 
-/// <summary>
-/// 将字符串转义为 JSON 安全格式。
-/// </summary>
-/// <param name="value">输入字符串。</param>
-/// <returns>可安全写入 JSON 字符串上下文的转义结果。</returns>
 std::string EscapeJsonString(const std::string& value)
 {
     std::string result;
@@ -389,11 +333,6 @@ std::string EscapeJsonString(const std::string& value)
 
 } // namespace
 
-/// <summary>
-/// 从 JSON 文件解码 AppConfig。
-/// </summary>
-/// <param name="filePath">输入 JSON 文件路径。</param>
-/// <returns>结构化解码结果，包含成功标志、配置对象和错误信息。</returns>
 AppConfigJsonDecodeResult DecodeAppConfigFromJsonFile(const std::string& filePath)
 {
     AppConfigJsonDecodeResult result;
@@ -401,19 +340,19 @@ AppConfigJsonDecodeResult DecodeAppConfigFromJsonFile(const std::string& filePat
     std::string content;
     if (!ReadWholeFile(filePath, content))
     {
-        result.error_message = "无法读取 JSON 配置文件内容。";
+        result.error_message = "Unable to read JSON config file content.";
         return result;
     }
 
     if (content.find('{') == std::string::npos)
     {
-        result.error_message = "配置文件中未找到 JSON 对象根节点。";
+        result.error_message = "JSON object root not found in config file.";
         return result;
     }
 
     if (!PopulateAppConfigFromJsonText(content, result.config))
     {
-        result.error_message = "将 JSON 文本映射到 AppConfig 时失败。";
+        result.error_message = "Failed while mapping JSON text into AppConfig.";
         return result;
     }
 
@@ -421,11 +360,6 @@ AppConfigJsonDecodeResult DecodeAppConfigFromJsonFile(const std::string& filePat
     return result;
 }
 
-/// <summary>
-/// 将 AppConfig 编码为格式化 JSON 文本。
-/// </summary>
-/// <param name="config">待序列化的配置对象。</param>
-/// <returns>格式化后的 JSON 字符串。</returns>
 std::string EncodeAppConfigToJsonString(const AppConfig& config)
 {
     std::ostringstream stream;
@@ -445,6 +379,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "  \"scene_import\": {\n";
     stream << "    \"source_file\": \"" << EscapeJsonString(config.scene_import.source_file) << "\",\n";
     stream << "    \"source_format\": \"" << EscapeJsonString(config.scene_import.source_format) << "\",\n";
+    stream << "    \"scene_material_map_file\": \"" << EscapeJsonString(config.scene_import.scene_material_map_file) << "\",\n";
     stream << "    \"normalize_object_names\": " << (config.scene_import.normalize_object_names ? "true" : "false") << ",\n";
     stream << "    \"allow_name_auto_cleanup\": " << (config.scene_import.allow_name_auto_cleanup ? "true" : "false") << "\n";
     stream << "  },\n";
@@ -453,9 +388,16 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"rebuild_normals\": " << (config.scene_preprocess.rebuild_normals ? "true" : "false") << ",\n";
     stream << "    \"enable_wedge_build\": " << (config.scene_preprocess.enable_wedge_build ? "true" : "false") << ",\n";
     stream << "    \"enable_scene_cache\": " << (config.scene_preprocess.enable_scene_cache ? "true" : "false") << ",\n";
+    stream << "    \"enable_bvh_bruteforce_validation\": " << (config.scene_preprocess.enable_bvh_bruteforce_validation ? "true" : "false") << ",\n";
+    stream << "    \"filter_non_manifold_wedge_sources\": " << (config.scene_preprocess.filter_non_manifold_wedge_sources ? "true" : "false") << ",\n";
+    stream << "    \"skip_coplanar_edges_for_wedge\": " << (config.scene_preprocess.skip_coplanar_edges_for_wedge ? "true" : "false") << ",\n";
+    stream << "    \"preprocess_mode\": \"" << EscapeJsonString(config.scene_preprocess.preprocess_mode) << "\",\n";
+    stream << "    \"scene_cache_format_version\": \"" << EscapeJsonString(config.scene_preprocess.scene_cache_format_version) << "\",\n";
+    stream << "    \"scene_preprocess_algorithm_version\": \"" << EscapeJsonString(config.scene_preprocess.scene_preprocess_algorithm_version) << "\",\n";
     stream << "    \"wedge_min_angle_deg\": " << config.scene_preprocess.wedge_min_angle_deg << ",\n";
     stream << "    \"wedge_max_angle_deg\": " << config.scene_preprocess.wedge_max_angle_deg << ",\n";
-    stream << "    \"bvh_leaf_size\": " << config.scene_preprocess.bvh_leaf_size << "\n";
+    stream << "    \"bvh_leaf_size\": " << config.scene_preprocess.bvh_leaf_size << ",\n";
+    stream << "    \"bvh_bruteforce_sample_count\": " << config.scene_preprocess.bvh_bruteforce_sample_count << "\n";
     stream << "  },\n";
 
     stream << "  \"material\": {\n";

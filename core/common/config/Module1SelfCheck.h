@@ -1,10 +1,10 @@
-// File purpose:
-// - Declare the module-1 self-check entry used to close batch 0/1 with explicit validation.
+// 文件目标：
+// - 声明模块1自检入口，用于完成批次0/1的显式验证闭环。
 //
-// Main responsibilities:
-// - Re-run known negative configuration cases.
-// - Ensure critical validation rules continue to block invalid startup states.
-// - Provide a structured self-check result for the pipeline and logs.
+// 主要功能：
+// - 复跑已知负样例配置；
+// - 确保关键校验规则持续阻断非法启动状态；
+// - 为流水线与日志提供结构化自检结果。
 
 #pragma once
 

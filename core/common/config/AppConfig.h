@@ -36,6 +36,7 @@ struct AppRuntimeConfig {
 struct SceneImportConfig {
     std::string source_file;
     std::string source_format = "obj";
+    std::string scene_material_map_file = "configs/scenes/scene_material_map.json";
     bool normalize_object_names = true;
     bool allow_name_auto_cleanup = true;
 };
@@ -47,9 +48,16 @@ struct ScenePreprocessConfig {
     bool rebuild_normals = false;
     bool enable_wedge_build = true;
     bool enable_scene_cache = false;
+    bool enable_bvh_bruteforce_validation = true;
+    bool filter_non_manifold_wedge_sources = true;
+    bool skip_coplanar_edges_for_wedge = true;
+    std::string preprocess_mode = "debug";
+    std::string scene_cache_format_version = "1.0.0";
+    std::string scene_preprocess_algorithm_version = "batch4-v1";
     double wedge_min_angle_deg = 1.0;
     double wedge_max_angle_deg = 179.0;
     int bvh_leaf_size = 8;
+    int bvh_bruteforce_sample_count = 16;
 };
 
 /// <summary>

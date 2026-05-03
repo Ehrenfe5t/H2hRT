@@ -3,7 +3,7 @@
 //
 // 主要功能：
 // - 组织配置加载、日志初始化、版本输出、配置校验等启动阶段动作；
-// - 形成当前批次 0/1 的最小启动闭环；
+// - 形成当前批次 0/1 以及模块2批次2/3/4的启动闭环；
 // - 为后续模块2~模块6接入保留稳定的 app 层主线入口。
 
 #pragma once
@@ -21,6 +21,9 @@ struct PipelineRunResult {
 
     /// <summary>进程建议退出码。0 表示成功，非 0 表示失败。</summary>
     int exit_code = 1;
+
+    /// <summary>表示当前运行完成到了哪个批次。</summary>
+    int completed_batch = 1;
 };
 
 /// <summary>

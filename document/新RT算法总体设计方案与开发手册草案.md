@@ -1828,6 +1828,16 @@ struct AppConfig {
 4. 若当前批次未闭环、测试未通过、仍存在关键失败项或静默 fallback 风险，则不得将其作为完成结果推进到远端集成流程；
 5. 实际的 git 提交与推送动作仍应以用户明确指令为准，避免在协同开发中产生未授权远端变更。
 
+#### D. Python 检测脚本与 GUI 工具规范
+
+1. 所有面向人工核查或快速验证的 Python 脚本统一放入项目根目录 `test/`；
+2. 若脚本主要面向 **Anaconda + PyCharm** 使用，则参数应优先放在脚本内部集中配置区，而不是强依赖命令行参数；
+3. 若脚本属于 GUI/三维交互检查工具，则应：
+   - 明确其适用批次；
+   - 明确其是否属于主链闭环阻塞项；
+   - 提供环境说明文件（如 `environment.yml`、README）；
+4. GUI 工具或可视化检查工具属于**辅助验证层**，不得反向改变模块主链结构与职责边界。
+
 ---
 
 ## 22. 模块2实现细节补充：场景预处理模块
@@ -1949,6 +1959,65 @@ struct SceneDiagnostics {
 3. 能生成面/边/楔边/加速结构
 4. 能输出完整场景诊断报告
 5. 模块4、5不再关心原始 OBJ 解析细节
+
+### 22.8 当前代码落地完成情况（批次2第一闭环）
+
+当前代码实现已完成模块2批次2第一闭环，具体包括：
+
+1. **OBJ 导入已打通**
+   - `demo/meeting.txt` 已成功解析为对象、顶点、法向和三角面；
+
+2. **Scene 基础语义层已形成**
+   - 已形成 `SceneMeta / Face / Scene / SceneMaterialBinding` 第一版结构；
+   - `Edge / Wedge` 当前作为批次3稳定占位结构保留；
+
+3. **规则文件驱动的对象级语义恢复已实现**
+   - 当前通过 `configs/scenes/scene_material_map.json` 将 OBJ 对象名恢复为：
+     - `floor`
+     - `ceiling`
+     - `wall`
+     - `window`
+     - `door`
+     - `table`
+     - `partition`
+   - 这些对象语义当前主要服务于：
+     - 对象传播角色判断；
+     - 双侧材质恢复；
+     - transmission / diffraction 等后续传播机制开关解释；
+   - 它们不是重新生成的几何体，而是建立在 OBJ 原始几何之上的**传播语义层**。
+
+4. **双侧材质恢复已实现**
+   - 当前通过：
+     - 对象名；
+     - 对象语义；
+     - `scene_material_map.json`；
+     - 默认介质；
+     - front/back 规则；
+     生成面元级 `front_material_name / back_material_name`；
+
+5. **批次2输出验证已实现**
+   - 已输出 `SceneMeta`；
+   - 已输出对象级绑定摘要；
+   - 已输出面元级 `front/back` 材质摘要；
+
+6. **辅助检测工具已加入**
+   - `test/check_batch2_binding.py`
+   - 面向 **Anaconda + PyCharm** 使用；
+   - 当前采用脚本内集中配置参数；
+   - 当前已从简单摘要脚本演进为批次2 GUI/可视化检查工具雏形。
+
+### 22.9 当前阶段结论
+
+一句话结论：
+
+> **模块2在批次2范围内已完成“OBJ 导入 + 对象级语义恢复 + 双侧材质解析 + Scene 基础语义层输出”的正式闭环，可继续进入批次3。**
+
+### 22.10 当前仍可优化但不阻塞批次3的内容
+
+1. 当前规则文件仍以对象名精确匹配为主，后续可增强为更灵活的模式匹配；
+2. 当前 GUI 检测工具已可作为辅助人工核查入口，后续可继续增强界面控件与导出能力；
+3. 物体语义当前主要是传播语义标签与双侧材质入口，不应被误理解为重新构造几何实体；
+4. `ItuMaterial.csv` 的频点电参查询仍更适合在后续材料查询层/模块5中继续完成，不属于批次2遗漏。
 
 ---
 
@@ -4393,6 +4462,35 @@ struct SceneCacheContent {
 一句话总结：
 
 > 模块2的正式闭环形态应为：以 `Scene` 为核心静态场景对象，以 `SceneAcceleration` 和 `SceneQuery` 提供高频查询能力，以 `SceneCache` 承担高复用预处理缓存，以 `SceneDiagnostics` 和 `SceneCacheMeta` 承担可验证与可复现职责，并通过 debug/production 两种运行模式平衡正确性检查与大规模实验效率。
+
+### 34.14 当前代码落地完成情况（批次4正式闭环）
+
+当前代码实现已完成模块2批次4正式闭环，具体包括：
+
+1. **SceneQuery 已接通**
+   - 已可提供最近面交、全部面交、距离区间命中、遮挡/可见性和楔边候选查询；
+
+2. **QueryContext 已形成第一版结构**
+   - 已形成 `FaceQueryContext / VisibilityQueryContext / WedgeQueryContext`；
+   - 当前已支持忽略 face/object、自碰撞抑制、起终点偏移和最近楔边过滤等基础约束；
+
+3. **SceneCache 已正式启用**
+   - 已形成 `SceneCacheMeta / SceneCacheContent / SceneCache`；
+   - 已支持 cache 首次构建、二次命中与失效判断；
+
+4. **debug / production preprocess mode 已纳入配置体系**
+   - 当前通过 `AppConfig.scene_preprocess.preprocess_mode` 统一控制；
+
+5. **批次4验证已实现**
+   - 已完成 cache miss / hit 两次运行验证；
+   - 已输出 cache 命中/失效日志；
+   - 已输出 query self-check trace；
+
+### 34.15 当前阶段结论补充
+
+一句话结论：
+
+> **模块2已完成从 OBJ/语义恢复、拓扑与加速结构，到统一查询门面与 SceneCache 的正式闭环，当前可作为模块4几何寻径主链的稳定底座。**
 
 ---
 

@@ -1,10 +1,10 @@
-// File purpose:
-// - Declare the formal JSON codec used by module 1 for reading and writing AppConfig.
+// 文件目标：
+// - 声明模块1正式使用的 JSON 编解码接口。
 //
-// Main responsibilities:
-// - Parse JSON files into AppConfig via a structured property tree.
-// - Serialize AppConfig back to JSON for configuration snapshots.
-// - Keep JSON mapping logic centralized so loader and snapshot writer stay consistent.
+// 主要功能：
+// - 将 JSON 文件解析为 AppConfig；
+// - 将 AppConfig 序列化为配置快照 JSON；
+// - 集中维护配置字段映射，保持加载器与快照写出逻辑一致。
 
 #pragma once
 

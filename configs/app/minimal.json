@@ -13,16 +13,24 @@
   "scene_import": {
     "source_file": "demo/meeting.txt",
     "source_format": "obj",
+    "scene_material_map_file": "configs/scenes/scene_material_map.json",
     "normalize_object_names": true,
     "allow_name_auto_cleanup": true
   },
   "scene_preprocess": {
     "rebuild_normals": false,
     "enable_wedge_build": true,
-    "enable_scene_cache": false,
+    "enable_scene_cache": true,
+    "enable_bvh_bruteforce_validation": true,
+    "filter_non_manifold_wedge_sources": true,
+    "skip_coplanar_edges_for_wedge": true,
+    "preprocess_mode": "debug",
+    "scene_cache_format_version": "1.0.0",
+    "scene_preprocess_algorithm_version": "batch4-v1",
     "wedge_min_angle_deg": 1.0,
     "wedge_max_angle_deg": 179.0,
-    "bvh_leaf_size": 8
+    "bvh_leaf_size": 8,
+    "bvh_bruteforce_sample_count": 16
   },
   "material": {
     "material_database_file": "demo/ItuMaterial.csv",

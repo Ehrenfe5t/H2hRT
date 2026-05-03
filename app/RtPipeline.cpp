@@ -1,17 +1,20 @@
 // 文件目标：
-// - 实现应用层启动流水线，把 main 与模块1基础设施连接起来。
+// - 实现应用层启动流水线，并把模块1与模块2批次2/3闭环连接起来。
 //
 // 主要功能：
 // - 加载 AppConfig；
 // - 初始化 Logger；
 // - 输出 VersionInfo；
-// - 执行配置校验；
-// - 导出配置快照；
-// - 触发模块1自检；
-// - 形成批次0/1可编译、可运行、可验证的正式闭环。
+// - 执行模块1配置校验与自检；
+// - 执行模块2批次2的场景导入与语义恢复闭环；
+// - 执行模块2批次3的拓扑、诊断与加速结构闭环；
+// - 返回统一结构化执行结果。
 
 #include "RtPipeline.h"
 
+#include "SceneBatch2Reporter.h"
+#include "SceneBatch3Reporter.h"
+#include "SceneBatch4Reporter.h"
 #include "../core/common/config/AppConfig.h"
 #include "../core/common/config/AppConfigLoader.h"
 #include "../core/common/config/AppConfigSnapshotWriter.h"
@@ -19,6 +22,9 @@
 #include "../core/common/config/Module1SelfCheck.h"
 #include "../core/common/log/Logger.h"
 #include "../core/common/version/VersionInfo.h"
+#include "../preprocess/build/SceneBatch2Builder.h"
+#include "../preprocess/build/SceneBatch3Builder.h"
+#include "../preprocess/build/SceneBatch4Builder.h"
 
 #include <sstream>
 
@@ -29,7 +35,7 @@ namespace {
 /// <summary>
 /// 将配置校验结果统一写入日志系统。
 /// </summary>
-/// <param name="logger">已经完成初始化的统一日志对象。</param>
+/// <param name="logger">已初始化的统一日志对象。</param>
 /// <param name="validation">待输出的配置校验结果。</param>
 /// <returns>无返回值。</returns>
 void LogValidationResult(Logger& logger, const ConfigValidationResult& validation)
@@ -51,13 +57,11 @@ void LogValidationResult(Logger& logger, const ConfigValidationResult& validatio
 /// 执行当前 RT 应用启动主流程。
 /// </summary>
 /// <param name="configPath">JSON 配置文件路径。</param>
-/// <returns>结构化流水线执行结果，包含成功标志和退出码。</returns>
+/// <returns>结构化流水线执行结果，包含成功标志、退出码与完成批次号。</returns>
 PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 {
     PipelineRunResult runResult;
 
-    // 先加载配置。即使加载失败，也尽量保留默认配置对象，
-    // 这样 Logger 仍然可以基于默认 runtime 配置启动，输出统一诊断信息。
     const AppConfigLoadResult loadResult = LoadAppConfigFromJsonFile(configPath);
 
     Logger logger;
@@ -77,7 +81,6 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     if (!loadResult.load_succeeded)
     {
-        // 若配置连基础加载都失败，则禁止进入后续模块，防止隐式 fallback。
         logger.Log(LogLevel::Fatal, "App", "Configuration load failed before validation completed.");
         return runResult;
     }
@@ -87,7 +90,6 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     if (!validation.passed)
     {
-        // 配置校验失败必须在模块1前置阻断，避免错误参数污染后续模块。
         logger.Log(LogLevel::Fatal, "App", "Configuration validation failed.");
         return runResult;
     }
@@ -131,8 +133,54 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     logger.Log(LogLevel::Info, "App", "Batch0/1 bootstrap closed loop completed.");
 
+    const SceneBatch2BuildResult batch2Result = BuildSceneForBatch2(loadResult.config);
+    for (const RtError& error : batch2Result.errors)
+    {
+        logger.LogError("Module2", error);
+    }
+
+    if (!batch2Result.succeeded)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch2 scene import and semantic recovery failed.");
+        return runResult;
+    }
+
+    ReportSceneBatch2Summary(batch2Result.scene, logger);
+    logger.Log(LogLevel::Info, "App", "Batch2 scene import and semantic recovery closed loop completed.");
+
+    const SceneBatch3BuildResult batch3Result = BuildSceneForBatch3(loadResult.config, batch2Result.scene);
+    for (const RtError& error : batch3Result.errors)
+    {
+        logger.LogError("Module2", error);
+    }
+
+    if (!batch3Result.succeeded)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch3 topology, diagnostics and acceleration build failed.");
+        return runResult;
+    }
+
+    ReportSceneBatch3Summary(batch3Result.scene, logger);
+    logger.Log(LogLevel::Info, "App", "Batch3 topology, diagnostics and acceleration closed loop completed.");
+
+    const SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(loadResult.config, batch3Result.scene);
+    for (const RtError& error : batch4Result.errors)
+    {
+        logger.LogError("Module2", error);
+    }
+
+    if (!batch4Result.succeeded)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch4 query facade and scene cache build failed.");
+        return runResult;
+    }
+
+    ReportSceneBatch4Summary(batch4Result, logger);
+    logger.Log(LogLevel::Info, "App", "Batch4 query facade and scene cache closed loop completed.");
+
     runResult.succeeded = true;
     runResult.exit_code = 0;
+    runResult.completed_batch = 4;
     return runResult;
 }
 

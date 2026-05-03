@@ -31,6 +31,24 @@
     <Filter Include="源文件\core\common\version">
       <UniqueIdentifier>{9D08C441-8D03-44D7-A336-3DA2C3B1D593}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\preprocess\binding">
+      <UniqueIdentifier>{D62B28D1-C2E1-4EA1-8AC4-C1B973D4E06E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\preprocess\build">
+      <UniqueIdentifier>{124B0AF3-F1AE-4BF0-A99F-53A79B7E36B8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\preprocess\import">
+      <UniqueIdentifier>{F9C6D04D-CE10-4207-9A3F-725D73A54C93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\preprocess\accel">
+      <UniqueIdentifier>{6AF0FAEF-E909-4EA6-BD8D-E42D1C981841}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\preprocess\cache">
+      <UniqueIdentifier>{2F993AA1-B9CC-477E-B1E2-920BEA00B868}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\query">
+      <UniqueIdentifier>{E2E27B79-47D7-42B4-BE7A-B16E53F33AA7}</UniqueIdentifier>
+    </Filter>
     <Filter Include="头文件\app">
       <UniqueIdentifier>{0939F84F-E13A-4E83-8E1B-39786B070122}</UniqueIdentifier>
     </Filter>
@@ -49,12 +67,42 @@
     <Filter Include="头文件\core\common\version">
       <UniqueIdentifier>{9DF1FB31-D061-430C-8D40-431CC6E5447D}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\core\scene">
+      <UniqueIdentifier>{D3F771EA-CAB9-4333-B114-C937F0A0A834}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\preprocess\binding">
+      <UniqueIdentifier>{13A61552-6A15-42F4-BD82-20E65D17AEBE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\preprocess\build">
+      <UniqueIdentifier>{833E4E15-5D89-4347-8444-619A9D7A4E30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\preprocess\import">
+      <UniqueIdentifier>{84684C36-07DD-438E-98D4-4A24D9D0DE61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\preprocess\accel">
+      <UniqueIdentifier>{339FCF2B-A706-4E92-AF96-97C1F50A6B9F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\preprocess\cache">
+      <UniqueIdentifier>{3A80C7D6-6D43-4AB6-86DB-55B8357B5918}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\query">
+      <UniqueIdentifier>{7E6D2B2E-72FA-4C6D-9A47-C6D481ADF93B}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="app\main.cpp">
       <Filter>源文件\app</Filter>
     </ClCompile>
     <ClCompile Include="app\RtPipeline.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\SceneBatch2Reporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\SceneBatch3Reporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\SceneBatch4Reporter.cpp">
       <Filter>源文件\app</Filter>
     </ClCompile>
     <ClCompile Include="core\common\config\AppConfigJsonCodec.cpp">
@@ -72,6 +120,51 @@
     <ClCompile Include="core\common\config\AppConfigValidator.cpp">
       <Filter>源文件\core\common\config</Filter>
     </ClCompile>
+    <ClCompile Include="preprocess\binding\MaterialRuleLoader.cpp">
+      <Filter>源文件\preprocess\binding</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\binding\ResolveFaceDualSideMaterial.cpp">
+      <Filter>源文件\preprocess\binding</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\SceneBatch2Builder.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\SceneBatch3Builder.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\SceneBatch4Builder.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\EdgeBuilder.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\WedgeBuilder.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\SceneDiagnostics.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\build\SceneMaterialBinding.cpp">
+      <Filter>源文件\preprocess\build</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\accel\FaceBVHBuilder.cpp">
+      <Filter>源文件\preprocess\accel</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\accel\WedgeAccelerationBuilder.cpp">
+      <Filter>源文件\preprocess\accel</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\accel\SceneAcceleration.cpp">
+      <Filter>源文件\preprocess\accel</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\cache\SceneCache.cpp">
+      <Filter>源文件\preprocess\cache</Filter>
+    </ClCompile>
+    <ClCompile Include="core\query\SceneQuery.cpp">
+      <Filter>源文件\core\query</Filter>
+    </ClCompile>
+    <ClCompile Include="preprocess\import\OBJImporter.cpp">
+      <Filter>源文件\preprocess\import</Filter>
+    </ClCompile>
     <ClCompile Include="core\common\error\RtError.cpp">
       <Filter>源文件\core\common\error</Filter>
     </ClCompile>
@@ -87,6 +180,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\RtPipeline.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\SceneBatch2Reporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\SceneBatch3Reporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\SceneBatch4Reporter.h">
       <Filter>头文件\app</Filter>
     </ClInclude>
     <ClInclude Include="core\common\config\AppConfig.h">
@@ -107,8 +209,14 @@
     <ClInclude Include="core\common\config\AppConfigValidator.h">
       <Filter>头文件\core\common\config</Filter>
     </ClInclude>
+    <ClInclude Include="core\scene\Edge.h">
+      <Filter>头文件\core\scene</Filter>
+    </ClInclude>
     <ClInclude Include="core\common\error\ErrorCode.h">
       <Filter>头文件\core\common\error</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene\Face.h">
+      <Filter>头文件\core\scene</Filter>
     </ClInclude>
     <ClInclude Include="core\common\error\RtError.h">
       <Filter>头文件\core\common\error</Filter>
@@ -119,8 +227,71 @@
     <ClInclude Include="core\common\numeric\NumericToleranceConfig.h">
       <Filter>头文件\core\common\numeric</Filter>
     </ClInclude>
+    <ClInclude Include="preprocess\binding\MaterialRuleLoader.h">
+      <Filter>头文件\preprocess\binding</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\binding\ResolveFaceDualSideMaterial.h">
+      <Filter>头文件\preprocess\binding</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\SceneBatch2Builder.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\SceneBatch3Builder.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\SceneBatch4Builder.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\EdgeBuilder.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\WedgeBuilder.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\SceneDiagnostics.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\build\SceneMaterialBinding.h">
+      <Filter>头文件\preprocess\build</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\accel\FaceBVHBuilder.h">
+      <Filter>头文件\preprocess\accel</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\accel\WedgeAccelerationBuilder.h">
+      <Filter>头文件\preprocess\accel</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\accel\SceneAcceleration.h">
+      <Filter>头文件\preprocess\accel</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\cache\SceneCache.h">
+      <Filter>头文件\preprocess\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\cache\SceneCacheMeta.h">
+      <Filter>头文件\preprocess\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\cache\SceneCacheContent.h">
+      <Filter>头文件\preprocess\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="core\query\SceneQuery.h">
+      <Filter>头文件\core\query</Filter>
+    </ClInclude>
+    <ClInclude Include="preprocess\import\OBJImporter.h">
+      <Filter>头文件\preprocess\import</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene\Scene.h">
+      <Filter>头文件\core\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene\SceneMaterialBinding.h">
+      <Filter>头文件\core\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene\SceneMeta.h">
+      <Filter>头文件\core\scene</Filter>
+    </ClInclude>
     <ClInclude Include="core\common\version\VersionInfo.h">
       <Filter>头文件\core\common\version</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scene\Wedge.h">
+      <Filter>头文件\core\scene</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

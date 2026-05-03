@@ -1,11 +1,11 @@
-// File purpose:
-// - Implement the unified logging system for module 1.
+// 文件目标：
+// - 实现模块1统一日志系统。
 //
-// Main responsibilities:
-// - Initialize console and file outputs.
-// - Filter logs by level.
-// - Print a unified timestamp/level/run-id/module prefix.
-// - Provide a single logging path for the whole system.
+// 主要功能：
+// - 初始化控制台与文件日志输出；
+// - 按日志级别过滤消息；
+// - 输出统一时间戳/级别/run-id/模块名前缀；
+// - 为整个系统提供单一日志路径。
 
 #include "Logger.h"
 

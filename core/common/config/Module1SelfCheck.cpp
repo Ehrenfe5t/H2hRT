@@ -15,12 +15,6 @@ namespace rt {
 
 namespace {
 
-/// <summary>
-/// 判断校验结果中是否包含指定错误关键词。
-/// </summary>
-/// <param name="validation">待检查的配置校验结果。</param>
-/// <param name="token">期望出现的错误关键词。</param>
-/// <returns>若任一错误信息中包含该关键词则返回 true，否则返回 false。</returns>
 bool ContainsErrorToken(const ConfigValidationResult& validation, const std::string& token)
 {
     for (const std::string& error : validation.errors)
@@ -34,14 +28,6 @@ bool ContainsErrorToken(const ConfigValidationResult& validation, const std::str
     return false;
 }
 
-/// <summary>
-/// 执行一个负样例自检用例。
-/// </summary>
-/// <param name="filePath">负样例配置文件路径。</param>
-/// <param name="expectedToken">期望命中的错误关键词。</param>
-/// <param name="caseName">当前用例的人类可读名称。</param>
-/// <param name="result">累计写入的自检结果对象。</param>
-/// <returns>若该负样例行为符合预期则返回 true，否则返回 false。</returns>
 bool RunNegativeCase(
     const std::string& filePath,
     const std::string& expectedToken,
@@ -54,9 +40,9 @@ bool RunNegativeCase(
         result.error = RtError::Create(
             ErrorCode::SelfCheckFailed,
             "Module1",
-            "模块1自检在加载负样例配置文件时失败。",
+            "Module1 self-check failed while loading a negative case file.",
             filePath,
-            "请检查自检配置文件是否存在且 JSON 格式正确。",
+            "Check the self-check config file and JSON format.",
             true);
         return false;
     }
@@ -67,9 +53,9 @@ bool RunNegativeCase(
         result.error = RtError::Create(
             ErrorCode::SelfCheckFailed,
             "Module1",
-            "模块1自检负样例意外通过了配置校验。",
+            "Module1 self-check negative case unexpectedly passed validation.",
             caseName,
-            "请检查该关键规则是否从校验器中回退。",
+            "Review validator coverage for this critical startup rule.",
             true);
         return false;
     }
@@ -79,9 +65,9 @@ bool RunNegativeCase(
         result.error = RtError::Create(
             ErrorCode::SelfCheckFailed,
             "Module1",
-            "模块1自检负样例虽然失败，但失败原因集合不符合预期。",
+            "Module1 self-check negative case failed for an unexpected reason set.",
             caseName,
-            "请检查校验器输出内容与期望规则是否一致。",
+            "Review validator error content and expected rule coverage.",
             true);
         return false;
     }
@@ -92,11 +78,6 @@ bool RunNegativeCase(
 
 } // namespace
 
-/// <summary>
-/// 执行模块1自检用例集合。
-/// </summary>
-/// <param name="config">当前已通过主校验的应用配置对象。</param>
-/// <returns>结构化的模块1自检结果。</returns>
 Module1SelfCheckResult RunModule1SelfCheck(const AppConfig& config)
 {
     Module1SelfCheckResult result;

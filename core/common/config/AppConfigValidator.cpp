@@ -50,6 +50,12 @@ bool IsSupportedSceneFormat(const std::string& format)
     return format == "obj" || format == "stl" || format == "cache";
 }
 
+/// <summary>判断预处理运行模式是否受支持。</summary>
+bool IsSupportedPreprocessMode(const std::string& mode)
+{
+    return mode == "debug" || mode == "production";
+}
+
 /// <summary>判断材料频率查询模式是否受支持。</summary>
 bool IsSupportedFrequencyQueryMode(const std::string& mode)
 {
@@ -120,10 +126,45 @@ ConfigValidationResult ValidateAppConfig(const AppConfig& config)
         result.errors.push_back("scene_import.source_file does not exist: " + config.scene_import.source_file);
     }
 
+    if (config.scene_import.scene_material_map_file.empty())
+    {
+        result.passed = false;
+        result.errors.push_back("scene_import.scene_material_map_file must not be empty.");
+    }
+    else if (!FileExists(config.scene_import.scene_material_map_file))
+    {
+        result.passed = false;
+        result.errors.push_back("scene_import.scene_material_map_file does not exist: " + config.scene_import.scene_material_map_file);
+    }
+
     if (config.scene_preprocess.bvh_leaf_size <= 0)
     {
         result.passed = false;
         result.errors.push_back("scene_preprocess.bvh_leaf_size must be > 0.");
+    }
+
+    if (!IsSupportedPreprocessMode(config.scene_preprocess.preprocess_mode))
+    {
+        result.passed = false;
+        result.errors.push_back("scene_preprocess.preprocess_mode must be debug or production.");
+    }
+
+    if (config.scene_preprocess.scene_cache_format_version.empty())
+    {
+        result.passed = false;
+        result.errors.push_back("scene_preprocess.scene_cache_format_version must not be empty.");
+    }
+
+    if (config.scene_preprocess.scene_preprocess_algorithm_version.empty())
+    {
+        result.passed = false;
+        result.errors.push_back("scene_preprocess.scene_preprocess_algorithm_version must not be empty.");
+    }
+
+    if (config.scene_preprocess.bvh_bruteforce_sample_count < 0)
+    {
+        result.passed = false;
+        result.errors.push_back("scene_preprocess.bvh_bruteforce_sample_count must be >= 0.");
     }
 
     if (config.scene_preprocess.wedge_min_angle_deg <= 0.0 ||
