@@ -100,6 +100,12 @@ struct PathSearchConfig {
     bool keep_angle_metadata = true;
     std::string pruning_strategy = "basic";
     std::string dedup_strategy = "signature";
+    double debug_tx_x = 1.0;
+    double debug_tx_y = 1.0;
+    double debug_tx_z = 1.0;
+    double debug_rx_x = 3.0;
+    double debug_rx_y = 1.0;
+    double debug_rx_z = 1.0;
 };
 
 /// <summary>

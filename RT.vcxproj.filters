@@ -49,6 +49,15 @@
     <Filter Include="源文件\core\query">
       <UniqueIdentifier>{E2E27B79-47D7-42B4-BE7A-B16E53F33AA7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\core\search">
+      <UniqueIdentifier>{B8811E56-BB36-4310-B55A-01C6E43E3D74}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\em">
+      <UniqueIdentifier>{0C2EC51F-B364-4F98-9F96-0D286A8C4A4F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\core\result">
+      <UniqueIdentifier>{AD99381D-2AE7-4FB6-9A32-5A60D50FBBCF}</UniqueIdentifier>
+    </Filter>
     <Filter Include="头文件\app">
       <UniqueIdentifier>{0939F84F-E13A-4E83-8E1B-39786B070122}</UniqueIdentifier>
     </Filter>
@@ -88,8 +97,35 @@
     <Filter Include="头文件\core\query">
       <UniqueIdentifier>{7E6D2B2E-72FA-4C6D-9A47-C6D481ADF93B}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\core\path">
+      <UniqueIdentifier>{532AA54A-5D5A-43C8-B8D3-EEF2992D5699}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\search">
+      <UniqueIdentifier>{8F98005E-BE99-429B-A6A4-923A7FE5FB24}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\em">
+      <UniqueIdentifier>{EEA65ECA-3CD2-4413-B2DB-F8C838D9102E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\core\result">
+      <UniqueIdentifier>{0FBAE568-08DE-4676-8F7A-B90F4BB70D9D}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="app\Batch5SearchReporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\Batch6ExpanderReporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\Batch7EMReporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\Batch8AggregateReporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
+    <ClCompile Include="app\Batch9ExportReporter.cpp">
+      <Filter>源文件\app</Filter>
+    </ClCompile>
     <ClCompile Include="app\main.cpp">
       <Filter>源文件\app</Filter>
     </ClCompile>
@@ -162,6 +198,108 @@
     <ClCompile Include="core\query\SceneQuery.cpp">
       <Filter>源文件\core\query</Filter>
     </ClCompile>
+    <ClCompile Include="core\search\DiffractionExpander.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\GeometryValidity.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\ReflectionExpander.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\ResolveMediumTransition.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\SearchEngine.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\TransmissionExpander.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\StateSignatureBuilder.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\search\PathSignatureBuilder.cpp">
+      <Filter>源文件\core\search</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\PreparePathForEM.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\InitializeTxField.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\ApplyFreeSpaceSegment.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\ApplyReflectionInteraction.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\ApplyTransmissionInteraction.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\ApplyDiffractionInteraction.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\FinalizeAtReceiver.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\BuildCIR.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\BuildPDP.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\BuildAPS.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\BuildChannelStatistics.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\BuildCoverageResult.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\BuildISACFeatureSet.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\PreciseEMProfile.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\em\CoverageEMProfile.cpp">
+      <Filter>源文件\core\em</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ExportBundle.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ResultExportUtils.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ExportPaths.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ExportChannel.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ExportCoverage.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ExportISAC.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ExportVisualization.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ValidationReport.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\ValidationReportWriter.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\RegressionReport.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
+    <ClCompile Include="core\result\RegressionReportWriter.cpp">
+      <Filter>源文件\core\result</Filter>
+    </ClCompile>
     <ClCompile Include="preprocess\import\OBJImporter.cpp">
       <Filter>源文件\preprocess\import</Filter>
     </ClCompile>
@@ -179,6 +317,21 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="app\Batch5SearchReporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\Batch6ExpanderReporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\Batch7EMReporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\Batch8AggregateReporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
+    <ClInclude Include="app\Batch9ExportReporter.h">
+      <Filter>头文件\app</Filter>
+    </ClInclude>
     <ClInclude Include="app\RtPipeline.h">
       <Filter>头文件\app</Filter>
     </ClInclude>
@@ -274,6 +427,138 @@
     </ClInclude>
     <ClInclude Include="core\query\SceneQuery.h">
       <Filter>头文件\core\query</Filter>
+    </ClInclude>
+    <ClInclude Include="core\path\InteractionType.h">
+      <Filter>头文件\core\path</Filter>
+    </ClInclude>
+    <ClInclude Include="core\path\PathNode.h">
+      <Filter>头文件\core\path</Filter>
+    </ClInclude>
+    <ClInclude Include="core\path\GeometricPath.h">
+      <Filter>头文件\core\path</Filter>
+    </ClInclude>
+    <ClInclude Include="core\path\PathState.h">
+      <Filter>头文件\core\path</Filter>
+    </ClInclude>
+    <ClInclude Include="core\path\PathSearchContext.h">
+      <Filter>头文件\core\path</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\DiffractionExpander.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\GeometryValidity.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\ReflectionExpander.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\ResolveMediumTransition.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\SearchEngine.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\TransmissionExpander.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\StateSignatureBuilder.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\search\PathSignatureBuilder.h">
+      <Filter>头文件\core\search</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\EMSolverInput.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\FieldAccumulator.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\EMPathResult.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\PreparePathForEM.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\InitializeTxField.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\ApplyFreeSpaceSegment.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\ApplyReflectionInteraction.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\ApplyTransmissionInteraction.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\ApplyDiffractionInteraction.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\FinalizeAtReceiver.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\EMProfile.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\BuildCIR.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\BuildPDP.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\BuildAPS.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\BuildChannelStatistics.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\BuildCoverageResult.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\BuildISACFeatureSet.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\PreciseEMProfile.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\em\CoverageEMProfile.h">
+      <Filter>头文件\core\em</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ExportBundle.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ValidationReport.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\RegressionReport.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ResultExportContext.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ResultExportUtils.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ExportPaths.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ExportChannel.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ExportCoverage.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ExportISAC.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ExportVisualization.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\ValidationReportWriter.h">
+      <Filter>头文件\core\result</Filter>
+    </ClInclude>
+    <ClInclude Include="core\result\RegressionReportWriter.h">
+      <Filter>头文件\core\result</Filter>
     </ClInclude>
     <ClInclude Include="preprocess\import\OBJImporter.h">
       <Filter>头文件\preprocess\import</Filter>

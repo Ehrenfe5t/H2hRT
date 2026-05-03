@@ -12,6 +12,11 @@
 
 #include "RtPipeline.h"
 
+#include "Batch5SearchReporter.h"
+#include "Batch6ExpanderReporter.h"
+#include "Batch7EMReporter.h"
+#include "Batch8AggregateReporter.h"
+#include "Batch9ExportReporter.h"
 #include "SceneBatch2Reporter.h"
 #include "SceneBatch3Reporter.h"
 #include "SceneBatch4Reporter.h"
@@ -22,6 +27,8 @@
 #include "../core/common/config/Module1SelfCheck.h"
 #include "../core/common/log/Logger.h"
 #include "../core/common/version/VersionInfo.h"
+#include "../core/search/SearchEngine.h"
+#include "../core/path/PathSearchContext.h"
 #include "../preprocess/build/SceneBatch2Builder.h"
 #include "../preprocess/build/SceneBatch3Builder.h"
 #include "../preprocess/build/SceneBatch4Builder.h"
@@ -49,6 +56,27 @@ void LogValidationResult(Logger& logger, const ConfigValidationResult& validatio
     {
         logger.Log(LogLevel::Error, "Module1", error);
     }
+}
+
+/// <summary>
+/// 根据配置构建批次5的最小搜索上下文。
+/// </summary>
+/// <param name="config">统一应用配置对象。</param>
+/// <param name="scene">静态场景对象。</param>
+/// <returns>批次5最小搜索上下文。</returns>
+PathSearchContext BuildBatch5SearchContext(const AppConfig& config, const Scene& scene)
+{
+    PathSearchContext context;
+    context.config = &config;
+    context.scene = &scene;
+    context.scene_query = scene.query.get();
+    context.tx_point.x = config.path_search.debug_tx_x;
+    context.tx_point.y = config.path_search.debug_tx_y;
+    context.tx_point.z = config.path_search.debug_tx_z;
+    context.rx_point.x = config.path_search.debug_rx_x;
+    context.rx_point.y = config.path_search.debug_rx_y;
+    context.rx_point.z = config.path_search.debug_rx_z;
+    return context;
 }
 
 } // namespace
@@ -178,9 +206,58 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     ReportSceneBatch4Summary(batch4Result, logger);
     logger.Log(LogLevel::Info, "App", "Batch4 query facade and scene cache closed loop completed.");
 
+    const PathSearchContext batch5SearchContext = BuildBatch5SearchContext(loadResult.config, batch4Result.scene);
+    SearchEngine searchEngine;
+    const SearchEngineResult batch5Result = searchEngine.Run(batch5SearchContext);
+    ReportBatch5SearchSummary(batch5Result, logger);
+
+    if (!batch5Result.succeeded || batch5Result.path_set.paths.empty())
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch5 SearchEngine skeleton failed to establish a basic LOS closed loop.");
+        return runResult;
+    }
+
+    logger.Log(LogLevel::Info, "App", "Batch5 module4 SearchEngine skeleton closed loop completed.");
+
+    const bool batch6SelfCheckPassed = ReportBatch6ExpanderSummary(batch5SearchContext, logger);
+    if (!batch6SelfCheckPassed)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch6 expanders failed to establish the required single-step closure checks.");
+        return runResult;
+    }
+
+    logger.Log(LogLevel::Info, "App", "Batch6 module4 expanders closed loop completed.");
+
+    const bool batch7SelfCheckPassed = ReportBatch7EMSummary(loadResult.config, batch4Result.scene, logger);
+    if (!batch7SelfCheckPassed)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch7 EM main-chain self-check failed.");
+        return runResult;
+    }
+
+    logger.Log(LogLevel::Info, "App", "Batch7 module5 EM main-chain closed loop completed.");
+
+    const bool batch8SelfCheckPassed = ReportBatch8AggregateSummary(loadResult.config, batch4Result.scene, logger);
+    if (!batch8SelfCheckPassed)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch8 EM aggregate/profile self-check failed.");
+        return runResult;
+    }
+
+    logger.Log(LogLevel::Info, "App", "Batch8 module5 aggregate and dual-profile closed loop completed.");
+
+    const bool batch9SelfCheckPassed = ReportBatch9ExportSummary(loadResult.config, batch4Result.scene, logger);
+    if (!batch9SelfCheckPassed)
+    {
+        logger.Log(LogLevel::Fatal, "App", "Batch9 export/validation/regression self-check failed.");
+        return runResult;
+    }
+
+    logger.Log(LogLevel::Info, "App", "Batch9 module6 export, validation and regression closed loop completed.");
+
     runResult.succeeded = true;
     runResult.exit_code = 0;
-    runResult.completed_batch = 4;
+    runResult.completed_batch = 9;
     return runResult;
 }
 

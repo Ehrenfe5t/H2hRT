@@ -60,7 +60,13 @@
     "enable_mixed_path": true,
     "keep_angle_metadata": true,
     "pruning_strategy": "basic",
-    "dedup_strategy": "signature"
+    "dedup_strategy": "signature",
+    "debug_tx_x": 1.0,
+    "debug_tx_y": 1.0,
+    "debug_tx_z": 1.0,
+    "debug_rx_x": 3.0,
+    "debug_rx_y": 1.0,
+    "debug_rx_z": 1.0
   },
   "em_solver": {
     "frequency_hz": 2400000000.0,

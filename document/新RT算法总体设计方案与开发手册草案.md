@@ -2144,6 +2144,57 @@ struct SceneDiagnostics {
 3. 与成熟实现趋势可对齐
 4. 调试信息足够定位问题
 
+### 23.9 当前代码落地完成情况（批次5第一闭环）
+
+当前代码实现已完成模块4批次5第一闭环，具体包括：
+
+1. **核心结构已形成**
+   - 已形成 `InteractionType / PathNode / GeometricPath / PathState / PathSearchContext`；
+
+2. **SearchEngine 骨架已形成**
+   - 已完成初始状态构造；
+   - 已形成第一版 DFS 主循环骨架；
+   - 已形成基础 trace 输出；
+
+3. **状态级与路径级去重框架已形成**
+   - 已形成 `StateSignatureBuilder / PathSignatureBuilder`；
+   - 当前已可支撑批次5范围内的最小去重框架；
+
+4. **LOS 最小闭环已打通**
+   - 当前已可基于模块2的 `SceneQuery` 完成 Tx -> Rx LOS 可见性判断并输出 1 条 `GeometricPath`；
+
+### 23.10 当前阶段结论
+
+一句话结论：
+
+> **模块4已完成批次5范围内的核心结构与 SearchEngine 骨架落地，并已建立最小 LOS 几何路径闭环，可继续进入批次6扩展 Reflection / Transmission / Diffraction。**
+
+### 23.11 当前代码落地完成情况（批次6第一闭环）
+
+当前代码实现已完成模块4批次6第一闭环，具体包括：
+
+1. **三类扩展器已接入**
+   - 已形成 `ReflectionExpander / TransmissionExpander / DiffractionExpander`；
+   - 当前已可完成单次反射、单次透射、单次绕射扩展；
+
+2. **合法性检查已形成统一接口**
+   - 已形成 `GeometryValidityReason / GeometryValidityResult`；
+   - 当前已支持 LOS、反射候选、透射候选、绕射候选与扩展状态的最小合法性检查；
+
+3. **透射介质切换已显式实现**
+   - 已形成 `ResolveMediumTransition()`；
+   - 当前已显式给出 medium in/out 与 front/back 侧关系；
+
+4. **扩展器验证已实现**
+   - 已完成 Reflection / Transmission / Diffraction 三类自检；
+   - 当前日志中已输出扩展器生成状态数和失败原因统计；
+
+### 23.12 当前阶段结论补充
+
+一句话结论：
+
+> **模块4已完成批次6范围内的三类扩展器接入、几何合法性判定与透射介质切换解析，并已建立可运行的单步机制扩展闭环，可继续进入批次7的路径级电磁求值主链。**
+
 ---
 
 ## 24. 模块5实现细节补充：严格电磁计算模块
@@ -2226,6 +2277,30 @@ struct EMInteractionContext {
 3. 与成熟实现可进行趋势级对照
 4. 输出可直接供模块6生成统计结果
 
+### 24.8 当前代码落地完成情况（批次7第一闭环）
+
+当前代码实现已完成模块5批次7第一闭环，具体包括：
+
+1. **核心对象已形成**
+   - 已形成 `EMSolverInput / FieldAccumulator / EMPathResult`；
+
+2. **主链子过程已接通**
+   - 已形成 `PreparePathForEM / InitializeTxField / ApplyFreeSpaceSegment / FinalizeAtReceiver`；
+
+3. **三类交互求值已接通**
+   - 已形成 `ApplyReflectionInteraction / ApplyTransmissionInteraction / ApplyDiffractionInteraction`；
+   - 当前已可完成单路径级复场状态更新；
+
+4. **批次7验证已实现**
+   - 已完成 LOS / 单反射 / 单透射 / 单绕射路径级 EM 自检；
+   - 当前日志中已输出 delay / phase / power 摘要；
+
+### 24.9 当前阶段结论
+
+一句话结论：
+
+> **模块5已完成批次7范围内的基础物理求值主链落地，并已建立单路径级 `EMPathResult` 生成闭环，可继续进入批次8进行多路径汇总与双模式求值。**
+
 ---
 
 ## 25. 模块6实现细节补充：结果输出与验证模块
@@ -2294,6 +2369,29 @@ struct EMInteractionContext {
 2. 结果可用于论文后处理
 3. 出问题时能追溯到路径、交互和场景诊断层面
 4. 能承载回归与验证闭环
+
+### 25.6 当前代码落地完成情况（批次9第一闭环）
+
+当前代码实现已完成模块6批次9第一闭环，具体包括：
+
+1. **结果总容器与报告结构已形成**
+   - 已形成 `ExportBundle / ValidationReport / RegressionReport`；
+
+2. **五类导出逻辑已形成**
+   - 已形成 `ExportPaths / ExportChannel / ExportCoverage / ExportISAC / ExportVisualization`；
+
+3. **验证与回归报告写出已形成**
+   - 已形成 `ValidationReportWriter / RegressionReportWriter`；
+
+4. **批次9验证已实现**
+   - 已完成导出文件数量检查、ValidationReport 检查与 RegressionReport 检查；
+   - 当前日志中已输出批次9总摘要；
+
+### 25.7 当前阶段结论
+
+一句话结论：
+
+> **模块6已完成批次9范围内的结构化结果表达、验证报告与回归报告闭环；至此，主文档定义的 0~9 批次基础主线已全部完成第一版落地。**
 
 ---
 
@@ -9566,6 +9664,26 @@ CoverageEM 只是：
 一句话总结：
 
 > 模块5应正式支持 `PreciseEM / CoverageEM` 两套 profile：二者共享相同的路径级基础物理主链与交互模型，但在中间量保留、接收机建模、多路径汇总和输出粒度上采用不同策略；其中 `PreciseEM` 面向高保真通道与极化分析，`CoverageEM` 面向大规模虚拟接收机的功率级快速汇总。
+
+### 80.10 当前代码落地完成情况（批次8第一闭环）
+
+当前代码实现已完成模块5批次8第一闭环，具体包括：
+
+1. **双模式 profile 已形成**
+   - 已形成 `PreciseEMProfile / CoverageEMProfile`；
+
+2. **多路径汇总子过程已形成**
+   - 已形成 `BuildCIR / BuildPDP / BuildAPS / BuildChannelStatistics / BuildCoverageResult / BuildISACFeatureSet`；
+
+3. **批次8验证已实现**
+   - 已完成 PreciseEM / CoverageEM 两种模式的汇总自检；
+   - 当前日志中已输出 CIR / PDP / APS / Statistics / Coverage / ISAC 摘要；
+
+### 80.11 当前阶段结论补充
+
+一句话结论：
+
+> **模块5已完成批次8范围内的多路径汇总与双模式求值闭环，并已具备向模块6结果表达与验证层继续推进的基础。**
 
 ---
 

@@ -9,6 +9,11 @@
 - `check_batch2_binding.py`
 - `README_batch3.md`
 - `README_batch4.md`
+- `README_batch5.md`
+- `README_batch6.md`
+- `README_batch7.md`
+- `README_batch8.md`
+- `README_batch9.md`
 
 用于检查批次2中：
 
@@ -22,6 +27,11 @@
 
 - `README_batch3.md` 用于说明批次3当前主链日志验证项与人工核查重点。
 - `README_batch4.md` 用于说明批次4查询门面与缓存闭环的日志验证项与 cache 命中检查方式。
+- `README_batch5.md` 用于说明批次5 SearchEngine 骨架与 LOS 闭环的日志验证项。
+- `README_batch6.md` 用于说明批次6三类扩展器自检与 mixed path 基础串联日志验证项。
+- `README_batch7.md` 用于说明批次7路径级电磁主链与 EMPathResult 验证项。
+- `README_batch8.md` 用于说明批次8 CIR/PDP/APS/统计/覆盖/通感摘要与双模式 profile 验证项。
+- `README_batch9.md` 用于说明批次9结构化导出、验证报告与回归报告闭环验证项。
 
 ---
 

@@ -258,6 +258,12 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "keep_angle_metadata", config.path_search.keep_angle_metadata);
         ReadOptionalString(body, "pruning_strategy", config.path_search.pruning_strategy);
         ReadOptionalString(body, "dedup_strategy", config.path_search.dedup_strategy);
+        ReadOptionalNumber(body, "debug_tx_x", config.path_search.debug_tx_x);
+        ReadOptionalNumber(body, "debug_tx_y", config.path_search.debug_tx_y);
+        ReadOptionalNumber(body, "debug_tx_z", config.path_search.debug_tx_z);
+        ReadOptionalNumber(body, "debug_rx_x", config.path_search.debug_rx_x);
+        ReadOptionalNumber(body, "debug_rx_y", config.path_search.debug_rx_y);
+        ReadOptionalNumber(body, "debug_rx_z", config.path_search.debug_rx_z);
     }
 
     if (ExtractObjectBody(text, "em_solver", body))
@@ -430,7 +436,13 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"enable_mixed_path\": " << (config.path_search.enable_mixed_path ? "true" : "false") << ",\n";
     stream << "    \"keep_angle_metadata\": " << (config.path_search.keep_angle_metadata ? "true" : "false") << ",\n";
     stream << "    \"pruning_strategy\": \"" << EscapeJsonString(config.path_search.pruning_strategy) << "\",\n";
-    stream << "    \"dedup_strategy\": \"" << EscapeJsonString(config.path_search.dedup_strategy) << "\"\n";
+    stream << "    \"dedup_strategy\": \"" << EscapeJsonString(config.path_search.dedup_strategy) << "\",\n";
+    stream << "    \"debug_tx_x\": " << config.path_search.debug_tx_x << ",\n";
+    stream << "    \"debug_tx_y\": " << config.path_search.debug_tx_y << ",\n";
+    stream << "    \"debug_tx_z\": " << config.path_search.debug_tx_z << ",\n";
+    stream << "    \"debug_rx_x\": " << config.path_search.debug_rx_x << ",\n";
+    stream << "    \"debug_rx_y\": " << config.path_search.debug_rx_y << ",\n";
+    stream << "    \"debug_rx_z\": " << config.path_search.debug_rx_z << "\n";
     stream << "  },\n";
 
     stream << "  \"em_solver\": {\n";
