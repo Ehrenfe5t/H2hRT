@@ -9,6 +9,7 @@
 #pragma once
 
 #include "../common/config/AppConfig.h"
+#include "../antenna\AntennaModel.h"
 #include "../path/GeometricPath.h"
 #include "../scene/Scene.h"
 
@@ -21,6 +22,11 @@ struct EMSolverInput {
     const AppConfig* config = nullptr;
     const Scene* scene = nullptr;
     const GeometricPath* path = nullptr;
+    const AntennaModel* tx_antenna = nullptr;
+    const AntennaModel* rx_antenna = nullptr;
+    bool transmission_semantic_complete = true;
+    int first_transmission_medium_in_id = -1;
+    int first_transmission_medium_out_id = -1;
 };
 
 } // namespace rt

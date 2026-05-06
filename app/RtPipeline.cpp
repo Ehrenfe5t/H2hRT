@@ -1,5 +1,5 @@
 // 文件目标：
-// - 实现应用层启动流水线，并把模块1与模块2批次2/3闭环连接起来。
+// - 实现应用层启动流水线，并把模块1、模块2、模块4/5/6批次闭环与A1真实主链连接起来。
 //
 // 主要功能：
 // - 加载 AppConfig；
@@ -8,6 +8,7 @@
 // - 执行模块1配置校验与自检；
 // - 执行模块2批次2的场景导入与语义恢复闭环；
 // - 执行模块2批次3的拓扑、诊断与加速结构闭环；
+// - 在保留 Batch5~9 自检链的同时，扶正 A1 Search -> EM -> Export 真实生产链；
 // - 返回统一结构化执行结果。
 
 #include "RtPipeline.h"
@@ -17,6 +18,7 @@
 #include "Batch7EMReporter.h"
 #include "Batch8AggregateReporter.h"
 #include "Batch9ExportReporter.h"
+#include "A1RealChainRunner.h"
 #include "SceneBatch2Reporter.h"
 #include "SceneBatch3Reporter.h"
 #include "SceneBatch4Reporter.h"
@@ -255,9 +257,18 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     logger.Log(LogLevel::Info, "App", "Batch9 module6 export, validation and regression closed loop completed.");
 
+    const A1RealChainRunResult a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger);
+    if (!a1Result.succeeded)
+    {
+        logger.Log(LogLevel::Fatal, "App", "A1 real production chain failed to replace reference path as the primary result chain.");
+        return runResult;
+    }
+
+    logger.Log(LogLevel::Info, "App", "A1 real production chain closed loop completed.");
+
     runResult.succeeded = true;
     runResult.exit_code = 0;
-    runResult.completed_batch = 9;
+    runResult.completed_batch = 10;
     return runResult;
 }
 

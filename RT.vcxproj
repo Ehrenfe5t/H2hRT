@@ -132,6 +132,7 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
+    <ClCompile Include="app\A1RealChainRunner.cpp" />
     <ClCompile Include="app\Batch5SearchReporter.cpp" />
     <ClCompile Include="app\Batch6ExpanderReporter.cpp" />
     <ClCompile Include="app\Batch7EMReporter.cpp" />
@@ -147,6 +148,9 @@
     <ClCompile Include="core\common\config\Module1SelfCheck.cpp" />
     <ClCompile Include="core\common\config\AppConfigSnapshotWriter.cpp" />
     <ClCompile Include="core\common\config\AppConfigValidator.cpp" />
+    <ClCompile Include="core\antenna\AntennaModel.cpp" />
+    <ClCompile Include="core\antenna\AntennaFactory.cpp" />
+    <ClCompile Include="core\antenna\AntennaResponse.cpp" />
     <ClCompile Include="preprocess\binding\MaterialRuleLoader.cpp" />
     <ClCompile Include="preprocess\binding\ResolveFaceDualSideMaterial.cpp" />
     <ClCompile Include="preprocess\build\SceneBatch2Builder.cpp" />
@@ -202,6 +206,7 @@
     <ClCompile Include="core\common\version\VersionInfo.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="app\A1RealChainRunner.h" />
     <ClInclude Include="app\Batch5SearchReporter.h" />
     <ClInclude Include="app\Batch6ExpanderReporter.h" />
     <ClInclude Include="app\Batch7EMReporter.h" />
@@ -217,6 +222,9 @@
     <ClInclude Include="core\common\config\Module1SelfCheck.h" />
     <ClInclude Include="core\common\config\AppConfigSnapshotWriter.h" />
     <ClInclude Include="core\common\config\AppConfigValidator.h" />
+    <ClInclude Include="core\antenna\AntennaModel.h" />
+    <ClInclude Include="core\antenna\AntennaFactory.h" />
+    <ClInclude Include="core\antenna\AntennaResponse.h" />
     <ClInclude Include="core\scene\Edge.h" />
     <ClInclude Include="core\common\error\ErrorCode.h" />
     <ClInclude Include="core\scene\Face.h" />

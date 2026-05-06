@@ -75,14 +75,20 @@ struct Face {
     std::string object_name;
     std::string object_type;
     std::string surface_material_name;
+    int surface_material_id = -1;
     std::string front_material_name;
+    int front_material_id = -1;
+    int front_medium_id = -1;
     std::string back_material_name;
+    int back_material_id = -1;
+    int back_medium_id = -1;
     std::string normal_rule_tag;
 
     bool dual_side_material_resolved = false;
     bool reflection_enabled = true;
     bool transmission_enabled = false;
     bool diffraction_candidate_enabled = false;
+    bool transmission_semantic_complete = false;
     bool degenerate = false;
 
     std::uint32_t propagation_flags = FacePropagationNone;

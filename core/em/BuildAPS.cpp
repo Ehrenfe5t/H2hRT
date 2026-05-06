@@ -8,6 +8,8 @@
 
 #include "BuildAPS.h"
 
+#include <cmath>
+
 namespace rt {
 
 /// <summary>

@@ -8,6 +8,8 @@
 
 #include "BuildChannelStatistics.h"
 
+#include <cmath>
+
 namespace rt {
 
 /// <summary>

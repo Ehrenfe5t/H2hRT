@@ -10,6 +10,7 @@
 
 #include "../path/GeometricPath.h"
 
+#include <string>
 #include <vector>
 
 namespace rt {
@@ -26,8 +27,25 @@ struct EMPathResult {
     double amplitude_real = 0.0;
     double amplitude_imag = 0.0;
     double power_linear = 0.0;
+    double free_space_amplitude_scale = 0.0;
+    double free_space_power_scale = 0.0;
+    double wavelength_m = 0.0;
+    double polarization_magnitude = 0.0;
+    double free_space_loss_db = 0.0;
+    std::string tx_antenna_id;
+    std::string tx_antenna_source_type;
+    std::string rx_antenna_id;
+    std::string rx_antenna_source_type;
     Vec3 polarization_vector;
     bool is_los = false;
+    std::string source_path_signature;
+    std::string source_tag = "unknown";
+    bool contains_transmission = false;
+    bool transmission_semantic_consumed = false;
+    int first_transmission_medium_in_id = -1;
+    int first_transmission_medium_out_id = -1;
+    int last_transmission_medium_in_id = -1;
+    int last_transmission_medium_out_id = -1;
 };
 
 /// <summary>
@@ -35,6 +53,10 @@ struct EMPathResult {
 /// </summary>
 struct EMPathResultSet {
     std::vector<EMPathResult> results;
+    bool from_search_engine = false;
+    int input_path_count = 0;
+    int valid_result_count = 0;
+    std::string source_tag = "unknown";
 };
 
 } // namespace rt

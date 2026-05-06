@@ -95,6 +95,8 @@ struct ChannelStatistics {
     double total_power_linear = 0.0;
     double strongest_path_power_linear = 0.0;
     double mean_delay_s = 0.0;
+    double mean_abs_phase_rad = 0.0;
+    int transmission_path_count = 0;
 };
 
 /// <summary>
@@ -103,6 +105,7 @@ struct ChannelStatistics {
 struct CoverageResult {
     double total_received_power_linear = 0.0;
     int contributing_path_count = 0;
+    double average_free_space_loss_db = 0.0;
 };
 
 /// <summary>
@@ -112,6 +115,8 @@ struct ISACFeatureSet {
     int path_count = 0;
     double earliest_delay_s = 0.0;
     double strongest_path_power_linear = 0.0;
+    double average_polarization_magnitude = 0.0;
+    int transmission_path_count = 0;
 };
 
 /// <summary>

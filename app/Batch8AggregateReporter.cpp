@@ -8,6 +8,7 @@
 
 #include "Batch8AggregateReporter.h"
 
+#include "../core/antenna/AntennaFactory.h"
 #include "../core/em/ApplyDiffractionInteraction.h"
 #include "../core/em/ApplyFreeSpaceSegment.h"
 #include "../core/em/ApplyReflectionInteraction.h"
@@ -62,6 +63,12 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
     input.config = &config;
     input.scene = &scene;
     input.path = &path;
+    const Point3 txPosition = !path.nodes.empty() ? path.nodes.front().point : Point3{};
+    const Point3 rxPosition = !path.nodes.empty() ? path.nodes.back().point : Point3{};
+    const AntennaModel tx = BuildTxAntennaModel(config, txPosition, "batch8-tx");
+    const AntennaModel rx = BuildRxAntennaModel(config, rxPosition, "batch8-rx");
+    input.tx_antenna = &tx;
+    input.rx_antenna = &rx;
     if (!PreparePathForEM(input))
     {
         return false;
@@ -194,6 +201,14 @@ bool BuildSingleTransmissionPath(const Scene& scene, GeometricPath& path)
         interaction.interaction_type = InteractionType::Transmission;
         interaction.object_id = face.object_id;
         interaction.face_id = face.face_id;
+        interaction.medium_in_id = face.front_medium_id;
+        interaction.medium_out_id = face.back_medium_id;
+        interaction.front_medium_id = face.front_medium_id;
+        interaction.back_medium_id = face.back_medium_id;
+        interaction.front_material_id = face.front_material_id;
+        interaction.back_material_id = face.back_material_id;
+        interaction.entered_from_front_side = true;
+        interaction.transmission_semantic_complete = face.transmission_semantic_complete;
         interaction.point = face.centroid;
         interaction.surface_normal = face.normal;
         interaction.segment_length_from_previous = Length(Subtract(interaction.point, tx.point));
@@ -207,6 +222,7 @@ bool BuildSingleTransmissionPath(const Scene& scene, GeometricPath& path)
 
         path.nodes = { tx, interaction, rx };
         path.total_length = interaction.segment_length_from_previous + rx.segment_length_from_previous;
+        path.contains_transmission = true;
         return true;
     }
     return false;
@@ -259,19 +275,19 @@ EMPathResultSet BuildReferencePathResultSet(const AppConfig& config, const Scene
     }
 
     GeometricPath reflection;
-    if (BuildSingleReflectionPath(scene, reflection) && SolveSinglePathEM(config, scene, reflection, result))
+    if (config.path_search.enable_reflection && BuildSingleReflectionPath(scene, reflection) && SolveSinglePathEM(config, scene, reflection, result))
     {
         set.results.push_back(result);
     }
 
     GeometricPath transmission;
-    if (BuildSingleTransmissionPath(scene, transmission) && SolveSinglePathEM(config, scene, transmission, result))
+    if (config.path_search.enable_transmission && BuildSingleTransmissionPath(scene, transmission) && SolveSinglePathEM(config, scene, transmission, result))
     {
         set.results.push_back(result);
     }
 
     GeometricPath diffraction;
-    if (BuildSingleDiffractionPath(scene, diffraction) && SolveSinglePathEM(config, scene, diffraction, result))
+    if (config.path_search.enable_diffraction && BuildSingleDiffractionPath(scene, diffraction) && SolveSinglePathEM(config, scene, diffraction, result))
     {
         set.results.push_back(result);
     }
@@ -302,7 +318,11 @@ bool LogAggregate(const std::string& name, const EMAggregateResult& result, Logg
            << ", pdp_taps=" << result.pdp.taps.size()
            << ", aps_entries=" << result.aps.entries.size()
            << ", total_power=" << result.statistics.total_power_linear
+           << ", mean_abs_phase=" << result.statistics.mean_abs_phase_rad
+           << ", tx_paths=" << result.statistics.transmission_path_count
            << ", coverage_power=" << result.coverage.total_received_power_linear
+           << ", avg_fs_loss_db=" << result.coverage.average_free_space_loss_db
+           << ", avg_pol_mag=" << result.isac_features.average_polarization_magnitude
            << ", isac_paths=" << result.isac_features.path_count;
     logger.Log(LogLevel::Info, "Module5", stream.str());
     return !result.path_results.results.empty() && !result.pdp.taps.empty();

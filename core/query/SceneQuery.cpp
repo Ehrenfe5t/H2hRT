@@ -273,7 +273,20 @@ FaceHit SceneQuery::QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& 
     {
         return FaceHit{};
     }
-    return hits.front();
+
+    FaceHit closest = hits.front();
+    for (const FaceHit& hit : hits)
+    {
+        if (!hit.hit)
+        {
+            continue;
+        }
+        if (!closest.hit || hit.distance < closest.distance)
+        {
+            closest = hit;
+        }
+    }
+    return closest;
 }
 
 /// <summary>
@@ -402,7 +415,6 @@ bool SceneQuery::IsVisible(const Point3& start, const Point3& end, const Visibil
 std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origin, const WedgeQueryContext& context) const
 {
     std::vector<WedgeCandidate> candidates;
-    static_cast<void>(origin);
 
     for (const WedgeQueryRecord& record : scene_.acceleration.wedge_acceleration.wedge_query_records)
     {
@@ -421,6 +433,13 @@ std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origi
             continue;
         }
 
+        const Vec3 delta = Subtract(record.center_point, origin);
+        const double distanceToOrigin = Length(delta);
+        if (distanceToOrigin > 50.0)
+        {
+            continue;
+        }
+
         WedgeCandidate candidate;
         candidate.wedge_id = record.wedge_id;
         candidate.source_edge_id = record.source_edge_id;
@@ -431,11 +450,25 @@ std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origi
         candidate.positive_face_id = record.positive_face_id;
         candidate.negative_face_id = record.negative_face_id;
         candidates.push_back(candidate);
+    }
 
-        if (static_cast<int>(candidates.size()) >= config_.path_search.max_candidate_wedges)
+    std::sort(
+        candidates.begin(),
+        candidates.end(),
+        [&origin](const WedgeCandidate& lhs, const WedgeCandidate& rhs)
         {
-            break;
-        }
+            const double lhsDistance = Length(Subtract(lhs.center_point, origin));
+            const double rhsDistance = Length(Subtract(rhs.center_point, origin));
+            if (lhsDistance != rhsDistance)
+            {
+                return lhsDistance < rhsDistance;
+            }
+            return lhs.length > rhs.length;
+        });
+
+    if (static_cast<int>(candidates.size()) > config_.path_search.max_candidate_wedges)
+    {
+        candidates.resize(static_cast<std::size_t>(config_.path_search.max_candidate_wedges));
     }
 
     return candidates;

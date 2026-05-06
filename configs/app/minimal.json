@@ -11,7 +11,7 @@
     "worker_threads": 1
   },
   "scene_import": {
-    "source_file": "demo/meeting.txt",
+    "source_file": "demo/meeting.obj",
     "source_format": "obj",
     "scene_material_map_file": "configs/scenes/scene_material_map.json",
     "normalize_object_names": true,
@@ -34,7 +34,7 @@
   },
   "material": {
     "material_database_file": "demo/ItuMaterial.csv",
-    "material_mapping_file": "",
+    "material_mapping_file": "configs/scenes/scene_material_map.json",
     "frequency_query_mode": "exact",
     "allow_material_fallback": false,
     "default_background_medium": "air"
@@ -46,27 +46,27 @@
   },
   "path_search": {
     "max_path_depth": 2,
-    "max_reflection_count": 2,
-    "max_transmission_count": 0,
+    "max_reflection_count": 0,
+    "max_transmission_count": 1,
     "max_diffraction_count": 0,
     "max_scattering_count": 0,
     "max_candidate_face_hits": 64,
     "max_candidate_wedges": 64,
     "enable_los": true,
-    "enable_reflection": true,
-    "enable_transmission": false,
+    "enable_reflection": false,
+    "enable_transmission": true,
     "enable_diffraction": false,
     "enable_scattering": false,
-    "enable_mixed_path": true,
+    "enable_mixed_path": false,
     "keep_angle_metadata": true,
     "pruning_strategy": "basic",
     "dedup_strategy": "signature",
-    "debug_tx_x": 1.0,
-    "debug_tx_y": 1.0,
-    "debug_tx_z": 1.0,
-    "debug_rx_x": 3.0,
-    "debug_rx_y": 1.0,
-    "debug_rx_z": 1.0
+    "debug_tx_x": 12.0,
+    "debug_tx_y": 1.5,
+    "debug_tx_z": -19.5,
+    "debug_rx_x": 12.0,
+    "debug_rx_y": 1.5,
+    "debug_rx_z": -0.5
   },
   "em_solver": {
     "frequency_hz": 2400000000.0,
@@ -91,18 +91,18 @@
     "power_tolerance_db": 0.1
   },
   "experiment": {
-    "experiment_tag": "batch0-batch1-bootstrap",
+    "experiment_tag": "a2-search-core-baseline",
     "dataset_tag": "demo-meeting"
   },
   "numeric_tolerance": {
-    "eps_length": 1e-6,
-    "eps_angle": 1e-6,
-    "eps_intersection": 1e-7,
-    "eps_normal": 1e-6,
-    "eps_deduplicate": 1e-5,
-    "eps_power": 1e-9,
-    "self_hit_ignore_distance": 1e-5,
-    "visibility_origin_offset": 1e-5,
-    "visibility_target_shrink": 1e-5
+    "eps_length": 1e-06,
+    "eps_angle": 1e-06,
+    "eps_intersection": 1e-07,
+    "eps_normal": 1e-06,
+    "eps_deduplicate": 1e-05,
+    "eps_power": 1e-09,
+    "self_hit_ignore_distance": 1e-05,
+    "visibility_origin_offset": 1e-05,
+    "visibility_target_shrink": 1e-05
   }
 }

@@ -20,6 +20,8 @@ struct RegressionDiffItem {
     std::string metric_name;
     std::string current_value;
     std::string baseline_value;
+    std::string severity = "info";
+    std::string reason;
 };
 
 /// <summary>
@@ -27,6 +29,14 @@ struct RegressionDiffItem {
 /// </summary>
 struct RegressionReport {
     std::vector<RegressionDiffItem> diff_items;
+    std::string baseline_name;
+    std::string current_run_name;
+    int diff_item_count = 0;
+    int warning_count = 0;
+    int blocking_count = 0;
+    std::string blocking_module = "";
+    std::string blocking_reason = "";
+    std::string blocking_sample = "";
     bool has_blocking_diff = false;
 };
 

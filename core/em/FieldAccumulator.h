@@ -25,7 +25,17 @@ struct FieldAccumulator {
     double amplitude_real = 1.0;
     double amplitude_imag = 0.0;
     double power_linear = 1.0;
+    double free_space_amplitude_scale = 1.0;
+    double free_space_power_scale = 1.0;
+    double last_segment_length_m = 0.0;
+    std::string tx_antenna_id;
+    std::string tx_antenna_source_type;
+    std::string rx_antenna_id;
+    std::string rx_antenna_source_type;
     int current_medium_id = -1;
+    int last_transmission_medium_in_id = -1;
+    int last_transmission_medium_out_id = -1;
+    bool transmission_semantic_consumed = false;
     Vec3 polarization_vector;
     bool valid = false;
 };

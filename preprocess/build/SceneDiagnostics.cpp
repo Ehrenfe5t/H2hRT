@@ -35,6 +35,11 @@ SceneDiagnostics BuildSceneDiagnostics(const Scene& scene)
             diagnostics.faces_missing_dual_side_material.push_back(face.face_id);
         }
 
+        if (face.transmission_enabled && !face.transmission_semantic_complete)
+        {
+            diagnostics.transmission_faces_missing_semantics.push_back(face.face_id);
+        }
+
         if (face.normal_index < 0)
         {
             diagnostics.flipped_normal_faces.push_back(face.face_id);
@@ -64,11 +69,59 @@ SceneDiagnostics BuildSceneDiagnostics(const Scene& scene)
         {
             diagnostics.objects_missing_material_mapping.push_back(binding.object_name);
         }
+
+        if (binding.rule_match_mode == "pattern")
+        {
+            diagnostics.objects_matched_by_pattern.push_back(binding.object_name);
+        }
+
+        if (binding.used_default_front_material || binding.used_default_back_material)
+        {
+            diagnostics.objects_resolved_with_default_materials.push_back(binding.object_name);
+        }
+
+        if (binding.recovery_quality_tag == "resolved_partial")
+        {
+            diagnostics.objects_with_partial_semantic_recovery.push_back(binding.object_name);
+        }
+
+        if (binding.recovery_quality_tag == "unresolved")
+        {
+            diagnostics.unresolved_binding_objects.push_back(binding.object_name);
+        }
+
+        if (!binding.transmission_semantic_complete && !binding.back_material_name.empty())
+        {
+            diagnostics.transmission_objects_missing_semantics.push_back(binding.object_name);
+        }
+    }
+
+    if (!diagnostics.objects_matched_by_pattern.empty())
+    {
+        diagnostics.warnings.push_back("Some objects were recovered by pattern rule rather than exact object_name rule.");
+    }
+
+    if (!diagnostics.objects_resolved_with_default_materials.empty())
+    {
+        diagnostics.warnings.push_back("Some objects relied on default front/back material filling during semantic recovery.");
+    }
+
+    if (!diagnostics.objects_with_partial_semantic_recovery.empty())
+    {
+        diagnostics.warnings.push_back("Some objects only reached partial semantic recovery and should be manually reviewed.");
+    }
+
+    if (!diagnostics.unresolved_binding_objects.empty())
+    {
+        diagnostics.warnings.push_back("Some objects remain unresolved after material binding and should be treated as scene-quality blockers.");
     }
 
     diagnostics.passed = diagnostics.degenerate_faces.empty() &&
                          diagnostics.non_manifold_edges.empty() &&
-                         diagnostics.faces_missing_dual_side_material.empty();
+                         diagnostics.faces_missing_dual_side_material.empty() &&
+                         diagnostics.transmission_faces_missing_semantics.empty() &&
+                         diagnostics.unresolved_binding_objects.empty() &&
+                         diagnostics.objects_with_partial_semantic_recovery.empty();
     return diagnostics;
 }
 

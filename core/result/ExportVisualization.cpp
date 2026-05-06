@@ -24,17 +24,21 @@ bool ExportVisualization(const ResultExportContext& context, ExportBundle& bundl
 {
     const std::string dir = context.export_root_directory + "/visualization";
     const std::string path = dir + "/path_points.json";
+    const std::string manifestPath = dir + "/inspection_manifest.json";
     if (!EnsureResultDirectory(dir))
     {
         return false;
     }
 
     std::ostringstream json;
-    json << "{\n  \"paths\": [\n";
+    json << "{\n  \"export_schema_version\": \"" << bundle.export_schema_version << "\",\n"
+         << "  \"export_purpose\": \"" << context.export_purpose << "\",\n"
+         << "  \"handoff_view_name\": \"" << context.handoff_view_name << "\",\n"
+         << "  \"paths\": [\n";
     for (std::size_t i = 0; i < context.precise_result->path_results.results.size(); ++i)
     {
         const EMPathResult& item = context.precise_result->path_results.results[i];
-        json << "    { \"path_id\": " << item.path_id << ", \"power_linear\": " << item.power_linear << " }";
+        json << "    { \"path_id\": " << item.path_id << ", \"power_linear\": " << item.power_linear << ", \"phase_rad\": " << item.phase_rad << ", \"free_space_loss_db\": " << item.free_space_loss_db << ", \"contains_transmission\": " << (item.contains_transmission ? "true" : "false") << ", \"source_tag\": \"" << item.source_tag << "\", \"tx_antenna_source_type\": \"" << item.tx_antenna_source_type << "\", \"rx_antenna_source_type\": \"" << item.rx_antenna_source_type << "\" }";
         if (i + 1U < context.precise_result->path_results.results.size())
         {
             json << ",";
@@ -43,11 +47,23 @@ bool ExportVisualization(const ResultExportContext& context, ExportBundle& bundl
     }
     json << "  ]\n}\n";
 
-    if (!WriteTextFile(path, json.str()))
+    std::ostringstream manifest;
+    manifest << "{\n"
+             << "  \"export_schema_version\": \"" << bundle.export_schema_version << "\",\n"
+             << "  \"handoff_view_name\": \"" << context.handoff_view_name << "\",\n"
+             << "  \"export_purpose\": \"" << context.export_purpose << "\",\n"
+             << "  \"path_points_file\": \"visualization/path_points.json\",\n"
+             << "  \"inspection_scope\": \"path_points_and_path_trace\",\n"
+             << "  \"path_count\": " << context.precise_result->path_results.results.size() << "\n"
+             << "}\n";
+
+    if (!WriteTextFile(path, json.str()) || !WriteTextFile(manifestPath, manifest.str()))
     {
         return false;
     }
     bundle.exported_files.push_back(path);
+    bundle.exported_files.push_back(manifestPath);
+    ++bundle.exported_json_file_count;
     return true;
 }
 

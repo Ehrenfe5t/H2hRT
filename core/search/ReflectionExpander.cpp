@@ -10,6 +10,7 @@
 
 #include "StateSignatureBuilder.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace rt {
@@ -53,6 +54,11 @@ double Length(const Vec3& value)
     return std::sqrt(Dot(value, value));
 }
 
+double Clamp(double value, double minValue, double maxValue)
+{
+    return std::max(minValue, std::min(value, maxValue));
+}
+
 Vec3 Normalize(const Vec3& value)
 {
     const double length = Length(value);
@@ -68,6 +74,18 @@ Point3 MirrorPointAcrossPlane(const Point3& point, const Point3& planePoint, con
     const Vec3 delta = Subtract(point, planePoint);
     const double signedDistance = Dot(delta, planeNormal);
     return Add(point, Scale(planeNormal, -2.0 * signedDistance));
+}
+
+double ComputeReflectionCandidateScore(const PathState& state, const FaceHit& hit, const Point3& rxPoint)
+{
+    const Vec3 hitToRx = Subtract(rxPoint, hit.position);
+    const double rxDistance = Length(hitToRx);
+    const Vec3 incoming = Normalize(Subtract(hit.position, state.current_point));
+    const Vec3 outgoing = Normalize(hitToRx);
+    const double normalIncoming = std::fabs(Dot(incoming, hit.normal));
+    const double normalOutgoing = std::fabs(Dot(outgoing, hit.normal));
+    const double angularPenalty = Clamp(1.0 - 0.5 * (normalIncoming + normalOutgoing), 0.0, 1.0);
+    return hit.distance + rxDistance + angularPenalty * 5.0;
 }
 
 } // namespace
@@ -86,6 +104,12 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         result.failure_reasons.push_back(GeometryValidityReason::OutOfBudget);
         return result;
     }
+
+    struct ReflectionCandidateState {
+        PathState state;
+        double score = 0.0;
+    };
+    std::vector<ReflectionCandidateState> acceptedStates;
 
     for (const Face& face : context.scene->faces)
     {
@@ -127,6 +151,16 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
             continue;
         }
 
+        const Vec3 incoming = Normalize(Subtract(hit.position, state.current_point));
+        const Vec3 outgoing = Normalize(Subtract(context.rx_point, hit.position));
+        const double incomingNormalComponent = std::fabs(Dot(incoming, hit.normal));
+        const double outgoingNormalComponent = std::fabs(Dot(outgoing, hit.normal));
+        if (incomingNormalComponent <= 1.0e-3 || outgoingNormalComponent <= 1.0e-3)
+        {
+            result.failure_reasons.push_back(GeometryValidityReason::CandidateRejectedByControl);
+            continue;
+        }
+
         PathState nextState = state;
         nextState.current_point = hit.position;
         nextState.current_direction = Normalize(Subtract(context.rx_point, hit.position));
@@ -136,9 +170,23 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         nextState.last_interaction_normal = hit.normal;
         nextState.accumulated_length += hit.distance;
         nextState.path_depth += 1;
+        nextState.interaction_count += 1;
         nextState.remaining_total_expansions -= 1;
         nextState.remaining_reflections -= 1;
         nextState.ignored_face_id = hit.face_id;
+        nextState.has_reflection = true;
+        nextState.mixed_path_enabled = state.has_transmission && !state.has_diffraction;
+        nextState.clipped_by_control_rules = false;
+
+        if (state.last_interaction_type != InteractionType::None &&
+            state.last_interaction_type != InteractionType::Tx &&
+            state.last_interaction_type != InteractionType::Reflection)
+        {
+            nextState.mechanism_switch_count += 1;
+        }
+        nextState.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Reflection)
+            ? (state.consecutive_same_interaction_count + 1)
+            : 0;
 
         PathNode node;
         node.interaction_type = InteractionType::Reflection;
@@ -160,8 +208,21 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
             continue;
         }
 
-        result.next_states.push_back(nextState);
-        break;
+        ReflectionCandidateState candidateState;
+        candidateState.state = nextState;
+        candidateState.score = ComputeReflectionCandidateScore(state, hit, context.rx_point);
+        acceptedStates.push_back(candidateState);
+    }
+
+    std::sort(acceptedStates.begin(), acceptedStates.end(),
+        [](const ReflectionCandidateState& lhs, const ReflectionCandidateState& rhs)
+        {
+            return lhs.score < rhs.score;
+        });
+    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 6U);
+    for (std::size_t i = 0; i < keepLimit; ++i)
+    {
+        result.next_states.push_back(acceptedStates[i].state);
     }
 
     if (result.next_states.empty() && result.failure_reasons.empty())

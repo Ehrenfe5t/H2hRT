@@ -42,7 +42,14 @@ struct SceneDiagnostics {
     std::vector<int> duplicated_faces;
     std::vector<int> flipped_normal_faces;
     std::vector<std::string> objects_missing_material_mapping;
+    std::vector<std::string> objects_matched_by_pattern;
+    std::vector<std::string> objects_resolved_with_default_materials;
+    std::vector<std::string> objects_with_partial_semantic_recovery;
+    std::vector<std::string> unresolved_binding_objects;
     std::vector<int> faces_missing_dual_side_material;
+    std::vector<int> transmission_faces_missing_semantics;
+    std::vector<std::string> transmission_objects_missing_semantics;
+    std::vector<std::string> warnings;
     bool passed = false;
 };
 

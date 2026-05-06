@@ -27,6 +27,12 @@ struct ValidationItem {
 /// </summary>
 struct ValidationReport {
     std::vector<ValidationItem> items;
+    int passed_item_count = 0;
+    int failed_item_count = 0;
+    std::string summary_level = "info";
+    std::string failed_module = "";
+    std::string failed_reason = "";
+    std::string failed_sample = "";
     bool passed = false;
 };
 

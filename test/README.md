@@ -7,6 +7,7 @@
 当前已加入：
 
 - `check_batch2_binding.py`
+- `visualize_scene_tx_rx.py`
 - `README_batch3.md`
 - `README_batch4.md`
 - `README_batch5.md`
@@ -66,6 +67,17 @@
 9. **按 X / Y / Z 任一坐标轴进行“上半部分去顶裁剪”**；
 10. 导出当前检查结果到 JSON。
 
+另外，新增：
+
+11. `visualize_scene_tx_rx.py`：
+   - 可直接可视化 `demo/meeting.obj`；
+   - 可在 UI 中输入算法使用的 Tx/Rx 坐标；
+   - 默认采用与当前 RT 算法 `OBJImporter` 一致的“无坐标变换”显示方式；
+   - 支持实验性显示变换，用于辅助判断 Blender 坐标系差异；
+   - 支持把当前 Tx/Rx 直接回写到脚本读取的配置文件；
+   - 支持按 X / Y / Z 某个轴做真正的几何裁剪式去顶；
+   - 无论是否切换实验显示模式，都会同步变换场景与 Tx/Rx 标记，保证视觉对应关系不乱。
+
 ---
 
 ## 推荐运行方式
@@ -76,6 +88,12 @@
 
 ```text
 test/check_batch2_binding.py
+```
+
+或打开：
+
+```text
+test/visualize_scene_tx_rx.py
 ```
 
 ### 第二步：按需修改顶部配置项
@@ -112,6 +130,16 @@ test/check_batch2_binding.py
 ```text
 test/output/batch2_check.json
 ```
+
+而 `visualize_scene_tx_rx.py` 默认会：
+
+1. 读取 `demo/meeting.obj`；
+2. 读取 `configs/app/minimal.json` 中当前 `debug_tx_* / debug_rx_*` 作为默认 Tx/Rx；
+3. 以与当前 RT 算法一致的坐标系显示场景；
+4. 在界面中用红色/蓝色球标出 Tx / Rx 位置；
+5. 允许你一边观察场景，一边修改算法将要使用的坐标值；
+6. 支持把当前 Tx/Rx 直接回写到当前读取的 `configs/app/minimal.json`；
+7. 支持按轴裁掉超过某阈值的上半部分，并且是几何裁剪，不是整面直接隐藏。
 
 ---
 

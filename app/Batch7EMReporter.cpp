@@ -8,6 +8,7 @@
 
 #include "Batch7EMReporter.h"
 
+#include "../core/antenna/AntennaFactory.h"
 #include "../core/em/ApplyDiffractionInteraction.h"
 #include "../core/em/ApplyFreeSpaceSegment.h"
 #include "../core/em/ApplyReflectionInteraction.h"
@@ -54,6 +55,12 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
     input.config = &config;
     input.scene = &scene;
     input.path = &path;
+    const Point3 txPosition = !path.nodes.empty() ? path.nodes.front().point : Point3{};
+    const Point3 rxPosition = !path.nodes.empty() ? path.nodes.back().point : Point3{};
+    const AntennaModel tx = BuildTxAntennaModel(config, txPosition, "batch7-tx");
+    const AntennaModel rx = BuildRxAntennaModel(config, rxPosition, "batch7-rx");
+    input.tx_antenna = &tx;
+    input.rx_antenna = &rx;
     if (!PreparePathForEM(input))
     {
         return false;
@@ -190,6 +197,14 @@ bool BuildSingleTransmissionPath(const Scene& scene, GeometricPath& path)
         tran.interaction_type = InteractionType::Transmission;
         tran.object_id = face.object_id;
         tran.face_id = face.face_id;
+        tran.medium_in_id = face.front_medium_id;
+        tran.medium_out_id = face.back_medium_id;
+        tran.front_medium_id = face.front_medium_id;
+        tran.back_medium_id = face.back_medium_id;
+        tran.front_material_id = face.front_material_id;
+        tran.back_material_id = face.back_material_id;
+        tran.entered_from_front_side = true;
+        tran.transmission_semantic_complete = face.transmission_semantic_complete;
         tran.point = face.centroid;
         tran.surface_normal = face.normal;
         tran.segment_length_from_previous = Length(Subtract(tran.point, tx.point));
@@ -203,6 +218,7 @@ bool BuildSingleTransmissionPath(const Scene& scene, GeometricPath& path)
 
         path.nodes = { tx, tran, rx };
         path.total_length = tran.segment_length_from_previous + rx.segment_length_from_previous;
+        path.contains_transmission = true;
         return true;
     }
     return false;
@@ -250,7 +266,16 @@ bool LogEmPathResult(const std::string& name, const EMPathResult& result, Logger
            << ", length=" << result.total_length_m
            << ", delay=" << result.delay_s
            << ", phase=" << result.phase_rad
-           << ", power=" << result.power_linear;
+           << ", power=" << result.power_linear
+           << ", fs_loss_db=" << result.free_space_loss_db
+           << ", pol_mag=" << result.polarization_magnitude
+           << ", tx_antenna=" << result.tx_antenna_id
+           << ", tx_source=" << result.tx_antenna_source_type
+           << ", rx_antenna=" << result.rx_antenna_id
+           << ", rx_source=" << result.rx_antenna_source_type
+           << ", tx_semantic=" << (result.transmission_semantic_consumed ? "true" : "false")
+           << ", medium_in=" << result.last_transmission_medium_in_id
+           << ", medium_out=" << result.last_transmission_medium_out_id;
     logger.Log(result.valid ? LogLevel::Info : LogLevel::Error, "Module5", stream.str());
     return result.valid;
 }
@@ -273,7 +298,11 @@ bool ReportBatch7EMSummary(const AppConfig& config, const Scene& scene, Logger& 
     allPassed = SolveSinglePathEM(config, scene, losPath, losResult) && LogEmPathResult("EMLosCheck", losResult, logger) && allPassed;
 
     GeometricPath reflectionPath;
-    if (BuildSingleReflectionPath(scene, reflectionPath))
+    if (!config.path_search.enable_reflection)
+    {
+        logger.Log(LogLevel::Info, "Module5", "EMReflectionCheck: skipped because reflection is disabled by current config.");
+    }
+    else if (BuildSingleReflectionPath(scene, reflectionPath))
     {
         EMPathResult reflectionResult;
         allPassed = SolveSinglePathEM(config, scene, reflectionPath, reflectionResult) && LogEmPathResult("EMReflectionCheck", reflectionResult, logger) && allPassed;
@@ -285,7 +314,11 @@ bool ReportBatch7EMSummary(const AppConfig& config, const Scene& scene, Logger& 
     }
 
     GeometricPath transmissionPath;
-    if (BuildSingleTransmissionPath(scene, transmissionPath))
+    if (!config.path_search.enable_transmission)
+    {
+        logger.Log(LogLevel::Info, "Module5", "EMTransmissionCheck: skipped because transmission is disabled by current config.");
+    }
+    else if (BuildSingleTransmissionPath(scene, transmissionPath))
     {
         EMPathResult transmissionResult;
         allPassed = SolveSinglePathEM(config, scene, transmissionPath, transmissionResult) && LogEmPathResult("EMTransmissionCheck", transmissionResult, logger) && allPassed;
@@ -297,7 +330,11 @@ bool ReportBatch7EMSummary(const AppConfig& config, const Scene& scene, Logger& 
     }
 
     GeometricPath diffractionPath;
-    if (BuildSingleDiffractionPath(scene, diffractionPath))
+    if (!config.path_search.enable_diffraction)
+    {
+        logger.Log(LogLevel::Info, "Module5", "EMDiffractionCheck: skipped because diffraction is disabled by current config.");
+    }
+    else if (BuildSingleDiffractionPath(scene, diffractionPath))
     {
         EMPathResult diffractionResult;
         allPassed = SolveSinglePathEM(config, scene, diffractionPath, diffractionResult) && LogEmPathResult("EMDiffractionCheck", diffractionResult, logger) && allPassed;

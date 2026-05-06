@@ -28,12 +28,18 @@ struct PathState {
     int last_interaction_object_id = -1;
     int last_hit_face_id = -1;
     int last_hit_wedge_id = -1;
+    int last_medium_in_id = -1;
+    int last_medium_out_id = -1;
+    int last_front_medium_id = -1;
+    int last_back_medium_id = -1;
     Vec3 last_interaction_normal;
     bool last_hit_front_side = true;
+    bool last_transmission_semantic_complete = false;
 
     std::vector<PathNode> traversed_nodes;
     double accumulated_length = 0.0;
     int path_depth = 0;
+    int interaction_count = 0;
 
     int remaining_total_expansions = 0;
     int remaining_reflections = 0;
@@ -48,6 +54,14 @@ struct PathState {
     bool allow_transmission = true;
     bool allow_diffraction = true;
     bool allow_scattering = false;
+
+    int mechanism_switch_count = 0;
+    int consecutive_same_interaction_count = 0;
+    bool mixed_path_enabled = false;
+    bool has_reflection = false;
+    bool has_transmission = false;
+    bool has_diffraction = false;
+    bool clipped_by_control_rules = false;
 
     std::string state_signature;
     bool valid = false;

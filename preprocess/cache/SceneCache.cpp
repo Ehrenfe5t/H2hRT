@@ -260,11 +260,16 @@ void WriteSceneMaterialBindingRecord(std::ofstream& output, const SceneMaterialB
     output.write(reinterpret_cast<const char*>(&binding.object_id), sizeof(binding.object_id));
     WriteString(output, binding.object_name);
     WriteString(output, binding.object_type);
+    WriteString(output, binding.rule_match_mode);
     WriteString(output, binding.surface_material_name);
     WriteString(output, binding.front_material_name);
     WriteString(output, binding.back_material_name);
     WriteString(output, binding.normal_rule_tag);
     WriteString(output, binding.rule_name);
+    WriteString(output, binding.recovery_quality_tag);
+    WriteString(output, binding.unresolved_reason);
+    output.write(reinterpret_cast<const char*>(&binding.used_default_front_material), sizeof(binding.used_default_front_material));
+    output.write(reinterpret_cast<const char*>(&binding.used_default_back_material), sizeof(binding.used_default_back_material));
     WriteVector(output, binding.face_ids);
     const std::size_t flagCount = binding.face_dual_side_resolved_flags.size();
     output.write(reinterpret_cast<const char*>(&flagCount), sizeof(flagCount));
@@ -284,12 +289,22 @@ bool ReadSceneMaterialBindingRecord(std::ifstream& input, SceneMaterialBinding& 
     }
     if (!ReadString(input, binding.object_name) ||
         !ReadString(input, binding.object_type) ||
+        !ReadString(input, binding.rule_match_mode) ||
         !ReadString(input, binding.surface_material_name) ||
         !ReadString(input, binding.front_material_name) ||
         !ReadString(input, binding.back_material_name) ||
         !ReadString(input, binding.normal_rule_tag) ||
         !ReadString(input, binding.rule_name) ||
+        !ReadString(input, binding.recovery_quality_tag) ||
+        !ReadString(input, binding.unresolved_reason) ||
         !ReadVector(input, binding.face_ids))
+    {
+        return false;
+    }
+
+    input.read(reinterpret_cast<char*>(&binding.used_default_front_material), sizeof(binding.used_default_front_material));
+    input.read(reinterpret_cast<char*>(&binding.used_default_back_material), sizeof(binding.used_default_back_material));
+    if (!input.good())
     {
         return false;
     }
@@ -663,6 +678,8 @@ SceneCacheMeta BuildSceneCacheMeta(const AppConfig& config, const Scene& scene)
     meta.wedge_count = static_cast<int>(scene.wedges.size());
     meta.contains_full_diagnostics = config.scene_preprocess.preprocess_mode == "debug";
     meta.contains_debug_auxiliary_data = config.scene_preprocess.preprocess_mode == "debug";
+    meta.replay_support_ready = meta.face_count > 0;
+    meta.cache_status_reason = "built_from_current_scene";
     return meta;
 }
 
@@ -676,6 +693,7 @@ SceneCacheLoadResult TryLoadSceneCache(const AppConfig& config)
     SceneCacheLoadResult result;
     if (!config.scene_preprocess.enable_scene_cache)
     {
+        result.content.meta.cache_status_reason = "cache_disabled_by_config";
         return result;
     }
 
@@ -684,12 +702,14 @@ SceneCacheLoadResult TryLoadSceneCache(const AppConfig& config)
     const std::string metaText = ReadWholeFileOrEmpty(metaPath);
     if (metaText.empty())
     {
+        result.content.meta.cache_status_reason = "meta_file_missing_or_empty";
         return result;
     }
 
     const SceneCacheMeta expectedMeta = BuildSceneCacheMeta(config, Scene{});
     if (!IsCacheMetaCompatible(expectedMeta, metaText))
     {
+        result.content.meta.cache_status_reason = "meta_incompatible_with_current_inputs";
         return result;
     }
 
@@ -722,6 +742,8 @@ SceneCacheLoadResult TryLoadSceneCache(const AppConfig& config)
     result.content.meta = BuildSceneCacheMeta(config, scene);
     result.content.meta.generated_timestamp = expectedMeta.generated_timestamp;
     result.content.meta.cache_format_version = expectedMeta.cache_format_version;
+    result.content.meta.replay_support_ready = true;
+    result.content.meta.cache_status_reason = "cache_hit_replayed";
     result.content.scene = scene;
     result.cache_hit = true;
     result.succeeded = true;
@@ -744,6 +766,7 @@ SceneCacheWriteResult WriteSceneCache(const AppConfig& config, const Scene& scen
     }
 
     result.meta = BuildSceneCacheMeta(config, scene);
+    result.meta.cache_status_reason = "cache_written_for_replay";
     const std::string metaPath = BuildSceneCacheMetaFilePath(config);
     const std::string contentPath = BuildSceneCacheContentFilePath(config);
     EnsureDirectory(BuildDirectoryFromPath(metaPath));

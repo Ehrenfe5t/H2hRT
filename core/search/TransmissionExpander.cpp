@@ -11,6 +11,7 @@
 #include "ResolveMediumTransition.h"
 #include "StateSignatureBuilder.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace rt {
@@ -45,6 +46,25 @@ Vec3 Normalize(const Vec3& value)
     return result;
 }
 
+double Dot(const Vec3& a, const Vec3& b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+double ComputeTransmissionCandidateScore(
+    const PathState& state,
+    const FaceHit& hit,
+    const Point3& rxPoint,
+    const MediumTransitionInfo& mediumInfo)
+{
+    const Vec3 hitToRx = Subtract(rxPoint, hit.position);
+    const double rxDistance = Length(hitToRx);
+    const Vec3 incoming = Normalize(Subtract(hit.position, state.current_point));
+    const double incidencePenalty = 1.0 - std::fabs(Dot(incoming, hit.normal));
+    const double mediumPenalty = (mediumInfo.medium_in_id == mediumInfo.medium_out_id) ? 0.5 : 0.0;
+    return hit.distance + rxDistance + incidencePenalty * 3.0 + mediumPenalty;
+}
+
 } // namespace
 
 /// <summary>
@@ -69,6 +89,12 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         result.failure_reasons.push_back(GeometryValidityReason::InvalidDirection);
         return result;
     }
+
+    struct TransmissionCandidateState {
+        PathState state;
+        double score = 0.0;
+    };
+    std::vector<TransmissionCandidateState> acceptedStates;
 
     Ray ray;
     ray.origin = state.current_point;
@@ -96,9 +122,18 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
 
         VisibilityQueryContext visibilityContext;
         visibilityContext.ignored_face_id = hit.face_id;
+        visibilityContext.ignored_object_id = hit.object_id;
         if (!context.scene_query->IsVisible(hit.position, context.rx_point, visibilityContext))
         {
             result.failure_reasons.push_back(GeometryValidityReason::VisibilityBlocked);
+            continue;
+        }
+
+        const Vec3 incoming = Normalize(Subtract(hit.position, state.current_point));
+        const double normalComponent = std::fabs(Dot(incoming, hit.normal));
+        if (normalComponent <= 1.0e-3)
+        {
+            result.failure_reasons.push_back(GeometryValidityReason::CandidateRejectedByControl);
             continue;
         }
 
@@ -109,18 +144,45 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         nextState.last_interaction_type = InteractionType::Transmission;
         nextState.last_interaction_object_id = hit.object_id;
         nextState.last_hit_face_id = hit.face_id;
+        nextState.last_medium_in_id = mediumInfo.medium_in_id;
+        nextState.last_medium_out_id = mediumInfo.medium_out_id;
+        nextState.last_front_medium_id = mediumInfo.front_medium_id;
+        nextState.last_back_medium_id = mediumInfo.back_medium_id;
         nextState.last_interaction_normal = hit.normal;
         nextState.last_hit_front_side = mediumInfo.entered_from_front_side;
+        nextState.last_transmission_semantic_complete = mediumInfo.dual_side_semantic_complete;
         nextState.accumulated_length += hit.distance;
         nextState.path_depth += 1;
+        nextState.interaction_count += 1;
         nextState.remaining_total_expansions -= 1;
         nextState.remaining_transmissions -= 1;
         nextState.ignored_face_id = hit.face_id;
+        nextState.has_transmission = true;
+        nextState.mixed_path_enabled = state.has_reflection && !state.has_diffraction;
+        nextState.clipped_by_control_rules = false;
+
+        if (state.last_interaction_type != InteractionType::None &&
+            state.last_interaction_type != InteractionType::Tx &&
+            state.last_interaction_type != InteractionType::Transmission)
+        {
+            nextState.mechanism_switch_count += 1;
+        }
+        nextState.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Transmission)
+            ? (state.consecutive_same_interaction_count + 1)
+            : 0;
 
         PathNode node;
         node.interaction_type = InteractionType::Transmission;
         node.object_id = hit.object_id;
         node.face_id = hit.face_id;
+        node.medium_in_id = mediumInfo.medium_in_id;
+        node.medium_out_id = mediumInfo.medium_out_id;
+        node.front_medium_id = mediumInfo.front_medium_id;
+        node.back_medium_id = mediumInfo.back_medium_id;
+        node.front_material_id = mediumInfo.front_material_id;
+        node.back_material_id = mediumInfo.back_material_id;
+        node.entered_from_front_side = mediumInfo.entered_from_front_side;
+        node.transmission_semantic_complete = mediumInfo.dual_side_semantic_complete;
         node.point = hit.position;
         node.direction = nextState.current_direction;
         node.surface_normal = hit.normal;
@@ -137,8 +199,21 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
             continue;
         }
 
-        result.next_states.push_back(nextState);
-        break;
+        TransmissionCandidateState candidateState;
+        candidateState.state = nextState;
+        candidateState.score = ComputeTransmissionCandidateScore(state, hit, context.rx_point, mediumInfo);
+        acceptedStates.push_back(candidateState);
+    }
+
+    std::sort(acceptedStates.begin(), acceptedStates.end(),
+        [](const TransmissionCandidateState& lhs, const TransmissionCandidateState& rhs)
+        {
+            return lhs.score < rhs.score;
+        });
+    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 4U);
+    for (std::size_t i = 0; i < keepLimit; ++i)
+    {
+        result.next_states.push_back(acceptedStates[i].state);
     }
 
     if (result.next_states.empty() && result.failure_reasons.empty())

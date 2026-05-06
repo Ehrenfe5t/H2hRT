@@ -29,6 +29,54 @@ bool PreparePathForEM(const EMSolverInput& input)
     {
         return false;
     }
+
+    bool transmissionSemanticComplete = true;
+    int firstTransmissionMediumIn = -1;
+    int firstTransmissionMediumOut = -1;
+    bool firstTransmissionCaptured = false;
+
+    for (const PathNode& node : input.path->nodes)
+    {
+        if (node.interaction_type != InteractionType::Transmission)
+        {
+            continue;
+        }
+
+        if (!node.transmission_semantic_complete)
+        {
+            transmissionSemanticComplete = false;
+            break;
+        }
+
+        if (node.medium_in_id < 0 || node.medium_out_id < 0)
+        {
+            transmissionSemanticComplete = false;
+            break;
+        }
+
+        if (node.medium_in_id == node.medium_out_id)
+        {
+            transmissionSemanticComplete = false;
+            break;
+        }
+
+        if (!firstTransmissionCaptured)
+        {
+            firstTransmissionMediumIn = node.medium_in_id;
+            firstTransmissionMediumOut = node.medium_out_id;
+            firstTransmissionCaptured = true;
+        }
+    }
+
+    const_cast<EMSolverInput&>(input).transmission_semantic_complete = transmissionSemanticComplete;
+    const_cast<EMSolverInput&>(input).first_transmission_medium_in_id = firstTransmissionMediumIn;
+    const_cast<EMSolverInput&>(input).first_transmission_medium_out_id = firstTransmissionMediumOut;
+
+    if (!transmissionSemanticComplete)
+    {
+        return false;
+    }
+
     return true;
 }
 

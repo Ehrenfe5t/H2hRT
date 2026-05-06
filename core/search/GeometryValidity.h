@@ -28,7 +28,12 @@ enum class GeometryValidityReason {
     InvalidMediumTransition,
     DegenerateWedge,
     OutOfBudget,
-    InvalidState
+    InvalidState,
+    DuplicateInteractionLoop,
+    InvalidPathSequence,
+    MixedPathNotAllowed,
+    PathDepthExceeded,
+    CandidateRejectedByControl
 };
 
 /// <summary>

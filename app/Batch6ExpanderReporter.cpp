@@ -33,6 +33,13 @@ void LogExpanderResult(const std::string& name, const ExpanderResult& result, Lo
     stream << name << ": next_states=" << result.next_states.size()
            << ", failure_reasons=" << result.failure_reasons.size();
     logger.Log(LogLevel::Info, "Module4", stream.str());
+
+    if (!result.next_states.empty())
+    {
+        std::ostringstream detail;
+        detail << name << "Detail: candidate_quality_entered=true, kept_states=" << result.next_states.size();
+        logger.Log(LogLevel::Info, "Module4", detail.str());
+    }
 }
 
 bool RunReflectionSelfCheck(const PathSearchContext& baseContext, Logger& logger)
@@ -136,9 +143,13 @@ bool RunDiffractionSelfCheck(const PathSearchContext& baseContext, Logger& logge
 /// <returns>true 表示批次6自检通过；false 表示失败。</returns>
 bool ReportBatch6ExpanderSummary(const PathSearchContext& context, Logger& logger)
 {
-    const bool reflectionOk = RunReflectionSelfCheck(context, logger);
-    const bool transmissionOk = RunTransmissionSelfCheck(context, logger);
-    const bool diffractionOk = RunDiffractionSelfCheck(context, logger);
+    const bool reflectionEnabled = context.config != nullptr && context.config->path_search.enable_reflection;
+    const bool transmissionEnabled = context.config != nullptr && context.config->path_search.enable_transmission;
+    const bool diffractionEnabled = context.config != nullptr && context.config->path_search.enable_diffraction;
+
+    const bool reflectionOk = reflectionEnabled ? RunReflectionSelfCheck(context, logger) : true;
+    const bool transmissionOk = transmissionEnabled ? RunTransmissionSelfCheck(context, logger) : true;
+    const bool diffractionOk = diffractionEnabled ? RunDiffractionSelfCheck(context, logger) : true;
 
     std::ostringstream summary;
     summary << "Batch6Expanders: reflection=" << (reflectionOk ? "true" : "false")

@@ -16,6 +16,7 @@
 #include "PathSignatureBuilder.h"
 
 #include <cmath>
+#include <algorithm>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -72,6 +73,59 @@ Vec3 Normalize(const Vec3& value)
     return Scale(value, 1.0 / length);
 }
 
+int GetMechanismPriority(InteractionType interactionType)
+{
+    switch (interactionType)
+    {
+    case InteractionType::Reflection:
+        return 0;
+    case InteractionType::Transmission:
+        return 1;
+    case InteractionType::Diffraction:
+        return 2;
+    default:
+        return 99;
+    }
+}
+
+double ComputeStateScore(const PathState& state)
+{
+    double score = 0.0;
+    score += static_cast<double>(state.path_depth) * 100.0;
+    score += static_cast<double>(state.mechanism_switch_count) * 10.0;
+    score += state.accumulated_length * 0.01;
+    score += static_cast<double>(GetMechanismPriority(state.last_interaction_type));
+    return score;
+}
+
+void SortAndTruncateCandidates(std::vector<PathState>& candidates, int keepLimit, SearchEngineResult& result)
+{
+    std::sort(candidates.begin(), candidates.end(),
+        [](const PathState& lhs, const PathState& rhs)
+        {
+            return ComputeStateScore(lhs) < ComputeStateScore(rhs);
+        });
+
+    if (keepLimit > 0 && static_cast<int>(candidates.size()) > keepLimit)
+    {
+        result.truncated_candidate_count += static_cast<int>(candidates.size()) - keepLimit;
+        candidates.resize(static_cast<std::size_t>(keepLimit));
+    }
+}
+
+void AppendCandidates(
+    std::vector<PathState>& acceptedCandidates,
+    const ExpanderResult& expanderResult,
+    SearchEngineResult& result,
+    int perExpanderKeepLimit)
+{
+    std::vector<PathState> localCandidates = expanderResult.next_states;
+    result.candidate_state_count += static_cast<int>(localCandidates.size());
+    SortAndTruncateCandidates(localCandidates, perExpanderKeepLimit, result);
+    result.accepted_state_count += static_cast<int>(localCandidates.size());
+    acceptedCandidates.insert(acceptedCandidates.end(), localCandidates.begin(), localCandidates.end());
+}
+
 FaceQueryContext BuildFaceQueryContext(const PathState& state, const AppConfig& config)
 {
     FaceQueryContext context;
@@ -103,6 +157,7 @@ PathState BuildInitialState(const PathSearchContext& context)
     state.last_interaction_type = InteractionType::Tx;
     state.accumulated_length = 0.0;
     state.path_depth = 0;
+    state.interaction_count = 0;
     state.remaining_total_expansions = context.config->path_search.max_path_depth;
     state.remaining_reflections = context.config->path_search.max_reflection_count;
     state.remaining_transmissions = context.config->path_search.max_transmission_count;
@@ -112,6 +167,9 @@ PathState BuildInitialState(const PathSearchContext& context)
     state.allow_transmission = context.config->path_search.enable_transmission;
     state.allow_diffraction = context.config->path_search.enable_diffraction;
     state.allow_scattering = context.config->path_search.enable_scattering;
+    state.mixed_path_enabled = false;
+    state.mechanism_switch_count = 0;
+    state.consecutive_same_interaction_count = 0;
 
     PathNode txNode;
     txNode.interaction_type = InteractionType::Tx;
@@ -133,26 +191,35 @@ bool TryBuildLosPath(const PathSearchContext& context, const PathState& state, G
     }
 
     const VisibilityQueryContext visibilityContext = BuildVisibilityQueryContext(state, *context.config);
-    if (!context.scene_query->IsVisible(context.tx_point, context.rx_point, visibilityContext))
+    if (!context.scene_query->IsVisible(state.current_point, context.rx_point, visibilityContext))
     {
-        traceLine = "LOS blocked by scene occlusion query.";
+        traceLine = "LOS / final-leg visibility blocked by scene occlusion query.";
         return false;
     }
 
+    const double finalLegLength = Length(Subtract(context.rx_point, state.current_point));
     path.path_id = 0;
-    path.total_length = Length(Subtract(context.rx_point, context.tx_point));
-    path.is_los = true;
+    path.total_length = state.accumulated_length + finalLegLength;
+    path.is_los = (state.path_depth == 0);
+    path.contains_transmission = state.has_transmission;
 
     path.nodes = state.traversed_nodes;
     PathNode rxNode;
     rxNode.interaction_type = InteractionType::Rx;
     rxNode.point = context.rx_point;
     rxNode.direction = state.current_direction;
-    rxNode.segment_length_from_previous = path.total_length;
+    rxNode.segment_length_from_previous = finalLegLength;
     rxNode.valid = true;
     path.nodes.push_back(rxNode);
     path.valid = true;
-    traceLine = "LOS path established from Tx to Rx.";
+    if (state.path_depth == 0)
+    {
+        traceLine = "LOS path established from Tx to Rx.";
+    }
+    else
+    {
+        traceLine = "Geometric path established from current search state to Rx final leg.";
+    }
     return true;
 }
 
@@ -189,6 +256,7 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
     stateSignatures.insert(initialState.state_signature);
     stack.push_back(initialState);
     result.generated_state_count = 1;
+    result.uses_real_scene_query = true;
     result.trace_lines.push_back("Initial PathState constructed.");
 
     while (!stack.empty())
@@ -200,6 +268,11 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
         if (!stateExpandable.valid)
         {
             ++result.failure_reason_counts[static_cast<int>(stateExpandable.reason)];
+            if (stateExpandable.reason == GeometryValidityReason::CandidateRejectedByControl ||
+                stateExpandable.reason == GeometryValidityReason::DuplicateInteractionLoop)
+            {
+                ++result.control_rule_rejected_state_count;
+            }
             result.trace_lines.push_back("State not expandable: " + stateExpandable.detail);
             continue;
         }
@@ -259,40 +332,34 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
         wedgeTrace << "Wedge candidate query result: count=" << wedgeCandidates.size();
         result.trace_lines.push_back(wedgeTrace.str());
 
+        const int perExpanderKeepLimit = std::max(1, std::min(4, context.config->path_search.max_candidate_face_hits));
+        const int perStateKeepLimit = std::max(1, std::min(8, context.config->path_search.max_candidate_face_hits));
+        std::vector<PathState> acceptedCandidates;
+
         const ExpanderResult reflectionResult = ExpandReflection(context, currentState);
         AccumulateFailureReasons(result, reflectionResult);
-        for (const PathState& nextState : reflectionResult.next_states)
-        {
-            if (stateSignatures.insert(nextState.state_signature).second)
-            {
-                stack.push_back(nextState);
-                ++result.generated_state_count;
-            }
-            else
-            {
-                ++result.deduplicated_state_count;
-            }
-        }
+        AppendCandidates(acceptedCandidates, reflectionResult, result, perExpanderKeepLimit);
 
         const ExpanderResult transmissionResult = ExpandTransmission(context, currentState);
         AccumulateFailureReasons(result, transmissionResult);
-        for (const PathState& nextState : transmissionResult.next_states)
-        {
-            if (stateSignatures.insert(nextState.state_signature).second)
-            {
-                stack.push_back(nextState);
-                ++result.generated_state_count;
-            }
-            else
-            {
-                ++result.deduplicated_state_count;
-            }
-        }
+        AppendCandidates(acceptedCandidates, transmissionResult, result, perExpanderKeepLimit);
 
         const ExpanderResult diffractionResult = ExpandDiffraction(context, currentState);
         AccumulateFailureReasons(result, diffractionResult);
-        for (const PathState& nextState : diffractionResult.next_states)
+        AppendCandidates(acceptedCandidates, diffractionResult, result, perExpanderKeepLimit);
+
+        SortAndTruncateCandidates(acceptedCandidates, perStateKeepLimit, result);
+
+        std::ostringstream candidateTrace;
+        candidateTrace << "Accepted candidate states after control: " << acceptedCandidates.size();
+        result.trace_lines.push_back(candidateTrace.str());
+
+        for (const PathState& nextState : acceptedCandidates)
         {
+            if (nextState.has_reflection && nextState.has_transmission && !nextState.has_diffraction)
+            {
+                ++result.mixed_path_generated_count;
+            }
             if (stateSignatures.insert(nextState.state_signature).second)
             {
                 stack.push_back(nextState);
@@ -306,6 +373,15 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
     }
 
     result.succeeded = true;
+
+    auto findCount = [&result](GeometryValidityReason reason) -> int
+    {
+        const auto it = result.failure_reason_counts.find(static_cast<int>(reason));
+        return it == result.failure_reason_counts.end() ? 0 : it->second;
+    };
+    result.invalid_sequence_rejected_count = findCount(GeometryValidityReason::InvalidPathSequence) +
+                                             findCount(GeometryValidityReason::DuplicateInteractionLoop);
+    result.mixed_path_blocked_count = findCount(GeometryValidityReason::MixedPathNotAllowed);
     return result;
 }
 

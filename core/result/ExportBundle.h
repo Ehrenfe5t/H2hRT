@@ -19,6 +19,15 @@ namespace rt {
 struct ExportBundle {
     std::string root_directory;
     std::vector<std::string> exported_files;
+    std::string primary_input_source;
+    std::string export_purpose = "analysis_friendly_output";
+    std::string export_schema_version = "a8-v1";
+    std::string export_view_name = "a8_handoff_view";
+    int search_path_count = 0;
+    int em_path_result_count = 0;
+    int exported_json_file_count = 0;
+    int exported_csv_file_count = 0;
+    bool used_reference_path_fallback = false;
     bool succeeded = false;
 };
 

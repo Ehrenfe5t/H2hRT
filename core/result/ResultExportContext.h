@@ -13,6 +13,7 @@
 #include "ValidationReport.h"
 #include "../common/config/AppConfig.h"
 #include "../em/EMProfile.h"
+#include "../search/SearchEngine.h"
 
 namespace rt {
 
@@ -21,9 +22,14 @@ namespace rt {
 /// </summary>
 struct ResultExportContext {
     const AppConfig* config = nullptr;
+    const SearchEngineResult* search_result = nullptr;
     const EMAggregateResult* precise_result = nullptr;
     const EMAggregateResult* coverage_result = nullptr;
+    bool real_chain_enabled = false;
+    std::string primary_input_source;
     std::string export_root_directory;
+    std::string export_purpose = "analysis_friendly_output";
+    std::string handoff_view_name = "a8_handoff_view";
 };
 
 } // namespace rt

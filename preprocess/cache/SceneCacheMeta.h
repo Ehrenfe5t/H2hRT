@@ -41,6 +41,8 @@ struct SceneCacheMeta {
 
     bool contains_full_diagnostics = false;
     bool contains_debug_auxiliary_data = false;
+    bool replay_support_ready = false;
+    std::string cache_status_reason;
 };
 
 } // namespace rt

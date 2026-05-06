@@ -19,6 +19,7 @@ namespace rt {
 CoverageResult BuildCoverageResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
 {
     CoverageResult result;
+    double lossSum = 0.0;
     for (const EMPathResult& item : pathResults.results)
     {
         if (!item.valid || item.power_linear < profile.min_power_threshold_linear)
@@ -27,6 +28,11 @@ CoverageResult BuildCoverageResult(const EMPathResultSet& pathResults, const EMS
         }
         result.total_received_power_linear += item.power_linear;
         ++result.contributing_path_count;
+        lossSum += item.free_space_loss_db;
+    }
+    if (result.contributing_path_count > 0)
+    {
+        result.average_free_space_loss_db = lossSum / static_cast<double>(result.contributing_path_count);
     }
     return result;
 }

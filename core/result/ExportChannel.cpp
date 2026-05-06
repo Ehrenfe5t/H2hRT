@@ -31,10 +31,15 @@ bool ExportChannel(const ResultExportContext& context, ExportBundle& bundle)
 
     std::ostringstream json;
     json << "{\n"
+         << "  \"export_schema_version\": \"" << bundle.export_schema_version << "\",\n"
+         << "  \"export_purpose\": \"" << context.export_purpose << "\",\n"
+         << "  \"primary_input_source\": \"" << context.primary_input_source << "\",\n"
          << "  \"cir_taps\": " << context.precise_result->cir.taps.size() << ",\n"
          << "  \"pdp_taps\": " << context.precise_result->pdp.taps.size() << ",\n"
          << "  \"aps_entries\": " << context.precise_result->aps.entries.size() << ",\n"
-         << "  \"total_power_linear\": " << context.precise_result->statistics.total_power_linear << "\n"
+         << "  \"total_power_linear\": " << context.precise_result->statistics.total_power_linear << ",\n"
+         << "  \"mean_abs_phase_rad\": " << context.precise_result->statistics.mean_abs_phase_rad << ",\n"
+         << "  \"transmission_path_count\": " << context.precise_result->statistics.transmission_path_count << "\n"
          << "}\n";
 
     if (!WriteTextFile(path, json.str()))
@@ -42,6 +47,7 @@ bool ExportChannel(const ResultExportContext& context, ExportBundle& bundle)
         return false;
     }
     bundle.exported_files.push_back(path);
+    ++bundle.exported_json_file_count;
     return true;
 }
 

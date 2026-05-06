@@ -19,7 +19,14 @@ struct MediumTransitionInfo {
     bool valid = false;
     int medium_in_id = -1;
     int medium_out_id = -1;
+    int front_medium_id = -1;
+    int back_medium_id = -1;
+    int front_material_id = -1;
+    int back_material_id = -1;
+    int face_id = -1;
+    int object_id = -1;
     bool entered_from_front_side = true;
+    bool dual_side_semantic_complete = false;
 };
 
 /// <summary>

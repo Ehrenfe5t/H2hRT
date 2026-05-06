@@ -23,8 +23,15 @@ void ReportBatch5SearchSummary(const SearchEngineResult& result, Logger& logger)
     std::ostringstream summary;
     summary << "Batch5Search: succeeded=" << (result.succeeded ? "true" : "false")
             << ", states=" << result.generated_state_count
+            << ", candidate_states=" << result.candidate_state_count
+            << ", accepted_states=" << result.accepted_state_count
+            << ", truncated_candidates=" << result.truncated_candidate_count
             << ", dedup_states=" << result.deduplicated_state_count
             << ", dedup_paths=" << result.deduplicated_path_count
+            << ", control_rejected=" << result.control_rule_rejected_state_count
+            << ", invalid_sequence_rejected=" << result.invalid_sequence_rejected_count
+            << ", mixed_path_blocked=" << result.mixed_path_blocked_count
+            << ", mixed_path_generated=" << result.mixed_path_generated_count
             << ", paths=" << result.path_set.paths.size();
     logger.Log(LogLevel::Info, "Module4", summary.str());
 

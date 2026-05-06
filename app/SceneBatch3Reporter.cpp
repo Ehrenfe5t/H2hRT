@@ -31,9 +31,34 @@ void ReportSceneBatch3Summary(const Scene& scene, Logger& logger)
                       << ", non_manifold_edges=" << scene.diagnostics.non_manifold_edges.size()
                       << ", duplicated_faces=" << scene.diagnostics.duplicated_faces.size()
                       << ", flipped_normal_faces=" << scene.diagnostics.flipped_normal_faces.size()
+                      << ", pattern_matched_objects=" << scene.diagnostics.objects_matched_by_pattern.size()
+                      << ", default_filled_objects=" << scene.diagnostics.objects_resolved_with_default_materials.size()
+                      << ", partial_semantic_objects=" << scene.diagnostics.objects_with_partial_semantic_recovery.size()
+                      << ", unresolved_binding_objects=" << scene.diagnostics.unresolved_binding_objects.size()
                       << ", faces_missing_dual_side_material=" << scene.diagnostics.faces_missing_dual_side_material.size()
+                      << ", transmission_faces_missing_semantics=" << scene.diagnostics.transmission_faces_missing_semantics.size()
                       << ", passed=" << (scene.diagnostics.passed ? "true" : "false");
     logger.Log(LogLevel::Info, "Module2", diagnosticsStream.str());
+
+    for (const std::string& objectName : scene.diagnostics.transmission_objects_missing_semantics)
+    {
+        logger.Log(LogLevel::Warn, "Module2", "TransmissionSemanticGapObject: " + objectName);
+    }
+
+    for (const std::string& objectName : scene.diagnostics.objects_with_partial_semantic_recovery)
+    {
+        logger.Log(LogLevel::Warn, "Module2", "PartialSemanticRecoveryObject: " + objectName);
+    }
+
+    for (const std::string& objectName : scene.diagnostics.unresolved_binding_objects)
+    {
+        logger.Log(LogLevel::Warn, "Module2", "UnresolvedBindingObject: " + objectName);
+    }
+
+    for (const std::string& warning : scene.diagnostics.warnings)
+    {
+        logger.Log(LogLevel::Warn, "Module2", "DiagnosticsWarning: " + warning);
+    }
 
     std::ostringstream bvhStream;
     bvhStream << "SceneAcceleration: bvh_nodes=" << scene.acceleration.face_acceleration.bvh_node_count

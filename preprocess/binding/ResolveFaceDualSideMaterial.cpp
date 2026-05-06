@@ -12,6 +12,36 @@ namespace rt {
 
 namespace {
 
+bool WildcardMatch(const std::string& pattern, const std::string& text)
+{
+    if (pattern.empty())
+    {
+        return false;
+    }
+
+    const std::size_t starPos = pattern.find('*');
+    if (starPos == std::string::npos)
+    {
+        return pattern == text;
+    }
+
+    const std::string prefix = pattern.substr(0, starPos);
+    const std::string suffix = pattern.substr(starPos + 1U);
+    if (text.size() < prefix.size() + suffix.size())
+    {
+        return false;
+    }
+    if (!prefix.empty() && text.compare(0, prefix.size(), prefix) != 0)
+    {
+        return false;
+    }
+    if (!suffix.empty() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) != 0)
+    {
+        return false;
+    }
+    return true;
+}
+
 /// <summary>
 /// 根据对象名查找匹配的材质规则。
 /// </summary>
@@ -22,7 +52,15 @@ const SceneMaterialRule* FindRuleForObject(const SceneMaterialRuleSet& ruleSet, 
 {
     for (const SceneMaterialRule& rule : ruleSet.rules)
     {
-        if (rule.object_name == objectName)
+        if (!rule.object_name.empty() && rule.object_name == objectName)
+        {
+            return &rule;
+        }
+    }
+
+    for (const SceneMaterialRule& rule : ruleSet.rules)
+    {
+        if (WildcardMatch(rule.object_name_pattern, objectName))
         {
             return &rule;
         }
@@ -53,6 +91,9 @@ void ResolveFaceDualSideMaterial(const SceneMaterialRuleSet& ruleSet, Scene& sce
         const SceneMaterialRule* rule = FindRuleForObject(ruleSet, objectRecord.object_name);
         if (rule == nullptr)
         {
+            binding.rule_match_mode = "unresolved";
+            binding.recovery_quality_tag = "unresolved";
+            binding.unresolved_reason = "no_matching_rule";
             for (const int faceId : objectRecord.face_ids)
             {
                 if (faceId >= 0 && faceId < static_cast<int>(scene.faces.size()))
@@ -70,10 +111,25 @@ void ResolveFaceDualSideMaterial(const SceneMaterialRuleSet& ruleSet, Scene& sce
 
         binding.rule_name = rule->rule_name;
         binding.object_type = rule->object_type;
+        binding.rule_match_mode = rule->object_name == objectRecord.object_name ? "exact" : "pattern";
         binding.surface_material_name = rule->surface_material_name;
+        binding.surface_material_id = rule->surface_material_id;
         binding.front_material_name = rule->front_material_name.empty() ? ruleSet.default_medium : rule->front_material_name;
+        binding.front_material_id = rule->front_material_id;
+        binding.front_medium_id = rule->front_medium_id;
         binding.back_material_name = rule->back_material_name.empty() ? rule->surface_material_name : rule->back_material_name;
+        binding.back_material_id = rule->back_material_id;
+        binding.back_medium_id = rule->back_medium_id;
         binding.normal_rule_tag = rule->normal_rule;
+        binding.used_default_front_material = rule->front_material_name.empty();
+        binding.used_default_back_material = rule->back_material_name.empty();
+        binding.transmission_semantic_complete = !binding.front_material_name.empty() &&
+                                                 !binding.back_material_name.empty() &&
+                                                 binding.front_medium_id >= 0 &&
+                                                 binding.back_medium_id >= 0;
+        binding.recovery_quality_tag = binding.transmission_semantic_complete
+            ? ((binding.used_default_front_material || binding.used_default_back_material) ? "resolved_with_defaults" : "resolved_full")
+            : "resolved_partial";
 
         for (const int faceId : objectRecord.face_ids)
         {
@@ -82,13 +138,22 @@ void ResolveFaceDualSideMaterial(const SceneMaterialRuleSet& ruleSet, Scene& sce
                 Face& face = scene.faces[faceId];
                 face.object_type = binding.object_type;
                 face.surface_material_name = binding.surface_material_name;
+                face.surface_material_id = binding.surface_material_id;
                 face.front_material_name = binding.front_material_name;
+                face.front_material_id = binding.front_material_id;
+                face.front_medium_id = binding.front_medium_id;
                 face.back_material_name = binding.back_material_name;
+                face.back_material_id = binding.back_material_id;
+                face.back_medium_id = binding.back_medium_id;
                 face.normal_rule_tag = binding.normal_rule_tag;
                 face.dual_side_material_resolved = true;
                 face.reflection_enabled = rule->reflection_enabled;
                 face.transmission_enabled = rule->transmission_enabled;
                 face.diffraction_candidate_enabled = rule->diffraction_candidate_enabled;
+                face.transmission_semantic_complete = !face.front_material_name.empty() &&
+                                                      !face.back_material_name.empty() &&
+                                                      face.front_medium_id >= 0 &&
+                                                      face.back_medium_id >= 0;
                 face.propagation_flags = FacePropagationNone;
                 if (face.reflection_enabled)
                 {

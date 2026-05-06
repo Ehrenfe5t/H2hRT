@@ -63,7 +63,7 @@ REPO_ROOT = resolve_repo_root()
 # =============================================================================
 
 # 输入文件路径
-OBJ_FILE_PATH = REPO_ROOT / "demo" / "meeting.txt"
+OBJ_FILE_PATH = REPO_ROOT / "demo" / "meeting.obj"
 RULE_FILE_PATH = REPO_ROOT / "configs" / "scenes" / "scene_material_map.json"
 
 # 可视化默认行为

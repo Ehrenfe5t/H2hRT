@@ -21,11 +21,17 @@ namespace rt {
 struct SceneMaterialRule {
     std::string rule_name;
     std::string object_name;
+    std::string object_name_pattern;
     std::string object_type;
     std::string surface_material_name;
     std::string front_material_name;
     std::string back_material_name;
     std::string normal_rule;
+    int surface_material_id = -1;
+    int front_material_id = -1;
+    int back_material_id = -1;
+    int front_medium_id = -1;
+    int back_medium_id = -1;
     bool reflection_enabled = true;
     bool transmission_enabled = false;
     bool diffraction_candidate_enabled = false;
@@ -36,6 +42,7 @@ struct SceneMaterialRule {
 /// </summary>
 struct SceneMaterialRuleSet {
     std::string default_medium = "Air";
+    int default_medium_id = -1;
     std::vector<SceneMaterialRule> rules;
 };
 

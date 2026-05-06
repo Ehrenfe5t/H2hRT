@@ -21,6 +21,14 @@ struct PathNode {
     int object_id = -1;
     int face_id = -1;
     int wedge_id = -1;
+    int medium_in_id = -1;
+    int medium_out_id = -1;
+    int front_medium_id = -1;
+    int back_medium_id = -1;
+    int front_material_id = -1;
+    int back_material_id = -1;
+    bool entered_from_front_side = true;
+    bool transmission_semantic_complete = false;
     Point3 point;
     Vec3 direction;
     Vec3 surface_normal;

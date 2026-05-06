@@ -8,24 +8,9 @@
 
 #include "ResolveMediumTransition.h"
 
-#include <map>
-
 namespace rt {
 
 namespace {
-
-int MaterialNameToId(const std::string& materialName)
-{
-    static std::map<std::string, int> dictionary;
-    const auto found = dictionary.find(materialName);
-    if (found != dictionary.end())
-    {
-        return found->second;
-    }
-    const int id = static_cast<int>(dictionary.size());
-    dictionary[materialName] = id;
-    return id;
-}
 
 double Dot(const Vec3& a, const Vec3& b)
 {
@@ -50,16 +35,32 @@ MediumTransitionInfo ResolveMediumTransition(const PathState& state, const FaceH
     }
 
     const Face& face = context.scene->faces[hit.face_id];
-    if (!face.dual_side_material_resolved)
+    if (!face.dual_side_material_resolved || !face.transmission_semantic_complete)
     {
         return info;
     }
 
     const bool frontSide = Dot(state.current_direction, face.normal) < 0.0;
+    info.face_id = hit.face_id;
+    info.object_id = hit.object_id;
+    info.front_medium_id = face.front_medium_id;
+    info.back_medium_id = face.back_medium_id;
+    info.front_material_id = face.front_material_id;
+    info.back_material_id = face.back_material_id;
+    info.dual_side_semantic_complete = face.transmission_semantic_complete;
     info.medium_in_id = state.current_medium_id;
-    info.medium_out_id = frontSide ? MaterialNameToId(face.back_material_name) : MaterialNameToId(face.front_material_name);
+
+    if (frontSide)
+    {
+        info.medium_out_id = face.back_medium_id;
+    }
+    else
+    {
+        info.medium_out_id = face.front_medium_id;
+    }
+
     info.entered_from_front_side = frontSide;
-    info.valid = info.medium_out_id >= 0;
+    info.valid = info.dual_side_semantic_complete && info.medium_in_id >= 0 && info.medium_out_id >= 0;
     return info;
 }
 

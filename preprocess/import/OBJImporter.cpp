@@ -16,6 +16,13 @@ namespace rt {
 
 namespace {
 
+std::string BuildLineLocationMessage(int lineNumber)
+{
+    std::ostringstream stream;
+    stream << "OBJ parse error near line " << lineNumber << ".";
+    return stream.str();
+}
+
 bool ParseVector3(std::istringstream& lineStream, Vec3& vector)
 {
     return static_cast<bool>(lineStream >> vector.x >> vector.y >> vector.z);
@@ -82,8 +89,16 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
     int currentObjectId = -1;
     std::string currentObjectName;
     std::string line;
+    int lineNumber = 0;
+    bool sawUnsupportedFaceFormat = false;
+    bool sawMalformedVertex = false;
+    bool sawMalformedNormal = false;
+    bool sawMalformedFace = false;
+    bool sawOutOfRangeNormalIndex = false;
+
     while (std::getline(input, line))
     {
+        ++lineNumber;
         if (line.empty() || line[0] == '#')
         {
             continue;
@@ -96,6 +111,10 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
         if (tag == "o")
         {
             lineStream >> currentObjectName;
+            if (currentObjectName.empty())
+            {
+                currentObjectName = "unnamed_object_" + std::to_string(static_cast<int>(result.scene.objects.size()));
+            }
             currentObjectId = static_cast<int>(result.scene.objects.size());
 
             SceneObjectRecord objectRecord;
@@ -110,6 +129,17 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
             {
                 result.scene.vertices.push_back(vertex);
             }
+            else
+            {
+                sawMalformedVertex = true;
+                result.errors.push_back(RtError::Create(
+                    ErrorCode::JsonParseError,
+                    "Module2",
+                    "Malformed OBJ vertex record.",
+                    filePath,
+                    BuildLineLocationMessage(lineNumber),
+                    false));
+            }
         }
         else if (tag == "vn")
         {
@@ -118,9 +148,31 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
             {
                 result.scene.normals.push_back(normal);
             }
+            else
+            {
+                sawMalformedNormal = true;
+                result.errors.push_back(RtError::Create(
+                    ErrorCode::JsonParseError,
+                    "Module2",
+                    "Malformed OBJ normal record.",
+                    filePath,
+                    BuildLineLocationMessage(lineNumber),
+                    false));
+            }
         }
         else if (tag == "f")
         {
+            if (currentObjectId < 0)
+            {
+                currentObjectName = "default_object_0";
+                currentObjectId = static_cast<int>(result.scene.objects.size());
+
+                SceneObjectRecord objectRecord;
+                objectRecord.object_id = currentObjectId;
+                objectRecord.object_name = currentObjectName;
+                result.scene.objects.push_back(objectRecord);
+            }
+
             Face face;
             if (ParseFace(lineStream, face))
             {
@@ -131,12 +183,36 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
                 {
                     face.normal = result.scene.normals[face.normal_index];
                 }
+                else if (face.normal_index >= 0)
+                {
+                    sawOutOfRangeNormalIndex = true;
+                    result.errors.push_back(RtError::Create(
+                        ErrorCode::JsonParseError,
+                        "Module2",
+                        "OBJ face references an out-of-range normal index.",
+                        filePath,
+                        BuildLineLocationMessage(lineNumber),
+                        false));
+                    continue;
+                }
 
                 result.scene.faces.push_back(face);
                 if (currentObjectId >= 0 && currentObjectId < static_cast<int>(result.scene.objects.size()))
                 {
                     result.scene.objects[currentObjectId].face_ids.push_back(face.face_id);
                 }
+            }
+            else
+            {
+                sawMalformedFace = true;
+                sawUnsupportedFaceFormat = true;
+                result.errors.push_back(RtError::Create(
+                    ErrorCode::JsonParseError,
+                    "Module2",
+                    "Unsupported or malformed OBJ face record.",
+                    filePath,
+                    "Current importer expects triangle faces in 'v//n' format. " + BuildLineLocationMessage(lineNumber),
+                    false));
             }
         }
     }
@@ -146,16 +222,25 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
     result.scene.meta.normal_count = static_cast<int>(result.scene.normals.size());
     result.scene.meta.face_count = static_cast<int>(result.scene.faces.size());
 
-    result.succeeded = !result.scene.faces.empty();
+    result.succeeded = !result.scene.faces.empty() &&
+                       !sawMalformedVertex &&
+                       !sawMalformedNormal &&
+                       !sawMalformedFace &&
+                       !sawOutOfRangeNormalIndex;
     if (!result.succeeded)
     {
-        result.errors.push_back(RtError::Create(
-            ErrorCode::JsonParseError,
-            "Module2",
-            "No valid triangle faces were parsed from the OBJ file.",
-            filePath,
-            "Check whether the input file is a triangle-face OBJ text.",
-            true));
+        if (result.scene.faces.empty())
+        {
+            result.errors.push_back(RtError::Create(
+                ErrorCode::JsonParseError,
+                "Module2",
+                "No valid triangle faces were parsed from the OBJ file.",
+                filePath,
+                sawUnsupportedFaceFormat
+                    ? "The file may contain unsupported face syntax; current importer expects triangle faces in 'v//n' format."
+                    : "Check whether the input file is a triangle-face OBJ text.",
+                true));
+        }
     }
 
     return result;

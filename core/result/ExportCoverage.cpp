@@ -31,8 +31,12 @@ bool ExportCoverage(const ResultExportContext& context, ExportBundle& bundle)
 
     std::ostringstream json;
     json << "{\n"
+         << "  \"export_schema_version\": \"" << bundle.export_schema_version << "\",\n"
+         << "  \"export_purpose\": \"" << context.export_purpose << "\",\n"
+         << "  \"primary_input_source\": \"" << context.primary_input_source << "\",\n"
          << "  \"total_received_power_linear\": " << context.coverage_result->coverage.total_received_power_linear << ",\n"
-         << "  \"contributing_path_count\": " << context.coverage_result->coverage.contributing_path_count << "\n"
+         << "  \"contributing_path_count\": " << context.coverage_result->coverage.contributing_path_count << ",\n"
+         << "  \"average_free_space_loss_db\": " << context.coverage_result->coverage.average_free_space_loss_db << "\n"
          << "}\n";
 
     if (!WriteTextFile(path, json.str()))
@@ -40,6 +44,7 @@ bool ExportCoverage(const ResultExportContext& context, ExportBundle& bundle)
         return false;
     }
     bundle.exported_files.push_back(path);
+    ++bundle.exported_json_file_count;
     return true;
 }
 

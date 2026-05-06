@@ -19,6 +19,7 @@ ISACFeatureSet BuildISACFeatureSet(const EMPathResultSet& pathResults)
 {
     ISACFeatureSet result;
     bool first = true;
+    double polarizationSum = 0.0;
     for (const EMPathResult& item : pathResults.results)
     {
         if (!item.valid)
@@ -26,6 +27,11 @@ ISACFeatureSet BuildISACFeatureSet(const EMPathResultSet& pathResults)
             continue;
         }
         ++result.path_count;
+        polarizationSum += item.polarization_magnitude;
+        if (item.transmission_semantic_consumed)
+        {
+            ++result.transmission_path_count;
+        }
         if (first || item.delay_s < result.earliest_delay_s)
         {
             result.earliest_delay_s = item.delay_s;
@@ -35,6 +41,10 @@ ISACFeatureSet BuildISACFeatureSet(const EMPathResultSet& pathResults)
             result.strongest_path_power_linear = item.power_linear;
         }
         first = false;
+    }
+    if (result.path_count > 0)
+    {
+        result.average_polarization_magnitude = polarizationSum / static_cast<double>(result.path_count);
     }
     return result;
 }

@@ -10,6 +10,7 @@
 
 #include "StateSignatureBuilder.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace rt {
@@ -44,6 +45,19 @@ Vec3 Normalize(const Vec3& value)
     return result;
 }
 
+double Dot(const Vec3& a, const Vec3& b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+double ComputeDiffractionCandidateScore(const PathState& state, const WedgeCandidate& candidate, const Point3& rxPoint)
+{
+    const double fromCurrent = Length(Subtract(candidate.center_point, state.current_point));
+    const double toRx = Length(Subtract(rxPoint, candidate.center_point));
+    const double anglePenalty = std::fabs(candidate.wedge_angle_deg - 90.0) / 90.0;
+    return fromCurrent + toRx + anglePenalty * 5.0;
+}
+
 } // namespace
 
 /// <summary>
@@ -66,6 +80,13 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
     queryContext.recent_face_id = state.last_hit_face_id;
     queryContext.recent_wedge_id = state.last_hit_wedge_id;
     const std::vector<WedgeCandidate> candidates = context.scene_query->QueryCandidateWedges(state.current_point, queryContext);
+
+    struct DiffractionCandidateState {
+        PathState state;
+        double score = 0.0;
+    };
+    std::vector<DiffractionCandidateState> acceptedStates;
+
     for (const WedgeCandidate& candidate : candidates)
     {
         const GeometryValidityResult candidateValidity = IsValidDiffractionCandidate(candidate);
@@ -83,6 +104,14 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
             continue;
         }
 
+        const Vec3 towardCandidate = Normalize(Subtract(candidate.center_point, state.current_point));
+        const double directionAgreement = std::fabs(Dot(towardCandidate, candidate.direction));
+        if (directionAgreement <= 1.0e-3)
+        {
+            result.failure_reasons.push_back(GeometryValidityReason::CandidateRejectedByControl);
+            continue;
+        }
+
         PathState nextState = state;
         nextState.current_point = candidate.center_point;
         nextState.current_direction = Normalize(Subtract(context.rx_point, candidate.center_point));
@@ -90,8 +119,22 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
         nextState.last_hit_wedge_id = candidate.wedge_id;
         nextState.accumulated_length += Length(Subtract(candidate.center_point, state.current_point));
         nextState.path_depth += 1;
+        nextState.interaction_count += 1;
         nextState.remaining_total_expansions -= 1;
         nextState.remaining_diffractions -= 1;
+        nextState.has_diffraction = true;
+        nextState.mixed_path_enabled = false;
+        nextState.clipped_by_control_rules = false;
+
+        if (state.last_interaction_type != InteractionType::None &&
+            state.last_interaction_type != InteractionType::Tx &&
+            state.last_interaction_type != InteractionType::Diffraction)
+        {
+            nextState.mechanism_switch_count += 1;
+        }
+        nextState.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Diffraction)
+            ? (state.consecutive_same_interaction_count + 1)
+            : 0;
 
         PathNode node;
         node.interaction_type = InteractionType::Diffraction;
@@ -111,8 +154,21 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
             continue;
         }
 
-        result.next_states.push_back(nextState);
-        break;
+        DiffractionCandidateState candidateState;
+        candidateState.state = nextState;
+        candidateState.score = ComputeDiffractionCandidateScore(state, candidate, context.rx_point);
+        acceptedStates.push_back(candidateState);
+    }
+
+    std::sort(acceptedStates.begin(), acceptedStates.end(),
+        [](const DiffractionCandidateState& lhs, const DiffractionCandidateState& rhs)
+        {
+            return lhs.score < rhs.score;
+        });
+    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 3U);
+    for (std::size_t i = 0; i < keepLimit; ++i)
+    {
+        result.next_states.push_back(acceptedStates[i].state);
     }
 
     if (result.next_states.empty() && result.failure_reasons.empty())

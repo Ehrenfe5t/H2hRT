@@ -53,6 +53,7 @@ bool RunBatch4QuerySelfCheck(const Scene& scene, Logger& logger)
 
     const FaceHit closestHit = scene.query->QueryClosestFaceHit(ray, context);
     const std::vector<FaceHit> allHits = scene.query->QueryAllFaceHits(ray, context);
+    const std::vector<FaceHit> shortRangeHits = scene.query->QueryFaceHitsInRange(ray, 0.0, 5.0, context);
 
     VisibilityQueryContext visibilityContext;
     visibilityContext.ignored_face_id = face.face_id;
@@ -63,6 +64,7 @@ bool RunBatch4QuerySelfCheck(const Scene& scene, Logger& logger)
     std::ostringstream trace;
     trace << "Batch4QuerySelfCheck: closest_hit=" << (closestHit.hit ? "true" : "false")
           << ", all_hits=" << allHits.size()
+          << ", range_hits=" << shortRangeHits.size()
           << ", visible=" << (visible ? "true" : "false")
           << ", wedge_candidates=" << wedges.size();
     logger.Log(LogLevel::Info, "Module2", trace.str());
@@ -84,9 +86,11 @@ void ReportSceneBatch4Summary(const SceneBatch4BuildResult& result, Logger& logg
     cacheStream << "SceneCache: cache_hit=" << (result.cache_hit ? "true" : "false")
                 << ", cache_format_version=" << result.cache_meta.cache_format_version
                 << ", preprocess_mode_debug=" << (result.cache_meta.contains_debug_auxiliary_data ? "true" : "false")
+                << ", replay_ready=" << (result.cache_meta.replay_support_ready ? "true" : "false")
                 << ", face_count=" << result.cache_meta.face_count
                 << ", edge_count=" << result.cache_meta.edge_count
-                << ", wedge_count=" << result.cache_meta.wedge_count;
+                << ", wedge_count=" << result.cache_meta.wedge_count
+                << ", status_reason=" << result.cache_meta.cache_status_reason;
     logger.Log(LogLevel::Info, "Module2", cacheStream.str());
 
     const bool selfCheckPassed = RunBatch4QuerySelfCheck(result.scene, logger);

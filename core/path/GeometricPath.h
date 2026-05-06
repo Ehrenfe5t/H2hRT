@@ -23,6 +23,7 @@ struct GeometricPath {
     std::vector<PathNode> nodes;
     double total_length = 0.0;
     bool is_los = false;
+    bool contains_transmission = false;
     std::string path_signature;
     bool valid = false;
 };

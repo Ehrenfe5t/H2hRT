@@ -31,9 +31,14 @@ bool ExportISAC(const ResultExportContext& context, ExportBundle& bundle)
 
     std::ostringstream json;
     json << "{\n"
+         << "  \"export_schema_version\": \"" << bundle.export_schema_version << "\",\n"
+         << "  \"export_purpose\": \"" << context.export_purpose << "\",\n"
+         << "  \"primary_input_source\": \"" << context.primary_input_source << "\",\n"
          << "  \"path_count\": " << context.precise_result->isac_features.path_count << ",\n"
          << "  \"earliest_delay_s\": " << context.precise_result->isac_features.earliest_delay_s << ",\n"
-         << "  \"strongest_path_power_linear\": " << context.precise_result->isac_features.strongest_path_power_linear << "\n"
+         << "  \"strongest_path_power_linear\": " << context.precise_result->isac_features.strongest_path_power_linear << ",\n"
+         << "  \"average_polarization_magnitude\": " << context.precise_result->isac_features.average_polarization_magnitude << ",\n"
+         << "  \"transmission_path_count\": " << context.precise_result->isac_features.transmission_path_count << "\n"
          << "}\n";
 
     if (!WriteTextFile(path, json.str()))
@@ -41,6 +46,7 @@ bool ExportISAC(const ResultExportContext& context, ExportBundle& bundle)
         return false;
     }
     bundle.exported_files.push_back(path);
+    ++bundle.exported_json_file_count;
     return true;
 }
 
