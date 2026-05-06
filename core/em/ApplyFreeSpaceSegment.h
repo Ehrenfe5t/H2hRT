@@ -1,10 +1,5 @@
-// 文件目标：
-// - 声明模块5批次7的自由空间段传播接口。
-//
-// 主要功能：
-// - 按段长度累积时延、相位和路径损耗；
-// - 更新 FieldAccumulator 中的复振幅；
-// - 为交互前后的段传播建立统一主干。
+// Declares the per-segment free-space propagation step: accumulates delay, phase,
+// and medium attenuation. FSPL is applied once at the receiver, not per segment.
 
 #pragma once
 
@@ -13,11 +8,13 @@
 namespace rt {
 
 /// <summary>
-/// 对单段自由空间传播更新场状态。
+/// Propagate the field state over one free-space segment.
+/// Accumulates path length, delay (d/c0), phase (-k*d), and lossy-medium
+/// attenuation. FSPL is intentionally deferred to FinalizeAtReceiver.
 /// </summary>
-/// <param name="field">路径级场状态累积器。</param>
-/// <param name="segmentLengthM">当前段长度。</param>
-/// <returns>true 表示更新成功；false 表示失败。</returns>
+/// <param name="field">Field accumulator to update in-place.</param>
+/// <param name="segmentLengthM">Length of the current propagation segment in meters.</param>
+/// <returns>true if propagation succeeded; false if field is invalid or length <= 0.</returns>
 bool ApplyFreeSpaceSegment(FieldAccumulator& field, double segmentLengthM);
 
 } // namespace rt

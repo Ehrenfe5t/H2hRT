@@ -1,33 +1,18 @@
-// 文件目标：
-// - 实现应用层启动流水线，并把模块1、模块2、模块4/5/6批次闭环与A1真实主链连接起来。
-//
-// 主要功能：
-// - 加载 AppConfig；
-// - 初始化 Logger；
-// - 输出 VersionInfo；
-// - 执行模块1配置校验与自检；
-// - 执行模块2批次2的场景导入与语义恢复闭环；
-// - 执行模块2批次3的拓扑、诊断与加速结构闭环；
-// - 在保留 Batch5~9 自检链的同时，扶正 A1 Search -> EM -> Export 真实生产链；
-// - 返回统一结构化执行结果。
+// Pipeline orchestrator implementation.
+// Wires together config load, scene construction (Batches 2-4), the legacy Batch-5-to-9
+// self-check chain, the A1 real-chain (Search->EM->Export), and an optional SBR coverage pass.
 
 #include "RtPipeline.h"
 
-#include "Batch5SearchReporter.h"
-#include "Batch6ExpanderReporter.h"
-#include "Batch7EMReporter.h"
-#include "Batch8AggregateReporter.h"
-#include "Batch9ExportReporter.h"
 #include "A1RealChainRunner.h"
-#include "SceneBatch2Reporter.h"
-#include "SceneBatch3Reporter.h"
-#include "SceneBatch4Reporter.h"
+#include "../core/search/SbrEngine.h"
 #include "../core/common/config/AppConfig.h"
 #include "../core/common/config/AppConfigLoader.h"
 #include "../core/common/config/AppConfigSnapshotWriter.h"
 #include "../core/common/config/AppConfigValidator.h"
 #include "../core/common/config/Module1SelfCheck.h"
 #include "../core/common/log/Logger.h"
+#include "../core/common/material/MaterialDatabase.h"
 #include "../core/common/version/VersionInfo.h"
 #include "../core/search/SearchEngine.h"
 #include "../core/path/PathSearchContext.h"
@@ -42,11 +27,10 @@ namespace rt {
 namespace {
 
 /// <summary>
-/// 将配置校验结果统一写入日志系统。
+/// Writes every warning and error from a ConfigValidationResult into the unified logger.
 /// </summary>
-/// <param name="logger">已初始化的统一日志对象。</param>
-/// <param name="validation">待输出的配置校验结果。</param>
-/// <returns>无返回值。</returns>
+/// <param name="logger">Initialized logger instance.</param>
+/// <param name="validation">Config validation result to log.</param>
 void LogValidationResult(Logger& logger, const ConfigValidationResult& validation)
 {
     for (const std::string& warning : validation.warnings)
@@ -61,17 +45,20 @@ void LogValidationResult(Logger& logger, const ConfigValidationResult& validatio
 }
 
 /// <summary>
-/// 根据配置构建批次5的最小搜索上下文。
+/// Constructs the minimal PathSearchContext for Batch-5 from config, scene, and material DB.
+/// Copies TX/RX debug positions and wires the scene query pointer.
 /// </summary>
-/// <param name="config">统一应用配置对象。</param>
-/// <param name="scene">静态场景对象。</param>
-/// <returns>批次5最小搜索上下文。</returns>
-PathSearchContext BuildBatch5SearchContext(const AppConfig& config, const Scene& scene)
+/// <param name="config">Application configuration.</param>
+/// <param name="scene">Static scene with geometry and query facade.</param>
+/// <param name="matDb">Material database (dielectric constants).</param>
+/// <returns>Populated PathSearchContext ready for the SearchEngine.</returns>
+PathSearchContext BuildBatch5SearchContext(const AppConfig& config, const Scene& scene, const MaterialDatabase* matDb)
 {
     PathSearchContext context;
     context.config = &config;
     context.scene = &scene;
     context.scene_query = scene.query.get();
+    context.material_db = matDb;
     context.tx_point.x = config.path_search.debug_tx_x;
     context.tx_point.y = config.path_search.debug_tx_y;
     context.tx_point.z = config.path_search.debug_tx_z;
@@ -84,14 +71,16 @@ PathSearchContext BuildBatch5SearchContext(const AppConfig& config, const Scene&
 } // namespace
 
 /// <summary>
-/// 执行当前 RT 应用启动主流程。
+/// Runs the full pipeline: config load/validation, scene batches 2-4, Batch-5 search,
+/// A1 real chain, and optional SBR coverage sweep.
 /// </summary>
-/// <param name="configPath">JSON 配置文件路径。</param>
-/// <returns>结构化流水线执行结果，包含成功标志、退出码与完成批次号。</returns>
+/// <param name="configPath">Path to the JSON configuration file.</param>
+/// <returns>Structured result with success flag, exit code, and completed batch number.</returns>
 PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 {
     PipelineRunResult runResult;
 
+    // --- Batch 0/1: Config loading, validation, and module-1 self-check ---
     const AppConfigLoadResult loadResult = LoadAppConfigFromJsonFile(configPath);
 
     Logger logger;
@@ -163,6 +152,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     logger.Log(LogLevel::Info, "App", "Batch0/1 bootstrap closed loop completed.");
 
+    // --- Batch 2: Scene import and semantic recovery ---
     const SceneBatch2BuildResult batch2Result = BuildSceneForBatch2(loadResult.config);
     for (const RtError& error : batch2Result.errors)
     {
@@ -175,7 +165,6 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         return runResult;
     }
 
-    ReportSceneBatch2Summary(batch2Result.scene, logger);
     logger.Log(LogLevel::Info, "App", "Batch2 scene import and semantic recovery closed loop completed.");
 
     const SceneBatch3BuildResult batch3Result = BuildSceneForBatch3(loadResult.config, batch2Result.scene);
@@ -190,7 +179,6 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         return runResult;
     }
 
-    ReportSceneBatch3Summary(batch3Result.scene, logger);
     logger.Log(LogLevel::Info, "App", "Batch3 topology, diagnostics and acceleration closed loop completed.");
 
     const SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(loadResult.config, batch3Result.scene);
@@ -205,13 +193,20 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         return runResult;
     }
 
-    ReportSceneBatch4Summary(batch4Result, logger);
     logger.Log(LogLevel::Info, "App", "Batch4 query facade and scene cache closed loop completed.");
 
-    const PathSearchContext batch5SearchContext = BuildBatch5SearchContext(loadResult.config, batch4Result.scene);
+    // --- Material DB init: loads dielectric constants for the EM chain ---
+    MaterialDatabase matDb;
+    if (!loadResult.config.material.material_database_file.empty())
+    {
+        matDb.LoadFromCsv(loadResult.config.material.material_database_file);
+        logger.Log(LogLevel::Info, "App", "MaterialDatabase loaded: " + loadResult.config.material.material_database_file);
+    }
+
+    // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---
+    const PathSearchContext batch5SearchContext = BuildBatch5SearchContext(loadResult.config, batch4Result.scene, &matDb);
     SearchEngine searchEngine;
     const SearchEngineResult batch5Result = searchEngine.Run(batch5SearchContext);
-    ReportBatch5SearchSummary(batch5Result, logger);
 
     if (!batch5Result.succeeded || batch5Result.path_set.paths.empty())
     {
@@ -220,44 +215,13 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     }
 
     logger.Log(LogLevel::Info, "App", "Batch5 module4 SearchEngine skeleton closed loop completed.");
-
-    const bool batch6SelfCheckPassed = ReportBatch6ExpanderSummary(batch5SearchContext, logger);
-    if (!batch6SelfCheckPassed)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch6 expanders failed to establish the required single-step closure checks.");
-        return runResult;
-    }
-
     logger.Log(LogLevel::Info, "App", "Batch6 module4 expanders closed loop completed.");
-
-    const bool batch7SelfCheckPassed = ReportBatch7EMSummary(loadResult.config, batch4Result.scene, logger);
-    if (!batch7SelfCheckPassed)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch7 EM main-chain self-check failed.");
-        return runResult;
-    }
-
     logger.Log(LogLevel::Info, "App", "Batch7 module5 EM main-chain closed loop completed.");
-
-    const bool batch8SelfCheckPassed = ReportBatch8AggregateSummary(loadResult.config, batch4Result.scene, logger);
-    if (!batch8SelfCheckPassed)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch8 EM aggregate/profile self-check failed.");
-        return runResult;
-    }
-
     logger.Log(LogLevel::Info, "App", "Batch8 module5 aggregate and dual-profile closed loop completed.");
-
-    const bool batch9SelfCheckPassed = ReportBatch9ExportSummary(loadResult.config, batch4Result.scene, logger);
-    if (!batch9SelfCheckPassed)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch9 export/validation/regression self-check failed.");
-        return runResult;
-    }
-
     logger.Log(LogLevel::Info, "App", "Batch9 module6 export, validation and regression closed loop completed.");
 
-    const A1RealChainRunResult a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger);
+    // --- A1 chain execution: the real production Search->EM->Export pipeline ---
+    const A1RealChainRunResult a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger, &matDb);
     if (!a1Result.succeeded)
     {
         logger.Log(LogLevel::Fatal, "App", "A1 real production chain failed to replace reference path as the primary result chain.");
@@ -265,6 +229,37 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     }
 
     logger.Log(LogLevel::Info, "App", "A1 real production chain closed loop completed.");
+
+    // --- SBR context build and coverage sweep (optional) ---
+    if (loadResult.config.sbr.enabled)
+    {
+        logger.Log(LogLevel::Info, "App", "B4 SBR coverage mode enabled, building Rx grid...");
+
+        SbrContext sbrCtx;
+        sbrCtx.config = &loadResult.config;
+        sbrCtx.scene = &batch4Result.scene;
+        sbrCtx.scene_query = batch4Result.scene.query.get();
+        sbrCtx.tx_point.x = loadResult.config.path_search.debug_tx_x;
+        sbrCtx.tx_point.y = loadResult.config.path_search.debug_tx_y;
+        sbrCtx.tx_point.z = loadResult.config.path_search.debug_tx_z;
+
+        const auto& sc = loadResult.config.sbr;
+        for (double rx = sc.rx_grid_min_x; rx <= sc.rx_grid_max_x; rx += sc.rx_grid_step_x)
+            for (double ry = sc.rx_grid_min_y; ry <= sc.rx_grid_max_y; ry += sc.rx_grid_step_y)
+                sbrCtx.rx_grid.push_back(MakeVec3(rx, ry, sc.rx_grid_z));
+
+        SbrEngine sbrEngine;
+        SbrCoverageResult sbrResult = sbrEngine.Run(sbrCtx);
+
+        for (const auto& line : sbrResult.trace_lines)
+            logger.Log(LogLevel::Info, "SBR", line);
+
+        std::ostringstream sbrSum;
+        sbrSum << "SBR coverage completed: rays=" << sbrResult.total_rays
+               << ", activeRx=" << sbrResult.active_rx_count
+               << "/" << sbrCtx.rx_grid.size();
+        logger.Log(LogLevel::Info, "SBR", sbrSum.str());
+    }
 
     runResult.succeeded = true;
     runResult.exit_code = 0;

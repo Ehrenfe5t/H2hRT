@@ -8,16 +8,16 @@
 
 #include "Batch7EMReporter.h"
 
-#include "../core/antenna/AntennaFactory.h"
-#include "../core/em/ApplyDiffractionInteraction.h"
-#include "../core/em/ApplyFreeSpaceSegment.h"
-#include "../core/em/ApplyReflectionInteraction.h"
-#include "../core/em/ApplyTransmissionInteraction.h"
-#include "../core/em/EMSolverInput.h"
-#include "../core/em/FinalizeAtReceiver.h"
-#include "../core/em/InitializeTxField.h"
-#include "../core/em/PreparePathForEM.h"
-#include "../core/path/GeometricPath.h"
+#include "../../core/antenna/AntennaFactory.h"
+#include "../../core/em/ApplyDiffractionInteraction.h"
+#include "../../core/em/ApplyFreeSpaceSegment.h"
+#include "../../core/em/ApplyReflectionInteraction.h"
+#include "../../core/em/ApplyTransmissionInteraction.h"
+#include "../../core/em/EMSolverInput.h"
+#include "../../core/em/FinalizeAtReceiver.h"
+#include "../../core/em/InitializeTxField.h"
+#include "../../core/em/PreparePathForEM.h"
+#include "../../core/path/GeometricPath.h"
 
 #include <cmath>
 #include <sstream>
@@ -25,20 +25,6 @@
 namespace rt {
 
 namespace {
-
-Vec3 Subtract(const Point3& a, const Point3& b)
-{
-    Vec3 value;
-    value.x = a.x - b.x;
-    value.y = a.y - b.y;
-    value.z = a.z - b.z;
-    return value;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-}
 
 Point3 AddOffset(const Point3& point, const Vec3& direction, double scale)
 {

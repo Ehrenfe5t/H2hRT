@@ -10,7 +10,7 @@
 
 #include "PathNode.h"
 
-#include <string>
+#include <cstdint>
 #include <vector>
 
 namespace rt {
@@ -24,7 +24,7 @@ struct GeometricPath {
     double total_length = 0.0;
     bool is_los = false;
     bool contains_transmission = false;
-    std::string path_signature;
+    uint64_t path_signature = 0;
     bool valid = false;
 };
 

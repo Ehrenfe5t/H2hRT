@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "../core/common/log/Logger.h"
-#include "../core/scene/Scene.h"
+#include "../../core/common/log/Logger.h"
+#include "../../core/scene/Scene.h"
 
 namespace rt {
 

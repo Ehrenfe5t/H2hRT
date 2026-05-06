@@ -1,24 +1,32 @@
-// 文件目标：
-// - 声明模块5批次7的绕射交互更新接口。
-//
-// 主要功能：
-// - 根据绕射节点对 FieldAccumulator 做第一版复场更新；
-// - 为后续 UTD 绕射系数精化预留接口位置；
-// - 保持模块5主链结构完整。
+// Declares the UTD (Uniform Theory of Diffraction) edge-diffraction interaction:
+// Keller cone, edge-fixed coordinate frame, Kouyoumjian-Pathak diffraction coefficients
+// for soft (Dirichlet) and hard (Neumann) polarizations, and diffracted field reconstruction.
 
 #pragma once
 
 #include "FieldAccumulator.h"
+#include "EMSolverInput.h"
 #include "../path/PathNode.h"
 
 namespace rt {
 
 /// <summary>
-/// 对绕射交互更新场状态。
+/// Apply UTD edge diffraction at a wedge-diffraction path node.
+/// Retrieves wedge geometry from the scene, builds the edge-fixed frame,
+/// computes the Keller cone angle, evaluates soft/hard UTD diffraction
+/// coefficients (Kouyoumjian-Pathak formulation with Fresnel transition),
+/// and reconstructs the diffracted complex field.
 /// </summary>
-/// <param name="field">路径级场状态累积器。</param>
-/// <param name="node">当前绕射节点。</param>
-/// <returns>true 表示更新成功；false 表示失败。</returns>
-bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node);
+/// <param name="field">Field accumulator to update with diffracted state.</param>
+/// <param name="node">Path node carrying wedge ID, diffraction point, and outgoing direction.</param>
+/// <param name="input">Solver input providing scene (wedge geometry).</param>
+/// <returns>true if diffraction was applied; false on validation/geometry failure.</returns>
+bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input);
+
+// Backward-compatible overload for legacy callers (no EMSolverInput)
+inline bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node) {
+    EMSolverInput dummy;
+    return ApplyDiffractionInteraction(field, node, dummy);
+}
 
 } // namespace rt

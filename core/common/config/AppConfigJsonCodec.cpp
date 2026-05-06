@@ -256,6 +256,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "enable_scattering", config.path_search.enable_scattering);
         ReadOptionalBool(body, "enable_mixed_path", config.path_search.enable_mixed_path);
         ReadOptionalBool(body, "keep_angle_metadata", config.path_search.keep_angle_metadata);
+        ReadOptionalNumber(body, "max_consecutive_same_interaction", config.path_search.max_consecutive_same_interaction);
         ReadOptionalString(body, "pruning_strategy", config.path_search.pruning_strategy);
         ReadOptionalString(body, "dedup_strategy", config.path_search.dedup_strategy);
         ReadOptionalNumber(body, "debug_tx_x", config.path_search.debug_tx_x);
@@ -264,6 +265,22 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "debug_rx_x", config.path_search.debug_rx_x);
         ReadOptionalNumber(body, "debug_rx_y", config.path_search.debug_rx_y);
         ReadOptionalNumber(body, "debug_rx_z", config.path_search.debug_rx_z);
+    }
+
+    if (ExtractObjectBody(text, "sbr", body))
+    {
+        ReadOptionalBool(body, "enabled", config.sbr.enabled);
+        ReadOptionalNumber(body, "ray_count", config.sbr.ray_count);
+        ReadOptionalNumber(body, "max_ray_depth", config.sbr.max_ray_depth);
+        ReadOptionalNumber(body, "ray_power_threshold_linear", config.sbr.ray_power_threshold_linear);
+        ReadOptionalNumber(body, "rx_sphere_radius_factor", config.sbr.rx_sphere_radius_factor);
+        ReadOptionalNumber(body, "rx_grid_min_x", config.sbr.rx_grid_min_x);
+        ReadOptionalNumber(body, "rx_grid_max_x", config.sbr.rx_grid_max_x);
+        ReadOptionalNumber(body, "rx_grid_min_y", config.sbr.rx_grid_min_y);
+        ReadOptionalNumber(body, "rx_grid_max_y", config.sbr.rx_grid_max_y);
+        ReadOptionalNumber(body, "rx_grid_z", config.sbr.rx_grid_z);
+        ReadOptionalNumber(body, "rx_grid_step_x", config.sbr.rx_grid_step_x);
+        ReadOptionalNumber(body, "rx_grid_step_y", config.sbr.rx_grid_step_y);
     }
 
     if (ExtractObjectBody(text, "em_solver", body))
@@ -435,6 +452,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"enable_scattering\": " << (config.path_search.enable_scattering ? "true" : "false") << ",\n";
     stream << "    \"enable_mixed_path\": " << (config.path_search.enable_mixed_path ? "true" : "false") << ",\n";
     stream << "    \"keep_angle_metadata\": " << (config.path_search.keep_angle_metadata ? "true" : "false") << ",\n";
+    stream << "    \"max_consecutive_same_interaction\": " << config.path_search.max_consecutive_same_interaction << ",\n";
     stream << "    \"pruning_strategy\": \"" << EscapeJsonString(config.path_search.pruning_strategy) << "\",\n";
     stream << "    \"dedup_strategy\": \"" << EscapeJsonString(config.path_search.dedup_strategy) << "\",\n";
     stream << "    \"debug_tx_x\": " << config.path_search.debug_tx_x << ",\n";
@@ -443,6 +461,21 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"debug_rx_x\": " << config.path_search.debug_rx_x << ",\n";
     stream << "    \"debug_rx_y\": " << config.path_search.debug_rx_y << ",\n";
     stream << "    \"debug_rx_z\": " << config.path_search.debug_rx_z << "\n";
+    stream << "  },\n";
+
+    stream << "  \"sbr\": {\n";
+    stream << "    \"enabled\": " << (config.sbr.enabled ? "true" : "false") << ",\n";
+    stream << "    \"ray_count\": " << config.sbr.ray_count << ",\n";
+    stream << "    \"max_ray_depth\": " << config.sbr.max_ray_depth << ",\n";
+    stream << "    \"ray_power_threshold_linear\": " << config.sbr.ray_power_threshold_linear << ",\n";
+    stream << "    \"rx_sphere_radius_factor\": " << config.sbr.rx_sphere_radius_factor << ",\n";
+    stream << "    \"rx_grid_min_x\": " << config.sbr.rx_grid_min_x << ",\n";
+    stream << "    \"rx_grid_max_x\": " << config.sbr.rx_grid_max_x << ",\n";
+    stream << "    \"rx_grid_min_y\": " << config.sbr.rx_grid_min_y << ",\n";
+    stream << "    \"rx_grid_max_y\": " << config.sbr.rx_grid_max_y << ",\n";
+    stream << "    \"rx_grid_z\": " << config.sbr.rx_grid_z << ",\n";
+    stream << "    \"rx_grid_step_x\": " << config.sbr.rx_grid_step_x << ",\n";
+    stream << "    \"rx_grid_step_y\": " << config.sbr.rx_grid_step_y << "\n";
     stream << "  },\n";
 
     stream << "  \"em_solver\": {\n";

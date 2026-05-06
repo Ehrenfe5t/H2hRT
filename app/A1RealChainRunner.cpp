@@ -1,11 +1,7 @@
-// 文件目标：
-// - 实现批次A1真实生产链最小贯通入口。
-//
-// 主要功能：
-// - 使用模块4真实 SearchEngineResult 作为模块5正式主输入；
-// - 形成可追踪的路径级 EM 结果集与双 profile 汇总结果；
-// - 形成模块6真实导出、最小 validation 与最小 regression 闭环；
-// - 明确主链不再主要依赖手工 reference path。
+// A1 real production chain runner -- implementation.
+// Takes the SearchEngine's real path set through per-path EM solving, builds both Precise and
+// Coverage aggregate profiles, then exports results, validation, and regression reports.
+// This is the primary production chain; it does NOT rely on hand-crafted reference paths.
 
 #include "A1RealChainRunner.h"
 
@@ -41,18 +37,30 @@ namespace rt {
 
 namespace {
 
-bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result)
+/// <summary>
+/// Runs the full EM solve for a single geometric path (Tx antenna -> propagation -> Rx antenna).
+/// </summary>
+/// <param name="config">Application configuration.</param>
+/// <param name="scene">Static scene with geometry and materials.</param>
+/// <param name="path">Geometric ray path whose EM result is to be computed.</param>
+/// <param name="result">[out] EM result for this path (field, delay, power, etc.).</param>
+/// <param name="materialDb">Optional material database for dielectric constants.</param>
+/// <returns>true if the EM solve completed and produced a valid result.</returns>
+bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result, const MaterialDatabase* materialDb)
 {
     EMSolverInput input;
     input.config = &config;
     input.scene = &scene;
     input.path = &path;
+    input.material_db = materialDb;
     const Point3 txPosition = !path.nodes.empty() ? path.nodes.front().point : Point3{};
     const Point3 rxPosition = !path.nodes.empty() ? path.nodes.back().point : Point3{};
     const AntennaModel tx = BuildTxAntennaModel(config, txPosition, "a1-realchain-tx");
     const AntennaModel rx = BuildRxAntennaModel(config, rxPosition, "a1-realchain-rx");
     input.tx_antenna = &tx;
     input.rx_antenna = &rx;
+
+    // EM pipeline: prepare path, initialize TX field, walk interactions along the path.
     if (!PreparePathForEM(input))
     {
         return false;
@@ -64,6 +72,7 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
         return false;
     }
 
+    // Walk each path segment: free-space attenuation followed by the interaction.
     for (std::size_t i = 1; i < path.nodes.size(); ++i)
     {
         const PathNode& node = path.nodes[i];
@@ -74,33 +83,37 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
 
         if (node.interaction_type == InteractionType::Reflection)
         {
-            if (!ApplyReflectionInteraction(field, node))
+            if (!ApplyReflectionInteraction(field, node, input))
             {
                 return false;
             }
         }
         else if (node.interaction_type == InteractionType::Transmission)
         {
-            if (!ApplyTransmissionInteraction(field, node))
+            if (!ApplyTransmissionInteraction(field, node, input))
             {
                 return false;
             }
         }
         else if (node.interaction_type == InteractionType::Diffraction)
         {
-            if (!ApplyDiffractionInteraction(field, node))
+            if (!ApplyDiffractionInteraction(field, node, input))
             {
                 return false;
             }
         }
     }
 
-    result = FinalizeAtReceiver(field, path);
+    result = FinalizeAtReceiver(field, path, input);
     result.source_tag = "search_engine_real_output";
     return result.valid;
 }
 
-EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& scene, const SearchEngineResult& searchResult, Logger& logger)
+/// <summary>
+/// Builds the complete EM path result set by solving every path from the search engine.
+/// Logs a warning for each path that fails the EM solve.
+/// </summary>
+EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& scene, const SearchEngineResult& searchResult, Logger& logger, const MaterialDatabase* materialDb)
 {
     EMPathResultSet set;
     set.from_search_engine = true;
@@ -110,7 +123,7 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     for (const GeometricPath& path : searchResult.path_set.paths)
     {
         EMPathResult result;
-        if (SolveSinglePathEM(config, scene, path, result))
+        if (SolveSinglePathEM(config, scene, path, result, materialDb))
         {
             set.results.push_back(result);
         }
@@ -126,6 +139,10 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     return set;
 }
 
+/// <summary>
+/// Aggregates per-path EM results into CIR, PDP, APS, channel statistics, coverage,
+/// and ISAC feature sets for a given solve profile.
+/// </summary>
 EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
 {
     EMAggregateResult result;
@@ -146,22 +163,27 @@ A1RealChainRunResult RunA1RealChain(
     const AppConfig& config,
     const Scene& scene,
     const SearchEngineResult& searchResult,
-    Logger& logger)
+    Logger& logger,
+    const MaterialDatabase* materialDb)
 {
     A1RealChainRunResult runResult;
+    (void)materialDb;
+    // Guard: SearchEngine must have produced a non-empty real path set.
     if (!searchResult.succeeded || searchResult.path_set.paths.empty())
     {
         logger.Log(LogLevel::Error, "A1", "A1 real chain aborted because SearchEngine produced no real path set.");
         return runResult;
     }
 
-    runResult.path_result_set = BuildRealPathResultSet(config, scene, searchResult, logger);
+    // Step 1: Per-path EM solving (Module 5 real chain).
+    runResult.path_result_set = BuildRealPathResultSet(config, scene, searchResult, logger, materialDb);
     if (runResult.path_result_set.results.empty())
     {
         logger.Log(LogLevel::Error, "A1", "A1 real chain aborted because real path set could not produce any valid EMPathResult.");
         return runResult;
     }
 
+    // Step 2: Build aggregate results for both Precise and Coverage EM profiles.
     runResult.precise_result = BuildAggregateResult(runResult.path_result_set, BuildPreciseEMProfile());
     runResult.coverage_result = BuildAggregateResult(runResult.path_result_set, BuildCoverageEMProfile());
 
@@ -180,6 +202,7 @@ A1RealChainRunResult RunA1RealChain(
     runResult.export_bundle.em_path_result_count = static_cast<int>(runResult.path_result_set.results.size());
     runResult.export_bundle.used_reference_path_fallback = false;
 
+    // Step 3: Module-6 real export: Paths, Channel, Coverage, ISAC, Visualization.
     bool exportSucceeded = true;
     exportSucceeded = ExportPaths(context, runResult.export_bundle) && exportSucceeded;
     exportSucceeded = ExportChannel(context, runResult.export_bundle) && exportSucceeded;
@@ -187,6 +210,7 @@ A1RealChainRunResult RunA1RealChain(
     exportSucceeded = ExportISAC(context, runResult.export_bundle) && exportSucceeded;
     exportSucceeded = ExportVisualization(context, runResult.export_bundle) && exportSucceeded;
 
+    // Step 4: Validation and regression close-loop.
     runResult.validation_report = BuildValidationReport(runResult.export_bundle, context);
     exportSucceeded = ExportValidationReport(runResult.validation_report, context, runResult.export_bundle) && exportSucceeded;
     runResult.regression_report = BuildRegressionReport(context);

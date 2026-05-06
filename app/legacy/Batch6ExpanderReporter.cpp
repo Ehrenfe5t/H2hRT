@@ -8,9 +8,9 @@
 
 #include "Batch6ExpanderReporter.h"
 
-#include "../core/search/DiffractionExpander.h"
-#include "../core/search/ReflectionExpander.h"
-#include "../core/search/TransmissionExpander.h"
+#include "../../core/search/DiffractionExpander.h"
+#include "../../core/search/ReflectionExpander.h"
+#include "../../core/search/TransmissionExpander.h"
 
 #include <sstream>
 

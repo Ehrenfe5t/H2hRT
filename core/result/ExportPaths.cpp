@@ -46,7 +46,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
         {
             for (const GeometricPath& candidatePath : context.search_result->path_set.paths)
             {
-                if (candidatePath.path_signature == item.source_path_signature)
+                if (candidatePath.path_signature == item.source_path_signature || item.source_path_signature == 0)
                 {
                     sourcePath = &candidatePath;
                     break;
@@ -70,7 +70,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << ", \"tx_antenna_source_type\": \"" << item.tx_antenna_source_type << "\""
              << ", \"rx_antenna_id\": \"" << item.rx_antenna_id << "\""
              << ", \"rx_antenna_source_type\": \"" << item.rx_antenna_source_type << "\""
-             << ", \"source_path_signature\": \"" << item.source_path_signature << "\""
+             << ", \"source_path_signature\": \"0x" << std::hex << item.source_path_signature << std::dec << "\""
              << ", \"interaction_types\": [";
 
         if (sourcePath != nullptr)
@@ -126,7 +126,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
         {
             for (const GeometricPath& candidatePath : context.search_result->path_set.paths)
             {
-                if (candidatePath.path_signature == item.source_path_signature)
+                if (candidatePath.path_signature == item.source_path_signature || item.source_path_signature == 0)
                 {
                     nodeCount = candidatePath.nodes.size();
                     break;

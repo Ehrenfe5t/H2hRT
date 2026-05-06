@@ -1,24 +1,31 @@
-// 文件目标：
-// - 声明模块5批次7的反射交互更新接口。
-//
-// 主要功能：
-// - 根据反射节点对 FieldAccumulator 做第一版复场更新；
-// - 保留后续 Fresnel 精化所需的接口位置；
-// - 避免模块5回头重新计算几何成立性。
+// Declares the Fresnel reflection interaction: TE/TM decomposition, complex permittivity,
+// Fresnel coefficients, and reflected field reconstruction at a surface hit point.
 
 #pragma once
 
 #include "FieldAccumulator.h"
+#include "EMSolverInput.h"
 #include "../path/PathNode.h"
 
 namespace rt {
 
 /// <summary>
-/// 对反射交互更新场状态。
+/// Apply Fresnel reflection at a path interaction node.
+/// Decomposes incident polarization into TE (perpendicular) and TM (parallel)
+/// components, evaluates the complex Fresnel reflection coefficients using the
+/// face material's complex permittivity (epsilon_r, sigma), and reconstructs
+/// the reflected complex amplitude, phase, power, and polarization vector.
 /// </summary>
-/// <param name="field">路径级场状态累积器。</param>
-/// <param name="node">当前反射节点。</param>
-/// <returns>true 表示更新成功；false 表示失败。</returns>
-bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node);
+/// <param name="field">Field accumulator to update with reflected state.</param>
+/// <param name="node">Path node carrying hit point, direction, normal, and material IDs.</param>
+/// <param name="input">Solver input providing the material database.</param>
+/// <returns>true if reflection succeeded; false if field/node invalid or no material DB.</returns>
+bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input);
+
+// Backward-compatible overload for legacy callers (no material DB)
+inline bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node) {
+    EMSolverInput dummy;
+    return ApplyReflectionInteraction(field, node, dummy);
+}
 
 } // namespace rt

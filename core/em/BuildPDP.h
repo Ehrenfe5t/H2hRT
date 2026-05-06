@@ -1,10 +1,5 @@
-// 文件目标：
-// - 声明模块5批次8的 PDP 构建接口。
-//
-// 主要功能：
-// - 根据 CIR 或路径级结果生成 PDPResult；
-// - 保留时延与功率摘要；
-// - 为批次8时延域分析提供统一输出。
+// Declares the PDP builder: converts per-path EM results into delay-vs-power
+// taps for delay-spread and power-delay analysis.
 
 #pragma once
 
@@ -13,10 +8,12 @@
 namespace rt {
 
 /// <summary>
-/// 构建 PDP 结果。
+/// Build a Power Delay Profile (PDP) from per-path EM results.
+/// Each valid path contributes a (delay, power) tap. Phase and complex
+/// amplitude are discarded -- PDP is power-only.
 /// </summary>
-/// <param name="pathResults">路径级电磁结果集合。</param>
-/// <returns>结构化 PDP 结果。</returns>
+/// <param name="pathResults">Per-path EM results from the solver.</param>
+/// <returns>PDPResult with one tap per valid path.</returns>
 PDPResult BuildPDP(const EMPathResultSet& pathResults);
 
 } // namespace rt

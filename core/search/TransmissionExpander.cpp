@@ -10,6 +10,7 @@
 
 #include "ResolveMediumTransition.h"
 #include "StateSignatureBuilder.h"
+#include "../common/math/Vec3.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,39 +19,10 @@ namespace rt {
 
 namespace {
 
-Vec3 Subtract(const Point3& a, const Point3& b)
-{
-    Vec3 value;
-    value.x = a.x - b.x;
-    value.y = a.y - b.y;
-    value.z = a.z - b.z;
-    return value;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
-    }
-    Vec3 result;
-    result.x = value.x / length;
-    result.y = value.y / length;
-    result.z = value.z / length;
-    return result;
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
+/// <summary>
+/// Scores a transmission candidate based on path length, incidence-angle
+/// penalty, and a penalty for degenerate medium transitions (same in/out medium).
+/// </summary>
 double ComputeTransmissionCandidateScore(
     const PathState& state,
     const FaceHit& hit,
@@ -137,9 +109,33 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
             continue;
         }
 
+        // B6-A: Snell refraction instead of pointing at Rx
+        Vec3 incidentDir = Normalize(Subtract(hit.position, state.current_point));
+        Vec3 txDir;
+        if (context.material_db && !context.material_db->empty())
+        {
+            // Get refractive indices from material database
+            const Face& txFace = context.scene->faces[hit.face_id];
+            double n1 = 1.0; // default: air
+            double n2 = 1.0;
+            if (!txFace.front_material_name.empty())
+            {
+                auto p1 = context.material_db->QueryByName(txFace.front_material_name, context.config->em_solver.frequency_hz);
+                auto p2 = context.material_db->QueryByName(txFace.back_material_name, context.config->em_solver.frequency_hz);
+                if (mediumInfo.entered_from_front_side) { n1 = std::sqrt(std::max(1.0, p1.epsilon_r)); n2 = std::sqrt(std::max(1.0, p2.epsilon_r)); }
+                else { n1 = std::sqrt(std::max(1.0, p2.epsilon_r)); n2 = std::sqrt(std::max(1.0, p1.epsilon_r)); }
+            }
+            txDir = SnellRefract(incidentDir, hit.normal, n1, n2);
+            if (Length(txDir) <= 0.0) txDir = Normalize(Subtract(context.rx_point, hit.position)); // TIR fallback
+        }
+        else
+        {
+            txDir = Normalize(Subtract(context.rx_point, hit.position)); // no DB fallback
+        }
+
         PathState nextState = state;
         nextState.current_point = hit.position;
-        nextState.current_direction = Normalize(Subtract(context.rx_point, hit.position));
+        nextState.current_direction = txDir;
         nextState.current_medium_id = mediumInfo.medium_out_id;
         nextState.last_interaction_type = InteractionType::Transmission;
         nextState.last_interaction_object_id = hit.object_id;
@@ -158,7 +154,7 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         nextState.remaining_transmissions -= 1;
         nextState.ignored_face_id = hit.face_id;
         nextState.has_transmission = true;
-        nextState.mixed_path_enabled = state.has_reflection && !state.has_diffraction;
+        nextState.mixed_path_enabled = (nextState.has_reflection && nextState.has_transmission) || (nextState.has_reflection && nextState.has_diffraction) || (nextState.has_transmission && nextState.has_diffraction);
         nextState.clipped_by_control_rules = false;
 
         if (state.last_interaction_type != InteractionType::None &&
@@ -210,7 +206,7 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         {
             return lhs.score < rhs.score;
         });
-    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 4U);
+    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 8U);
     for (std::size_t i = 0; i < keepLimit; ++i)
     {
         result.next_states.push_back(acceptedStates[i].state);

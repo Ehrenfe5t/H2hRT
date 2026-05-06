@@ -45,6 +45,8 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -52,6 +54,8 @@
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -109,6 +113,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -124,6 +129,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -133,16 +139,16 @@
 
   <ItemGroup>
     <ClCompile Include="app\A1RealChainRunner.cpp" />
-    <ClCompile Include="app\Batch5SearchReporter.cpp" />
-    <ClCompile Include="app\Batch6ExpanderReporter.cpp" />
-    <ClCompile Include="app\Batch7EMReporter.cpp" />
-    <ClCompile Include="app\Batch8AggregateReporter.cpp" />
+    <ClCompile Include="app\legacy\Batch5SearchReporter.cpp" />
+    <ClCompile Include="app\legacy\Batch6ExpanderReporter.cpp" />
+    <ClCompile Include="app\legacy\Batch7EMReporter.cpp" />
+    <ClCompile Include="app\legacy\Batch8AggregateReporter.cpp" />
     <ClCompile Include="app\Batch9ExportReporter.cpp" />
     <ClCompile Include="app\main.cpp" />
     <ClCompile Include="app\RtPipeline.cpp" />
-    <ClCompile Include="app\SceneBatch2Reporter.cpp" />
-    <ClCompile Include="app\SceneBatch3Reporter.cpp" />
-    <ClCompile Include="app\SceneBatch4Reporter.cpp" />
+    <ClCompile Include="app\legacy\SceneBatch2Reporter.cpp" />
+    <ClCompile Include="app\legacy\SceneBatch3Reporter.cpp" />
+    <ClCompile Include="app\legacy\SceneBatch4Reporter.cpp" />
     <ClCompile Include="core\common\config\AppConfigJsonCodec.cpp" />
     <ClCompile Include="core\common\config\AppConfigLoader.cpp" />
     <ClCompile Include="core\common\config\Module1SelfCheck.cpp" />
@@ -171,6 +177,7 @@
     <ClCompile Include="core\search\ReflectionExpander.cpp" />
     <ClCompile Include="core\search\ResolveMediumTransition.cpp" />
     <ClCompile Include="core\search\SearchEngine.cpp" />
+    <ClCompile Include="core\search\SbrEngine.cpp" />
     <ClCompile Include="core\search\TransmissionExpander.cpp" />
     <ClCompile Include="core\search\StateSignatureBuilder.cpp" />
     <ClCompile Include="core\search\PathSignatureBuilder.cpp" />
@@ -207,15 +214,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\A1RealChainRunner.h" />
-    <ClInclude Include="app\Batch5SearchReporter.h" />
-    <ClInclude Include="app\Batch6ExpanderReporter.h" />
-    <ClInclude Include="app\Batch7EMReporter.h" />
-    <ClInclude Include="app\Batch8AggregateReporter.h" />
+    <ClInclude Include="app\legacy\Batch5SearchReporter.h" />
+    <ClInclude Include="app\legacy\Batch6ExpanderReporter.h" />
+    <ClInclude Include="app\legacy\Batch7EMReporter.h" />
+    <ClInclude Include="app\legacy\Batch8AggregateReporter.h" />
     <ClInclude Include="app\Batch9ExportReporter.h" />
     <ClInclude Include="app\RtPipeline.h" />
-    <ClInclude Include="app\SceneBatch2Reporter.h" />
-    <ClInclude Include="app\SceneBatch3Reporter.h" />
-    <ClInclude Include="app\SceneBatch4Reporter.h" />
+    <ClInclude Include="app\legacy\SceneBatch2Reporter.h" />
+    <ClInclude Include="app\legacy\SceneBatch3Reporter.h" />
+    <ClInclude Include="app\legacy\SceneBatch4Reporter.h" />
     <ClInclude Include="core\common\config\AppConfig.h" />
     <ClInclude Include="core\common\config\AppConfigJsonCodec.h" />
     <ClInclude Include="core\common\config\AppConfigLoader.h" />
@@ -258,6 +265,7 @@
     <ClInclude Include="core\search\ReflectionExpander.h" />
     <ClInclude Include="core\search\ResolveMediumTransition.h" />
     <ClInclude Include="core\search\SearchEngine.h" />
+    <ClInclude Include="core\search\SbrEngine.h" />
     <ClInclude Include="core\search\TransmissionExpander.h" />
     <ClInclude Include="core\search\StateSignatureBuilder.h" />
     <ClInclude Include="core\search\PathSignatureBuilder.h" />

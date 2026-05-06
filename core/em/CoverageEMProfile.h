@@ -1,10 +1,5 @@
-// 文件目标：
-// - 声明模块5批次8的 CoverageEM profile 构建接口。
-//
-// 主要功能：
-// - 生成面向覆盖仿真的简化 profile；
-// - 为批次8 precise / coverage 对比提供统一入口；
-// - 保持 CoverageEM 简化边界显式化。
+// Declares the CoverageEM profile builder: non-coherent power sum, simplified output,
+// power threshold, and reduced path budget for large-scale coverage simulations.
 
 #pragma once
 
@@ -13,9 +8,11 @@
 namespace rt {
 
 /// <summary>
-/// 构建 CoverageEM profile。
+/// Build the CoverageEM evaluation profile.
+/// Enables non-coherent power summation, discards phase/polarization to reduce
+/// memory, applies a power threshold (1e-6 linear), and limits to 16 paths per Rx.
 /// </summary>
-/// <returns>结构化 CoverageEM profile。</returns>
+/// <returns>EMSolveProfile configured for CoverageEM mode.</returns>
 EMSolveProfile BuildCoverageEMProfile();
 
 } // namespace rt

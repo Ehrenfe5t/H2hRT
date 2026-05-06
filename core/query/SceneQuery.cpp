@@ -7,6 +7,7 @@
 // - 显式处理自碰撞抑制与查询上下文约束。
 
 #include "SceneQuery.h"
+#include "../common/math/Vec3.h"
 
 #include <algorithm>
 #include <cmath>
@@ -14,50 +15,6 @@
 namespace rt {
 
 namespace {
-
-Vec3 MakeVec3(double x, double y, double z)
-{
-    Vec3 value;
-    value.x = x;
-    value.y = y;
-    value.z = z;
-    return value;
-}
-
-Vec3 Add(const Vec3& a, const Vec3& b)
-{
-    return MakeVec3(a.x + b.x, a.y + b.y, a.z + b.z);
-}
-
-Vec3 Subtract(const Vec3& a, const Vec3& b)
-{
-    return MakeVec3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-Vec3 Scale(const Vec3& value, double factor)
-{
-    return MakeVec3(value.x * factor, value.y * factor, value.z * factor);
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(Dot(value, value));
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
-    }
-    return Scale(value, 1.0 / length);
-}
 
 bool IntersectRayAABB(const Ray& ray, const AABB& bounds, double& tMinOut, double& tMaxOut)
 {

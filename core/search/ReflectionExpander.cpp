@@ -9,6 +9,7 @@
 #include "ReflectionExpander.h"
 
 #include "StateSignatureBuilder.h"
+#include "../common/math/Vec3.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,58 +18,10 @@ namespace rt {
 
 namespace {
 
-Vec3 Subtract(const Point3& a, const Point3& b)
-{
-    Vec3 value;
-    value.x = a.x - b.x;
-    value.y = a.y - b.y;
-    value.z = a.z - b.z;
-    return value;
-}
-
-Point3 Add(const Point3& a, const Vec3& b)
-{
-    Point3 value;
-    value.x = a.x + b.x;
-    value.y = a.y + b.y;
-    value.z = a.z + b.z;
-    return value;
-}
-
-Vec3 Scale(const Vec3& value, double factor)
-{
-    Vec3 result;
-    result.x = value.x * factor;
-    result.y = value.y * factor;
-    result.z = value.z * factor;
-    return result;
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(Dot(value, value));
-}
-
-double Clamp(double value, double minValue, double maxValue)
-{
-    return std::max(minValue, std::min(value, maxValue));
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
-    }
-    return Scale(value, 1.0 / length);
-}
-
+/// <summary>
+/// Reflects a point across a plane defined by planePoint and planeNormal using
+/// the Image Method (mirror-point symmetry), returning the mirrored position.
+/// </summary>
 Point3 MirrorPointAcrossPlane(const Point3& point, const Point3& planePoint, const Vec3& planeNormal)
 {
     const Vec3 delta = Subtract(point, planePoint);
@@ -76,6 +29,10 @@ Point3 MirrorPointAcrossPlane(const Point3& point, const Point3& planePoint, con
     return Add(point, Scale(planeNormal, -2.0 * signedDistance));
 }
 
+/// <summary>
+/// Scores a reflection candidate by combining Euclidean path length with an
+/// angular penalty weighted by the surface-normal alignment of incoming/outgoing rays.
+/// </summary>
 double ComputeReflectionCandidateScore(const PathState& state, const FaceHit& hit, const Point3& rxPoint)
 {
     const Vec3 hitToRx = Subtract(rxPoint, hit.position);
@@ -88,14 +45,73 @@ double ComputeReflectionCandidateScore(const PathState& state, const FaceHit& hi
     return hit.distance + rxDistance + angularPenalty * 5.0;
 }
 
+/// <summary>
+/// Recursively traverses the face BVH (Bounding Volume Hierarchy) to collect
+/// candidate face ids whose AABBs overlap the spatial search region.
+/// </summary>
+void CollectCandidateFaceIdsInRegion(
+    const Scene& scene,
+    int nodeIndex,
+    const AABB& region,
+    std::vector<int>& faceIds)
+{
+    const FaceBVH& bvh = scene.acceleration.face_acceleration.face_bvh;
+    if (nodeIndex < 0 || nodeIndex >= static_cast<int>(bvh.nodes.size()))
+    {
+        return;
+    }
+    const FaceBVHNode& node = bvh.nodes[nodeIndex];
+
+    // AABB-AABB overlap test
+    const AABB& nb = node.bounds;
+    const AABB& rb = region;
+    if (!nb.valid || !rb.valid) return;
+    if (nb.max.x < rb.min.x || nb.min.x > rb.max.x ||
+        nb.max.y < rb.min.y || nb.min.y > rb.max.y ||
+        nb.max.z < rb.min.z || nb.min.z > rb.max.z)
+    {
+        return;
+    }
+
+    if (node.is_leaf)
+    {
+        for (int i = 0; i < node.primitive_count; ++i)
+        {
+            int idx = node.start_index + i;
+            if (idx >= 0 && idx < static_cast<int>(bvh.primitive_face_ids.size()))
+            {
+                faceIds.push_back(bvh.primitive_face_ids[idx]);
+            }
+        }
+        return;
+    }
+
+    CollectCandidateFaceIdsInRegion(scene, node.left_child, region, faceIds);
+    CollectCandidateFaceIdsInRegion(scene, node.right_child, region, faceIds);
+}
+
+/// <summary>
+/// Computes an axis-aligned bounding box that encloses the Tx and Rx points
+/// with a configurable margin, used as the spatial filter for the BVH face-gather step.
+/// </summary>
+AABB ComputeExtendedRegion(const Point3& tx, const Point3& rx, double margin)
+{
+    AABB region;
+    region.min.x = (tx.x < rx.x ? tx.x : rx.x) - margin;
+    region.min.y = (tx.y < rx.y ? tx.y : rx.y) - margin;
+    region.min.z = (tx.z < rx.z ? tx.z : rx.z) - margin;
+    region.max.x = (tx.x > rx.x ? tx.x : rx.x) + margin;
+    region.max.y = (tx.y > rx.y ? tx.y : rx.y) + margin;
+    region.max.z = (tx.z > rx.z ? tx.z : rx.z) + margin;
+    region.valid = true;
+    return region;
+}
+
 } // namespace
 
 /// <summary>
 /// 执行一次反射扩展。
 /// </summary>
-/// <param name="context">搜索上下文。</param>
-/// <param name="state">当前路径状态。</param>
-/// <returns>结构化反射扩展结果。</returns>
 ExpanderResult ExpandReflection(const PathSearchContext& context, const PathState& state)
 {
     ExpanderResult result;
@@ -111,8 +127,28 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
     };
     std::vector<ReflectionCandidateState> acceptedStates;
 
-    for (const Face& face : context.scene->faces)
+    // B2-A: BVH spatial filter instead of iterating all faces
+    const double margin = Length(Subtract(context.rx_point, state.current_point)) * 0.3;
+    const AABB region = ComputeExtendedRegion(state.current_point, context.rx_point, margin);
+
+    std::vector<int> candidateFaceIds;
+    const FaceBVH& bvh = context.scene->acceleration.face_acceleration.face_bvh;
+    if (bvh.valid)
     {
+        CollectCandidateFaceIdsInRegion(*context.scene, 0, region, candidateFaceIds);
+    }
+
+    // Fallback: if BVH not available, iterate all faces
+    const std::vector<Face>& facePool = context.scene->faces;
+    const bool useBvhFilter = !candidateFaceIds.empty();
+    const int totalChecks = useBvhFilter ? static_cast<int>(candidateFaceIds.size()) : static_cast<int>(facePool.size());
+
+    for (int checkIdx = 0; checkIdx < totalChecks; ++checkIdx)
+    {
+        const int faceIdx = useBvhFilter ? candidateFaceIds[checkIdx] : checkIdx;
+        if (faceIdx < 0 || faceIdx >= static_cast<int>(facePool.size())) continue;
+        const Face& face = facePool[faceIdx];
+
         if (!face.reflection_enabled || face.degenerate)
         {
             continue;
@@ -175,7 +211,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         nextState.remaining_reflections -= 1;
         nextState.ignored_face_id = hit.face_id;
         nextState.has_reflection = true;
-        nextState.mixed_path_enabled = state.has_transmission && !state.has_diffraction;
+        nextState.mixed_path_enabled = (nextState.has_reflection && nextState.has_transmission) || (nextState.has_reflection && nextState.has_diffraction) || (nextState.has_transmission && nextState.has_diffraction);
         nextState.clipped_by_control_rules = false;
 
         if (state.last_interaction_type != InteractionType::None &&
@@ -219,7 +255,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         {
             return lhs.score < rhs.score;
         });
-    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 6U);
+    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 8U);
     for (std::size_t i = 0; i < keepLimit; ++i)
     {
         result.next_states.push_back(acceptedStates[i].state);

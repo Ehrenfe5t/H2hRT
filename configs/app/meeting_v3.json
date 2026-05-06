@@ -1,0 +1,77 @@
+{
+  "app_runtime": {
+    "mode": "debug", "log_level": "INFO",
+    "enable_console_logging": true, "enable_file_logging": true,
+    "log_file_path": "output/logs/rt.log",
+    "config_snapshot_directory": "output/config_snapshots",
+    "cache_directory": "output/cache", "run_id": "meeting-v3", "worker_threads": 1
+  },
+  "scene_import": {
+    "source_file": "demo/meeting.obj", "source_format": "obj",
+    "scene_material_map_file": "configs/scenes/scene_material_map.json",
+    "normalize_object_names": true, "allow_name_auto_cleanup": true
+  },
+  "scene_preprocess": {
+    "rebuild_normals": false, "enable_wedge_build": true,
+    "enable_scene_cache": false, "enable_bvh_bruteforce_validation": false,
+    "filter_non_manifold_wedge_sources": true,
+    "skip_coplanar_edges_for_wedge": true, "preprocess_mode": "debug",
+    "scene_cache_format_version": "1.0.0",
+    "scene_preprocess_algorithm_version": "batch4-v1",
+    "wedge_min_angle_deg": 10.0, "wedge_max_angle_deg": 170.0,
+    "bvh_leaf_size": 16, "bvh_bruteforce_sample_count": 8
+  },
+  "material": {
+    "material_database_file": "demo/ItuMaterial.csv",
+    "material_mapping_file": "configs/scenes/scene_material_map.json",
+    "frequency_query_mode": "exact", "allow_material_fallback": false,
+    "default_background_medium": "air"
+  },
+  "antenna": { "source_type": "Ideal", "pattern_file": "", "polarization_file": "" },
+  "path_search": {
+    "max_path_depth": 8, "max_reflection_count": 4,
+    "max_transmission_count": 4, "max_diffraction_count": 2,
+    "max_scattering_count": 0, "max_candidate_face_hits": 64,
+    "max_candidate_wedges": 64, "enable_los": true,
+    "enable_reflection": true, "enable_transmission": true,
+    "enable_diffraction": true, "enable_scattering": false,
+    "enable_mixed_path": true, "keep_angle_metadata": true,
+    "max_consecutive_same_interaction": 5,
+    "pruning_strategy": "basic", "dedup_strategy": "signature",
+    "debug_tx_x": 16.0, "debug_tx_y": 1.5, "debug_tx_z": -12.0,
+    "debug_rx_x": 10.0, "debug_rx_y": 1.5, "debug_rx_z": -10.0
+  },
+  "sbr": {
+    "enabled": false, "ray_count": 5000,
+    "max_ray_depth": 4, "ray_power_threshold_linear": 0.01,
+    "rx_sphere_radius_factor": 1.5,
+    "rx_grid_min_x": 2.0, "rx_grid_max_x": 18.0,
+    "rx_grid_min_y": -18.0, "rx_grid_max_y": -6.0,
+    "rx_grid_z": 1.0, "rx_grid_step_x": 2.0, "rx_grid_step_y": 2.0
+  },
+  "em_solver": {
+    "frequency_hz": 2400000000.0, "solver_mode": "Precise",
+    "enable_polarization": true
+  },
+  "output": {
+    "output_directory": "output", "export_paths": true,
+    "export_cir": false, "export_pdp": false, "export_aps": false,
+    "export_debug_files": false, "export_config_snapshot": true
+  },
+  "validation": {
+    "enable_basic_validation": true, "enable_reference_compare": false,
+    "run_module1_self_check": false,
+    "module1_invalid_transmission_case_file": "",
+    "module1_invalid_diffraction_case_file": "",
+    "power_tolerance_db": 0.1
+  },
+  "experiment": {
+    "experiment_tag": "meeting-v3-full", "dataset_tag": "meeting-scene"
+  },
+  "numeric_tolerance": {
+    "eps_length": 1e-06, "eps_angle": 1e-06, "eps_intersection": 1e-07,
+    "eps_normal": 1e-06, "eps_deduplicate": 1e-05, "eps_power": 1e-09,
+    "self_hit_ignore_distance": 1e-05, "visibility_origin_offset": 1e-05,
+    "visibility_target_shrink": 1e-05
+  }
+}

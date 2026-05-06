@@ -63,7 +63,7 @@ struct PathState {
     bool has_diffraction = false;
     bool clipped_by_control_rules = false;
 
-    std::string state_signature;
+    uint64_t state_signature = 0;
     bool valid = false;
 };
 

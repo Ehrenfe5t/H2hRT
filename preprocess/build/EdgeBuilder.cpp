@@ -7,6 +7,7 @@
 // - 回填面元到边的邻接索引，供后续 wedge 与 query 使用。
 
 #include "EdgeBuilder.h"
+#include "../../core/common/math/Vec3.h"
 
 #include <algorithm>
 #include <cmath>
@@ -23,54 +24,6 @@ struct EdgeBuildAccumulator {
     int vertex1 = -1;
     std::vector<int> face_ids;
 };
-
-Vec3 Subtract(const Vec3& a, const Vec3& b)
-{
-    Vec3 result;
-    result.x = a.x - b.x;
-    result.y = a.y - b.y;
-    result.z = a.z - b.z;
-    return result;
-}
-
-Vec3 Add(const Vec3& a, const Vec3& b)
-{
-    Vec3 result;
-    result.x = a.x + b.x;
-    result.y = a.y + b.y;
-    result.z = a.z + b.z;
-    return result;
-}
-
-Vec3 Scale(const Vec3& value, double factor)
-{
-    Vec3 result;
-    result.x = value.x * factor;
-    result.y = value.y * factor;
-    result.z = value.z * factor;
-    return result;
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(Dot(value, value));
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
-    }
-
-    return Scale(value, 1.0 / length);
-}
 
 double ClampToUnit(double value)
 {

@@ -1,25 +1,30 @@
-// 文件目标：
-// - 声明模块5批次7的接收端收敛接口。
-//
-// 主要功能：
-// - 将 FieldAccumulator 收敛为单条 EMPathResult；
-// - 输出时延、相位、复振幅和功率；
-// - 作为模块5路径级主链的终点。
+// Declares the finalization step at the receiver: applies FSPL once, medium attenuation,
+// Rx antenna gain, and packs the complete EMPathResult.
 
 #pragma once
 
 #include "EMPathResult.h"
+#include "EMSolverInput.h"
 #include "FieldAccumulator.h"
 #include "../path/GeometricPath.h"
 
 namespace rt {
 
 /// <summary>
-/// 将路径级场状态收敛为接收端结果。
+/// Finalize the accumulated field state into a per-path EM result.
+/// Applies FSPL (lambda/(4*pi*d)) once over the total path length, multiplies
+/// by exponential medium attenuation exp(-alpha_tot), applies Rx antenna pattern
+/// gain, and packs all metadata into EMPathResult.
 /// </summary>
-/// <param name="field">路径级场状态累积器。</param>
-/// <param name="path">当前几何路径。</param>
-/// <returns>单条路径级电磁结果。</returns>
+/// <param name="field">Final field accumulator after all propagation and interactions.</param>
+/// <param name="path">Geometric path providing total length, node positions, and LOS flag.</param>
+/// <param name="input">Solver input for antenna model construction and Rx gain lookup.</param>
+/// <returns>Complete EMPathResult with final amplitude, power, delay, phase, and metadata.</returns>
+EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPath& path, const EMSolverInput& input);
+
+/// <summary>
+/// Backward-compatible overload without EMSolverInput. Rx antenna gain defaults to 1.0.
+/// </summary>
 EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPath& path);
 
 } // namespace rt

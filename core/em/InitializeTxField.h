@@ -1,10 +1,6 @@
-// 文件目标：
-// - 声明模块5批次7的发射场初始化接口。
-//
-// 主要功能：
-// - 根据频率与初始路径状态建立 FieldAccumulator；
-// - 设置波长、初始复振幅与极化占位信息；
-// - 为后续段传播与交互更新提供统一起点。
+// Initializes the FieldAccumulator from EMSolverInput: sets frequency, wavelength,
+// initial amplitude/phase, antenna IDs, polarization, and applies Tx antenna gain
+// for the first ray direction.
 
 #pragma once
 
@@ -14,11 +10,14 @@
 namespace rt {
 
 /// <summary>
-/// 初始化路径级发射场状态。
+/// Initialize the per-path field accumulator at the transmitter.
+/// Sets carrier frequency, wavelength, initial unit amplitude (1+0j), caches
+/// Tx/Rx antenna metadata, copies the Tx polarization vector, and applies the
+/// Tx antenna pattern gain for the initial departure direction.
 /// </summary>
-/// <param name="input">电磁求解输入。</param>
-/// <param name="field">待写入的场状态累积器。</param>
-/// <returns>true 表示初始化成功；false 表示失败。</returns>
+/// <param name="input">Solver input bundle (config, path, antennas).</param>
+/// <param name="field">Field accumulator to populate (output).</param>
+/// <returns>true on success; false if config/path is nullptr or frequency <= 0.</returns>
 bool InitializeTxField(const EMSolverInput& input, FieldAccumulator& field);
 
 } // namespace rt

@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "../core/common/log/Logger.h"
-#include "../core/common/config/AppConfig.h"
-#include "../core/scene/Scene.h"
+#include "../../core/common/log/Logger.h"
+#include "../../core/common/config/AppConfig.h"
+#include "../../core/scene/Scene.h"
 
 namespace rt {
 

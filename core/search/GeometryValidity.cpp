@@ -7,6 +7,7 @@
 // - 为后续剪枝与统计提供结构化失败原因源。
 
 #include "GeometryValidity.h"
+#include "../common/math/Vec3.h"
 
 #include <cmath>
 
@@ -14,11 +15,10 @@ namespace rt {
 
 namespace {
 
-double Length(const Vec3& value)
-{
-    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-}
-
+/// <summary>
+/// Returns true if points a and b are within eps distance component-wise,
+/// used to detect revisiting a near-identical interaction location.
+/// </summary>
 bool IsSamePoint(const Point3& a, const Point3& b, double eps)
 {
     return std::fabs(a.x - b.x) <= eps &&
@@ -26,53 +26,14 @@ bool IsSamePoint(const Point3& a, const Point3& b, double eps)
            std::fabs(a.z - b.z) <= eps;
 }
 
-bool ContainsInteraction(const PathState& state, InteractionType interactionType)
+/// <summary>
+/// Scans the traversed node list of a PathState to check whether any node
+/// has the specified interaction type.
+/// </summary>
+bool ContainsInteraction(const PathState& state, InteractionType t)
 {
-    for (const PathNode& node : state.traversed_nodes)
-    {
-        if (node.interaction_type == interactionType)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool IsInvalidImmediateSequence(InteractionType previousType, InteractionType currentType)
-{
-    if (previousType == InteractionType::None || previousType == InteractionType::Tx)
-    {
-        return false;
-    }
-
-    if (previousType == InteractionType::Reflection && currentType == InteractionType::Reflection)
-    {
-        return true;
-    }
-    if (previousType == InteractionType::Transmission && currentType == InteractionType::Transmission)
-    {
-        return true;
-    }
-    if (previousType == InteractionType::Diffraction && currentType == InteractionType::Diffraction)
-    {
-        return true;
-    }
-    if (previousType == InteractionType::Diffraction && currentType == InteractionType::Reflection)
-    {
-        return true;
-    }
-    if (previousType == InteractionType::Reflection && currentType == InteractionType::Diffraction)
-    {
-        return true;
-    }
-    if (previousType == InteractionType::Transmission && currentType == InteractionType::Diffraction)
-    {
-        return true;
-    }
-    if (previousType == InteractionType::Diffraction && currentType == InteractionType::Transmission)
-    {
-        return true;
-    }
+    for (const auto& n : state.traversed_nodes)
+        if (n.interaction_type == t) return true;
     return false;
 }
 
@@ -316,50 +277,27 @@ GeometryValidityResult IsValidExpandedState(const PathSearchContext& context, co
         return result;
     }
 
-    if (state.traversed_nodes.size() >= 2U)
-    {
-        const PathNode& previousNode = state.traversed_nodes[state.traversed_nodes.size() - 2U];
-        if (IsInvalidImmediateSequence(previousNode.interaction_type, lastNode.interaction_type))
-        {
-            result.reason = GeometryValidityReason::InvalidPathSequence;
-            result.detail = "Immediate repeated interaction sequence is blocked in A2-S1 control layer.";
-            return result;
-        }
-    }
+    // B1: IsInvalidImmediateSequence removed. Any interaction sequence is allowed.
+    // Per-mechanism budget counters (remaining_reflections/transmissions/diffractions)
+    // are the primary control mechanism.
 
-    if (state.consecutive_same_interaction_count > 1)
+    int maxConsecutiveSame = context.config->path_search.max_consecutive_same_interaction;
+    if (maxConsecutiveSame > 0 && state.consecutive_same_interaction_count > maxConsecutiveSame)
     {
-        result.reason = GeometryValidityReason::DuplicateInteractionLoop;
-        result.detail = "Consecutive same interaction count exceeds A2-S1 control limit.";
+        result.reason = GeometryValidityReason::CandidateRejectedByControl;
+        result.detail = "Consecutive same interaction count exceeds configurable limit (max_consecutive_same_interaction="
+            + std::to_string(maxConsecutiveSame) + ").";
         return result;
     }
+
+    // B1: mixed_path_enabled is now a statistics-only flag. No longer blocks any path.
+    // B1: Diffraction-based mixed paths are now fully allowed.
 
     if (state.mechanism_switch_count > state.path_depth)
     {
         result.reason = GeometryValidityReason::InvalidState;
         result.detail = "mechanism_switch_count bookkeeping exceeds path_depth.";
         return result;
-    }
-
-    const bool reflectionTransmissionMixed = state.has_reflection && state.has_transmission;
-    const bool reflectionDiffractionMixed = state.has_reflection && state.has_diffraction;
-    const bool transmissionDiffractionMixed = state.has_transmission && state.has_diffraction;
-
-    if (reflectionDiffractionMixed || transmissionDiffractionMixed)
-    {
-        result.reason = GeometryValidityReason::MixedPathNotAllowed;
-        result.detail = "A2-S3 currently only allows Reflection + Transmission mixed path, not diffraction-based mixed path.";
-        return result;
-    }
-
-    if (reflectionTransmissionMixed)
-    {
-        if (!state.mixed_path_enabled)
-        {
-            result.reason = GeometryValidityReason::MixedPathNotAllowed;
-            result.detail = "Reflection + Transmission mixed path detected before mixed path is formally enabled.";
-            return result;
-        }
     }
 
     if (lastNode.interaction_type == InteractionType::Transmission)

@@ -7,6 +7,7 @@
 // - 按配置显式过滤非流形来源、共面边与角度异常来源。
 
 #include "WedgeBuilder.h"
+#include "../../core/common/math/Vec3.h"
 
 #include <cmath>
 
@@ -16,14 +17,8 @@ namespace {
 
 double ClampToUnit(double value)
 {
-    if (value < -1.0)
-    {
-        return -1.0;
-    }
-    if (value > 1.0)
-    {
-        return 1.0;
-    }
+    if (value < -1.0) return -1.0;
+    if (value > 1.0) return 1.0;
     return value;
 }
 
@@ -38,31 +33,6 @@ AABB BuildBounds(const Point3& a, const Point3& b)
     bounds.max.z = (a.z > b.z) ? a.z : b.z;
     bounds.valid = true;
     return bounds;
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(Dot(value, value));
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
-    }
-
-    Vec3 result;
-    result.x = value.x / length;
-    result.y = value.y / length;
-    result.z = value.z / length;
-    return result;
 }
 
 } // namespace

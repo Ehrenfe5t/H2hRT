@@ -11,18 +11,10 @@
 #include <cstdint>
 #include <string>
 
+// Vec3/Point3 定义移至 core/common/math/Vec3.h
+#include "../common/math/Vec3.h"
+
 namespace rt {
-
-/// <summary>
-/// 简单三维向量结构。
-/// </summary>
-struct Vec3 {
-    double x = 0.0;
-    double y = 0.0;
-    double z = 0.0;
-};
-
-using Point3 = Vec3;
 
 /// <summary>
 /// 轴对齐包围盒结构。

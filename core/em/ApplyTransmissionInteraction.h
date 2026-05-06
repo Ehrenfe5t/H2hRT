@@ -1,24 +1,32 @@
-// 文件目标：
-// - 声明模块5批次7的透射交互更新接口。
-//
-// 主要功能：
-// - 根据透射节点对 FieldAccumulator 做第一版复场更新；
-// - 保留后续 Fresnel 透射系数精化接口；
-// - 显式更新当前介质状态。
+// Declares the Fresnel transmission interaction through a dielectric boundary: TE/TM
+// decomposition, complex permittivity, Fresnel transmission coefficients, and medium
+// transition tracking for subsequent attenuation.
 
 #pragma once
 
 #include "FieldAccumulator.h"
+#include "EMSolverInput.h"
 #include "../path/PathNode.h"
 
 namespace rt {
 
 /// <summary>
-/// 对透射交互更新场状态。
+/// Apply Fresnel transmission through a dielectric boundary at a path node.
+/// Uses the face's exit-side material properties (epsilon_r, sigma) to compute
+/// TE and TM Fresnel transmission coefficients. Updates the field amplitude,
+/// phase, power, and polarization, and records the new medium ID so subsequent
+/// free-space segments can apply the correct medium-specific attenuation.
 /// </summary>
-/// <param name="field">路径级场状态累积器。</param>
-/// <param name="node">当前透射节点。</param>
-/// <returns>true 表示更新成功；false 表示失败。</returns>
-bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node);
+/// <param name="field">Field accumulator to update with transmitted state and new medium ID.</param>
+/// <param name="node">Path node containing transmission semantics (medium IDs, face reference).</param>
+/// <param name="input">Solver input providing material database and scene geometry.</param>
+/// <returns>true if transmission was applied; false if validation fails.</returns>
+bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input);
+
+// Backward-compatible overload for legacy callers (no EMSolverInput)
+inline bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node) {
+    EMSolverInput dummy;
+    return ApplyTransmissionInteraction(field, node, dummy);
+}
 
 } // namespace rt

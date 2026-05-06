@@ -1,10 +1,5 @@
-// 文件目标：
-// - 定义模块5批次8的双模式求值 profile 与输出层结果结构。
-//
-// 主要功能：
-// - 提供 PreciseEM / CoverageEM 两种模式的统一配置结构；
-// - 定义 CIR / PDP / APS / ChannelStatistics / CoverageResult / ISACFeatureSet；
-// - 为批次8多路径汇总与结果派生提供稳定类型基础。
+// Defines the dual-mode evaluation profile (PreciseEM / CoverageEM) and all
+// aggregate output structures: CIR, PDP, APS, channel statistics, coverage, ISAC.
 
 #pragma once
 
@@ -16,121 +11,129 @@
 namespace rt {
 
 /// <summary>
-/// 模块5求值模式枚举。
+/// EM solver evaluation mode: PreciseEM preserves full complex field and polarization;
+/// CoverageEM uses non-coherent power sum for large-scale coverage simulations.
 /// </summary>
 enum class EMSolveMode {
-    PreciseEM = 0,
-    CoverageEM
+    PreciseEM = 0,  ///< High-fidelity mode: full complex field, polarization, and phase retained per path.
+    CoverageEM      ///< Coverage mode: non-coherent power sum, reduced memory footprint.
 };
 
 /// <summary>
-/// 模块5求值 profile 结构。
+/// Configuration profile controlling which outputs the EM solver computes and
+/// how path results are aggregated (coherent vs. non-coherent, thresholds, etc.).
 /// </summary>
 struct EMSolveProfile {
-    EMSolveMode mode = EMSolveMode::PreciseEM;
-    bool keep_full_complex_field = true;
-    bool keep_full_polarization = true;
-    bool keep_phase_output = true;
-    bool enable_receiver_polarization_projection = true;
-    bool enable_coherent_sum = true;
-    bool enable_noncoherent_power_sum = false;
-    int max_paths_per_receiver = 64;
-    double min_power_threshold_linear = 0.0;
+    EMSolveMode mode = EMSolveMode::PreciseEM;             ///< Active evaluation mode.
+    bool keep_full_complex_field = true;                    ///< If true, retain real+imag field amplitude per path.
+    bool keep_full_polarization = true;                     ///< If true, retain full 3D polarization vector per path.
+    bool keep_phase_output = true;                          ///< If true, retain phase_rad in the result.
+    bool enable_receiver_polarization_projection = true;    ///< If true, project received field onto Rx antenna polarization.
+    bool enable_coherent_sum = true;                        ///< If true, sum complex amplitudes coherently for CIR.
+    bool enable_noncoherent_power_sum = false;              ///< If true, also sum powers non-coherently (used in CoverageEM).
+    int max_paths_per_receiver = 64;                        ///< Maximum number of paths to process per Rx.
+    double min_power_threshold_linear = 0.0;                ///< Minimum linear power to retain a path in results.
 };
 
 /// <summary>
-/// CIR 抽头结构。
+/// Single tap in a Channel Impulse Response: delay, complex amplitude, power,
+/// and IDs of the geometric paths contributing to this tap.
 /// </summary>
 struct CIRTap {
-    double delay_s = 0.0;
-    double amplitude_real = 0.0;
-    double amplitude_imag = 0.0;
-    double power_linear = 0.0;
-    std::vector<int> contributing_path_ids;
+    double delay_s = 0.0;                       ///< Propagation delay in seconds.
+    double amplitude_real = 0.0;                ///< Real part of the complex tap amplitude.
+    double amplitude_imag = 0.0;                ///< Imaginary part of the complex tap amplitude.
+    double power_linear = 0.0;                  ///< Linear power = |amplitude|^2.
+    std::vector<int> contributing_path_ids;     ///< Path IDs that map to this delay bin.
 };
 
 /// <summary>
-/// CIR 结果结构。
+/// Channel Impulse Response: a set of delay-domain taps with optional coherent
+/// summation flag.
 /// </summary>
 struct CIRResult {
-    std::vector<CIRTap> taps;
-    bool coherent = true;
+    std::vector<CIRTap> taps;   ///< Ordered set of CIR taps.
+    bool coherent = true;       ///< Whether taps were formed by coherent summing.
 };
 
 /// <summary>
-/// PDP 抽头结构。
+/// Single tap in a Power Delay Profile: delay and power only (no phase).
 /// </summary>
 struct PDPTap {
-    double delay_s = 0.0;
-    double power_linear = 0.0;
+    double delay_s = 0.0;       ///< Propagation delay in seconds.
+    double power_linear = 0.0;  ///< Linear received power at this delay.
 };
 
 /// <summary>
-/// PDP 结果结构。
+/// Power Delay Profile: delay-domain power distribution.
 /// </summary>
 struct PDPResult {
-    std::vector<PDPTap> taps;
+    std::vector<PDPTap> taps;   ///< Ordered set of PDP taps.
 };
 
 /// <summary>
-/// APS 条目结构。
+/// Single entry in an Angular Power Spectrum.
 /// </summary>
 struct APSEntry {
-    double angle_metric = 0.0;
-    double power_linear = 0.0;
+    double angle_metric = 0.0;  ///< Placeholder angle metric (currently uses polarization_vector.x).
+    double power_linear = 0.0;  ///< Linear power arriving at this angle.
 };
 
 /// <summary>
-/// APS 结果结构。
+/// Angular Power Spectrum: angle-domain power distribution.
 /// </summary>
 struct APSResult {
-    std::vector<APSEntry> entries;
+    std::vector<APSEntry> entries;  ///< Ordered set of angle entries.
 };
 
 /// <summary>
-/// 信道统计结构。
+/// Aggregate channel statistics: path count, total/strongest power, mean delay,
+/// mean phase, transmission path count.
 /// </summary>
 struct ChannelStatistics {
-    int valid_path_count = 0;
-    double total_power_linear = 0.0;
-    double strongest_path_power_linear = 0.0;
-    double mean_delay_s = 0.0;
-    double mean_abs_phase_rad = 0.0;
-    int transmission_path_count = 0;
+    int valid_path_count = 0;               ///< Number of valid paths contributing to the statistics.
+    double total_power_linear = 0.0;         ///< Sum of linear power across all valid paths.
+    double strongest_path_power_linear = 0.0;///< Maximum per-path linear power.
+    double mean_delay_s = 0.0;               ///< Arithmetic mean of path delays.
+    double mean_abs_phase_rad = 0.0;         ///< Arithmetic mean of absolute phase (placeholder, currently unset).
+    int transmission_path_count = 0;         ///< Count of paths that contain at least one transmission.
 };
 
 /// <summary>
-/// 覆盖结果结构。
+/// Coverage result for one receiver location: total power, path count, and
+/// average free-space loss.
 /// </summary>
 struct CoverageResult {
-    double total_received_power_linear = 0.0;
-    int contributing_path_count = 0;
-    double average_free_space_loss_db = 0.0;
+    double total_received_power_linear = 0.0; ///< Sum of linear power from all contributing paths.
+    int contributing_path_count = 0;           ///< Number of paths above the power threshold.
+    double average_free_space_loss_db = 0.0;   ///< Arithmetic mean of FSPL in dB across contributing paths.
 };
 
 /// <summary>
-/// 通感基础特征结构。
+/// Integrated Sensing and Communication (ISAC) basic feature set extracted
+/// from the multipath channel.
 /// </summary>
 struct ISACFeatureSet {
-    int path_count = 0;
-    double earliest_delay_s = 0.0;
-    double strongest_path_power_linear = 0.0;
-    double average_polarization_magnitude = 0.0;
-    int transmission_path_count = 0;
+    int path_count = 0;                         ///< Total number of valid paths.
+    double earliest_delay_s = 0.0;              ///< Minimum propagation delay (first-arriving path).
+    double strongest_path_power_linear = 0.0;   ///< Maximum per-path linear power.
+    double average_polarization_magnitude = 0.0;///< Arithmetic mean of polarization magnitude across paths.
+    int transmission_path_count = 0;            ///< Count of paths that contain at least one transmission.
 };
 
 /// <summary>
-/// 模块5批次8汇总输出结构。
+/// Top-level aggregate result from the EM solver pipeline, bundling all
+/// derived products (CIR, PDP, APS, statistics, coverage, ISAC features).
 /// </summary>
 struct EMAggregateResult {
-    EMSolveProfile profile;
-    EMPathResultSet path_results;
-    CIRResult cir;
-    PDPResult pdp;
-    APSResult aps;
-    ChannelStatistics statistics;
-    CoverageResult coverage;
-    ISACFeatureSet isac_features;
+    EMSolveProfile profile;          ///< The profile that produced this result.
+    EMPathResultSet path_results;    ///< Raw per-path electromagnetic results.
+    CIRResult cir;                   ///< Channel Impulse Response.
+    PDPResult pdp;                   ///< Power Delay Profile.
+    APSResult aps;                   ///< Angular Power Spectrum.
+    ChannelStatistics statistics;    ///< Aggregate channel statistics.
+    CoverageResult coverage;         ///< Coverage summary (used in CoverageEM mode).
+    ISACFeatureSet isac_features;    ///< ISAC sensing features.
 };
 
 } // namespace rt

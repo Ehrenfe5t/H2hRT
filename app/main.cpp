@@ -1,11 +1,6 @@
-// 文件目标：
-// - 作为 RT 新系统当前阶段的控制台程序入口。
-// - 负责解析命令行中的配置路径，并把控制权交给 RtPipeline。
-//
-// 主要功能：
-// - 提供稳定默认配置路径；
-// - 捕获启动阶段未处理异常；
-// - 返回统一退出码，便于脚本和 VS2022 调试使用。
+// Console entry point for the RT raytracing pipeline.
+// Parses an optional config-file path from the command line, delegates all work to RtPipeline,
+// and returns a unified exit code for scripting / CI use.
 
 #include "RtPipeline.h"
 
@@ -14,17 +9,20 @@
 #include <string>
 
 /// <summary>
-/// 应用程序入口函数。
+/// Application entry point. Parses an optional config-file path from argv[1],
+/// delegates to RtPipeline::Run, and returns a unified exit code.
 /// </summary>
-/// <param name="argc">命令行参数数量。</param>
-/// <param name="argv">命令行参数数组；若存在 `argv[1]`，则把它视为配置文件路径。</param>
-/// <returns>返回进程退出码；0 表示成功，非 0 表示失败。</returns>
+/// <param name="argc">Number of command-line arguments.</param>
+/// <param name="argv">Command-line argument array; argv[1], if present, is the config file path.</param>
+/// <returns>Process exit code; 0 = success, nonzero = failure.</returns>
 int main(int argc, char* argv[])
 {
     try
     {
-        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/minimal.json";
+        // Resolve config path: CLI arg first, otherwise fall back to the minimal default.
+        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/meeting_v3.json";
 
+        // Bootstrap the full pipeline (config, validation, batches, A1 chain, SBR).
         rt::RtPipeline pipeline;
         const rt::PipelineRunResult result = pipeline.Run(configPath);
 

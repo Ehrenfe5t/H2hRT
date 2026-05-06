@@ -1,20 +1,18 @@
-// 文件目标：
-// - 实现模块5批次8的 PDP 构建逻辑。
-//
-// 主要功能：
-// - 将路径级时延与功率映射为 PDP 抽头；
-// - 保持结构简单明确，便于后续增强；
-// - 为批次8的 PDP 闭环提供基础输出。
+// Builds the Power Delay Profile (PDP) from per-path EM results: maps each valid
+// path into a delay-vs-power tap. Simpler than CIR -- no phase/amplitude, only power.
 
 #include "BuildPDP.h"
 
 namespace rt {
 
 /// <summary>
-/// 构建 PDP 结果。
+/// Build a Power Delay Profile (PDP) from per-path EM results.
+/// Each valid path contributes a PDP tap with its delay and linear power.
+/// Unlike CIR, PDP discards phase and complex amplitude, retaining only
+/// power-vs-delay for large-scale delay spread analysis.
 /// </summary>
-/// <param name="pathResults">路径级电磁结果集合。</param>
-/// <returns>结构化 PDP 结果。</returns>
+/// <param name="pathResults">Per-path EM results from the solver.</param>
+/// <returns>PDPResult with one tap per valid path.</returns>
 PDPResult BuildPDP(const EMPathResultSet& pathResults)
 {
     PDPResult result;
@@ -22,11 +20,11 @@ PDPResult BuildPDP(const EMPathResultSet& pathResults)
     {
         if (!item.valid)
         {
-            continue;
+            continue; // silently skip invalid paths
         }
         PDPTap tap;
-        tap.delay_s = item.delay_s;
-        tap.power_linear = item.power_linear;
+        tap.delay_s = item.delay_s;       // propagation delay in seconds
+        tap.power_linear = item.power_linear; // received linear power
         result.taps.push_back(tap);
     }
     return result;

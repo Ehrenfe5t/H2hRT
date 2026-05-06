@@ -7,6 +7,7 @@
 // - 回写节点统计与场景总包围盒。
 
 #include "FaceBVHBuilder.h"
+#include "../../core/common/math/Vec3.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,48 +17,6 @@
 namespace rt {
 
 namespace {
-
-Vec3 MakeVec3(double x, double y, double z)
-{
-    Vec3 value;
-    value.x = x;
-    value.y = y;
-    value.z = z;
-    return value;
-}
-
-Vec3 Subtract(const Vec3& a, const Vec3& b)
-{
-    return MakeVec3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-Vec3 Cross(const Vec3& a, const Vec3& b)
-{
-    return MakeVec3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x);
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(Dot(value, value));
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
-    }
-    return MakeVec3(value.x / length, value.y / length, value.z / length);
-}
 
 Point3 Centroid(const Point3& a, const Point3& b, const Point3& c)
 {

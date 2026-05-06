@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "../core/common/log/Logger.h"
-#include "../core/search/SearchEngine.h"
+#include "../../core/common/log/Logger.h"
+#include "../../core/search/SearchEngine.h"
 
 namespace rt {
 

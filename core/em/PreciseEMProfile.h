@@ -1,10 +1,5 @@
-// 文件目标：
-// - 声明模块5批次8的 PreciseEM profile 构建接口。
-//
-// 主要功能：
-// - 生成面向高保真路径级结果保留的 profile；
-// - 为批次8 precise / coverage 对比提供稳定入口；
-// - 保持 profile 定义与求值主链解耦。
+// Declares the PreciseEM profile builder: high-fidelity mode with full complex
+// field, polarization, phase, and coherent summation for detailed channel analysis.
 
 #pragma once
 
@@ -13,9 +8,11 @@
 namespace rt {
 
 /// <summary>
-/// 构建 PreciseEM profile。
+/// Build the PreciseEM evaluation profile.
+/// Enables full complex field, polarization, and phase output with coherent
+/// summation for CIR. Higher path budget (64) and no power threshold.
 /// </summary>
-/// <returns>结构化 PreciseEM profile。</returns>
+/// <returns>EMSolveProfile configured for PreciseEM mode.</returns>
 EMSolveProfile BuildPreciseEMProfile();
 
 } // namespace rt

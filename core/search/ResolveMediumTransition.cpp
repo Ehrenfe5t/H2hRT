@@ -7,17 +7,9 @@
 // - 为后续模块5 transmission 电磁求解提供稳定语义基础。
 
 #include "ResolveMediumTransition.h"
+#include "../common/math/Vec3.h"
 
 namespace rt {
-
-namespace {
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-} // namespace
 
 /// <summary>
 /// 解析透射交互下的介质切换信息。

@@ -1,10 +1,6 @@
-// 文件目标：
-// - 实现模块5批次8的 APS 构建逻辑。
-//
-// 主要功能：
-// - 使用当前批次可得的基础极化/方向占位构建角域摘要；
-// - 保证批次8可生成 APSResult；
-// - 为后续更精细角度建模保留可替换位置。
+// Builds the Angular Power Spectrum (APS) from per-path EM results: extracts a
+// placeholder angle metric (currently polarization_vector.x) and associated power
+// for each valid path. Intended as a stub for future AoA/AoD angular analysis.
 
 #include "BuildAPS.h"
 
@@ -13,10 +9,13 @@
 namespace rt {
 
 /// <summary>
-/// 构建 APS 结果。
+/// Build an Angular Power Spectrum (APS) from per-path EM results.
+/// Each valid path maps to an APS entry with an angle metric and its power.
+/// The current angle metric is a placeholder (uses polarization_vector.x)
+/// pending integration of AoA/AoD direction-of-arrival computation.
 /// </summary>
-/// <param name="pathResults">路径级电磁结果集合。</param>
-/// <returns>结构化 APS 结果。</returns>
+/// <param name="pathResults">Per-path EM results from the solver.</param>
+/// <returns>APSResult with one entry per valid path.</returns>
 APSResult BuildAPS(const EMPathResultSet& pathResults)
 {
     APSResult result;
@@ -27,8 +26,11 @@ APSResult BuildAPS(const EMPathResultSet& pathResults)
             continue;
         }
         APSEntry entry;
+        // Placeholder angle metric: currently uses the x-component of the
+        // polarization vector as a proxy for direction-of-arrival.
+        // TODO: replace with proper AoA/AoD computation from path geometry.
         entry.angle_metric = item.polarization_vector.x;
-        entry.power_linear = item.power_linear;
+        entry.power_linear = item.power_linear; // received linear power at this angle
         result.entries.push_back(entry);
     }
     return result;

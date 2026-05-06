@@ -1,10 +1,7 @@
-// 文件目标：
-// - 实现批次9结果表达、验证与回归闭环验证输出函数。
-//
-// 主要功能：
-// - 复用批次8聚合结果构建 ExportBundle；
-// - 导出路径、信道、覆盖、通感、可视化和报告文件；
-// - 输出验证报告与回归报告摘要。
+// Batch-9 export, validation, and regression reporter -- implementation.
+// NOTE: Transitional / legacy module. Builds hand-crafted reference paths (LOS, reflection,
+// transmission, diffraction) and runs them through the full EM + export pipeline for
+// cross-validating the A1 real chain. This should be phased out once A1 is stable.
 
 #include "Batch9ExportReporter.h"
 
@@ -43,20 +40,7 @@ namespace rt {
 
 namespace {
 
-Vec3 Subtract(const Point3& a, const Point3& b)
-{
-    Vec3 value;
-    value.x = a.x - b.x;
-    value.y = a.y - b.y;
-    value.z = a.z - b.z;
-    return value;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-}
-
+/// <summary>Offsets a point along a direction by a given scale factor.</summary>
 Point3 AddOffset(const Point3& point, const Vec3& direction, double scale)
 {
     Point3 value;
@@ -66,6 +50,9 @@ Point3 AddOffset(const Point3& point, const Vec3& direction, double scale)
     return value;
 }
 
+/// <summary>
+/// Runs the full EM solve for a single reference path (legacy: uses batch9-tx/batch9-rx antenna tags).
+/// </summary>
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result)
 {
     EMSolverInput input;
@@ -102,6 +89,7 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
     return result.valid;
 }
 
+/// <summary>Builds a hard-coded LOS reference path between (1,1,1) and (3,1,1).</summary>
 GeometricPath BuildLosPath()
 {
     GeometricPath path;
@@ -112,6 +100,7 @@ GeometricPath BuildLosPath()
     return path;
 }
 
+/// <summary>Builds a single-reflection reference path using the first reflection-enabled face.</summary>
 bool BuildSingleReflectionPath(const Scene& scene, GeometricPath& path)
 {
     for (const Face& face : scene.faces)
@@ -126,6 +115,7 @@ bool BuildSingleReflectionPath(const Scene& scene, GeometricPath& path)
     return false;
 }
 
+/// <summary>Builds a single-transmission reference path using the first transmission-enabled face.</summary>
 bool BuildSingleTransmissionPath(const Scene& scene, GeometricPath& path)
 {
     for (const Face& face : scene.faces)
@@ -141,6 +131,7 @@ bool BuildSingleTransmissionPath(const Scene& scene, GeometricPath& path)
     return false;
 }
 
+/// <summary>Builds a single-diffraction reference path from the first wedge query record.</summary>
 bool BuildSingleDiffractionPath(const Scene& scene, GeometricPath& path)
 {
     if (scene.acceleration.wedge_acceleration.wedge_query_records.empty()) return false;
@@ -152,6 +143,10 @@ bool BuildSingleDiffractionPath(const Scene& scene, GeometricPath& path)
     path.nodes = { tx, n, rx }; path.total_length = n.segment_length_from_previous + rx.segment_length_from_previous; return true;
 }
 
+/// <summary>
+/// Assembles hand-crafted reference paths (LOS, reflection, transmission, diffraction)
+/// and solves each one through EM, yielding the legacy reference result set.
+/// </summary>
 EMPathResultSet BuildReferencePathResultSet(const AppConfig& config, const Scene& scene)
 {
     EMPathResultSet set;
@@ -164,6 +159,10 @@ EMPathResultSet BuildReferencePathResultSet(const AppConfig& config, const Scene
     return set;
 }
 
+/// <summary>
+/// Aggregates per-path EM results into CIR, PDP, APS, channel statistics, coverage,
+/// and ISAC feature sets for a given solve profile.
+/// </summary>
 EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
 {
     EMAggregateResult result;
@@ -181,14 +180,17 @@ EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const
 } // namespace
 
 /// <summary>
-/// 执行批次9结果表达、验证与回归自检并输出摘要。
+/// Legacy Batch-9 export, validation, and regression self-check.
+/// Builds hand-crafted reference paths, runs the EM + export pipeline, and logs
+/// a detailed summary including exported file count, validation status, and regression diffs.
 /// </summary>
-/// <param name="config">统一应用配置对象。</param>
-/// <param name="scene">已闭环的静态场景对象。</param>
-/// <param name="logger">统一日志对象。</param>
-/// <returns>true 表示批次9自检通过；false 表示失败。</returns>
+/// <param name="config">Application configuration.</param>
+/// <param name="scene">Static scene with closed-loop geometry.</param>
+/// <param name="logger">Unified logger.</param>
+/// <returns>true if Batch-9 self-check passed; false otherwise.</returns>
 bool ReportBatch9ExportSummary(const AppConfig& config, const Scene& scene, Logger& logger)
 {
+    // Build hand-crafted reference paths and solve them through EM.
     const EMPathResultSet pathResults = BuildReferencePathResultSet(config, scene);
     const EMAggregateResult preciseResult = BuildAggregateResult(pathResults, BuildPreciseEMProfile());
     const EMAggregateResult coverageResult = BuildAggregateResult(pathResults, BuildCoverageEMProfile());
@@ -207,6 +209,7 @@ bool ReportBatch9ExportSummary(const AppConfig& config, const Scene& scene, Logg
     bundle.export_purpose = context.export_purpose;
     bundle.export_view_name = context.handoff_view_name;
 
+    // Export all result types: Paths, Channel, Coverage, ISAC, Visualization.
     bool succeeded = true;
     succeeded = ExportPaths(context, bundle) && succeeded;
     succeeded = ExportChannel(context, bundle) && succeeded;
@@ -214,6 +217,7 @@ bool ReportBatch9ExportSummary(const AppConfig& config, const Scene& scene, Logg
     succeeded = ExportISAC(context, bundle) && succeeded;
     succeeded = ExportVisualization(context, bundle) && succeeded;
 
+    // Validation and regression close-loop.
     const ValidationReport validationReport = BuildValidationReport(bundle, context);
     succeeded = ExportValidationReport(validationReport, context, bundle) && succeeded;
     const RegressionReport regressionReport = BuildRegressionReport(context);

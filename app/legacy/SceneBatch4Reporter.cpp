@@ -8,7 +8,7 @@
 
 #include "SceneBatch4Reporter.h"
 
-#include "../core/query/SceneQuery.h"
+#include "../../core/query/SceneQuery.h"
 
 #include <sstream>
 

@@ -1,10 +1,5 @@
-// 文件目标：
-// - 声明模块5批次8的 APS 构建接口。
-//
-// 主要功能：
-// - 根据路径级 EMPathResultSet 生成 APSResult；
-// - 以基础角度指标占位支持批次8闭环；
-// - 为后续更严格 AoA/AoD 角域统计预留接口。
+// Declares the APS builder: converts per-path EM results into angle-vs-power
+// entries using a placeholder angle metric (placeholder for future AoA/AoD).
 
 #pragma once
 
@@ -13,10 +8,12 @@
 namespace rt {
 
 /// <summary>
-/// 构建 APS 结果。
+/// Build an Angular Power Spectrum (APS) from per-path EM results.
+/// Uses a placeholder angle metric (polarization_vector.x) as a stub
+/// for future direction-of-arrival computation.
 /// </summary>
-/// <param name="pathResults">路径级电磁结果集合。</param>
-/// <returns>结构化 APS 结果。</returns>
+/// <param name="pathResults">Per-path EM results from the solver.</param>
+/// <returns>APSResult with one entry per valid path.</returns>
 APSResult BuildAPS(const EMPathResultSet& pathResults);
 
 } // namespace rt

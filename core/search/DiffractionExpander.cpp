@@ -1,15 +1,6 @@
-// 文件目标：
-// - 实现模块4批次6的绕射扩展器。
-//
-// 主要功能：
-// - 基于模块2提供的 WedgeCandidate 查询结果发现绕射候选；
-// - 检查候选可见性与最小楔边约束；
-// - 生成新的绕射状态供 SearchEngine 继续处理。
-
 #include "DiffractionExpander.h"
-
 #include "StateSignatureBuilder.h"
-
+#include "../common/math/Vec3.h"
 #include <algorithm>
 #include <cmath>
 
@@ -17,55 +8,94 @@ namespace rt {
 
 namespace {
 
-Vec3 Subtract(const Point3& a, const Point3& b)
+constexpr double kGoldenRatio = 1.618033988749895;
+constexpr int kMaxGssIter = 32;
+constexpr double kGssTol = 1e-6;
+constexpr double kKellerTol = 1e-4;
+constexpr double kEdgeMargin = 1e-4;
+
+/// <summary>
+/// Evaluates the total Fermat path length Tx-diffraction-Rx for a diffraction
+/// point parameterised by t along the edge from e1 in direction edgeVec.
+/// </summary>
+double FermatPathLength(double t, const Point3& tx, const Point3& rx, const Point3& e1, const Vec3& edgeVec)
 {
-    Vec3 value;
-    value.x = a.x - b.x;
-    value.y = a.y - b.y;
-    value.z = a.z - b.z;
-    return value;
+    const double px = e1.x + t * edgeVec.x;
+    const double py = e1.y + t * edgeVec.y;
+    const double pz = e1.z + t * edgeVec.z;
+    const double dx1 = px - tx.x, dy1 = py - tx.y, dz1 = pz - tx.z;
+    const double dx2 = px - rx.x, dy2 = py - rx.y, dz2 = pz - rx.z;
+    return std::sqrt(dx1*dx1 + dy1*dy1 + dz1*dz1) + std::sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2);
 }
 
-double Length(const Vec3& value)
+/// <summary>
+/// Minimises the Fermat path length along the parameterised edge [0,1] using the
+/// Golden Section Search algorithm to locate the optimum diffraction point.
+/// </summary>
+double GoldenSectionSearch(const Point3& tx, const Point3& rx, const Point3& e1, const Vec3& edgeVec)
 {
-    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
+    double a = 0.0, b = 1.0;
+    double c = b - (b - a) / kGoldenRatio;
+    double d = a + (b - a) / kGoldenRatio;
+    double fc = FermatPathLength(c, tx, rx, e1, edgeVec);
+    double fd = FermatPathLength(d, tx, rx, e1, edgeVec);
+    for (int i = 0; i < kMaxGssIter; ++i)
     {
-        return Vec3{};
+        if (fc < fd) { b = d; d = c; fd = fc; c = b - (b - a) / kGoldenRatio; fc = FermatPathLength(c, tx, rx, e1, edgeVec); }
+        else         { a = c; c = d; fc = fd; d = a + (b - a) / kGoldenRatio; fd = FermatPathLength(d, tx, rx, e1, edgeVec); }
+        if ((b - a) < kGssTol) break;
     }
-    Vec3 result;
-    result.x = value.x / length;
-    result.y = value.y / length;
-    result.z = value.z / length;
-    return result;
+    return (a + b) * 0.5;
 }
 
-double Dot(const Vec3& a, const Vec3& b)
+/// <summary>
+/// UTD Keller-cone verification: checks that the direction cosines of the
+/// incident and diffracted rays with respect to the edge direction are equal
+/// within tolerance, ensuring the diffracted ray lies on the Keller cone.
+/// </summary>
+bool VerifyKellerCone(const Point3& tx, const Point3& rx, const Point3& dp, const Vec3& ed)
 {
-    return a.x * b.x + a.y * b.y + a.z * b.z;
+    const double dtx = dp.x - tx.x, dty = dp.y - tx.y, dtz = dp.z - tx.z;
+    const double drx = rx.x - dp.x, dry = rx.y - dp.y, drz = rx.z - dp.z;
+    const double ltx = std::sqrt(dtx*dtx + dty*dty + dtz*dtz);
+    const double lrx = std::sqrt(drx*drx + dry*dry + drz*drz);
+    if (ltx <= 0.0 || lrx <= 0.0) return false;
+    const double cbTx = std::fabs((dtx*ed.x + dty*ed.y + dtz*ed.z)) / ltx;
+    const double cbRx = std::fabs((drx*ed.x + dry*ed.y + drz*ed.z)) / lrx;
+    return std::fabs(cbTx - cbRx) <= kKellerTol;
 }
 
-double ComputeDiffractionCandidateScore(const PathState& state, const WedgeCandidate& candidate, const Point3& rxPoint)
+/// <summary>
+/// Looks up the two endpoint positions of a scene edge by its id; returns false
+/// if the id is out of range so the caller can reject the candidate.
+/// </summary>
+bool LookupEdgeEndpoints(const Scene& scene, int edgeId, Point3& e1, Point3& e2)
 {
-    const double fromCurrent = Length(Subtract(candidate.center_point, state.current_point));
-    const double toRx = Length(Subtract(rxPoint, candidate.center_point));
-    const double anglePenalty = std::fabs(candidate.wedge_angle_deg - 90.0) / 90.0;
-    return fromCurrent + toRx + anglePenalty * 5.0;
+    if (edgeId < 0 || edgeId >= static_cast<int>(scene.edges.size())) return false;
+    e1 = scene.edges[edgeId].start;
+    e2 = scene.edges[edgeId].end;
+    return true;
+}
+
+/// <summary>
+/// Simple diffraction-candidate scoring metric: sum of the segment lengths from
+/// the state's current point to the diffraction point and from there to Rx.
+/// </summary>
+double ScoreD(const PathState& st, const Point3& dp, const Point3& rx)
+{
+    double a = Length(Subtract(dp, st.current_point));
+    double b = Length(Subtract(rx, dp));
+    return a + b;
 }
 
 } // namespace
 
 /// <summary>
-/// 执行一次绕射扩展。
+/// Expands the current path state by one diffraction interaction. For each
+/// candidate wedge, performs Golden Section Search for the Fermat-optimal
+/// diffraction point, UTD Keller-cone verification, visibility checks, and
+/// builds the successor PathState.
 /// </summary>
-/// <param name="context">搜索上下文。</param>
-/// <param name="state">当前路径状态。</param>
-/// <returns>结构化绕射扩展结果。</returns>
 ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathState& state)
 {
     ExpanderResult result;
@@ -75,106 +105,108 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
         return result;
     }
 
-    WedgeQueryContext queryContext;
-    queryContext.ignored_wedge_id = state.last_hit_wedge_id;
-    queryContext.recent_face_id = state.last_hit_face_id;
-    queryContext.recent_wedge_id = state.last_hit_wedge_id;
-    const std::vector<WedgeCandidate> candidates = context.scene_query->QueryCandidateWedges(state.current_point, queryContext);
+    WedgeQueryContext wqc;
+    wqc.ignored_wedge_id = state.last_hit_wedge_id;
+    wqc.recent_face_id = state.last_hit_face_id;
+    wqc.recent_wedge_id = state.last_hit_wedge_id;
+    const std::vector<WedgeCandidate>& cands = context.scene_query->QueryCandidateWedges(state.current_point, wqc);
 
-    struct DiffractionCandidateState {
-        PathState state;
-        double score = 0.0;
-    };
-    std::vector<DiffractionCandidateState> acceptedStates;
+    struct DCand { PathState st; double sc; };
+    std::vector<DCand> accepted;
 
-    for (const WedgeCandidate& candidate : candidates)
+    for (const WedgeCandidate& cand : cands)
     {
-        const GeometryValidityResult candidateValidity = IsValidDiffractionCandidate(candidate);
-        if (!candidateValidity.valid)
+        GeometryValidityResult cv = IsValidDiffractionCandidate(cand);
+        if (!cv.valid) { result.failure_reasons.push_back(cv.reason); continue; }
+
+        // B3: Look up actual edge endpoints
+        Point3 e1, e2;
+        if (!LookupEdgeEndpoints(*context.scene, cand.source_edge_id, e1, e2))
         {
-            result.failure_reasons.push_back(candidateValidity.reason);
+            result.failure_reasons.push_back(GeometryValidityReason::DegenerateWedge);
             continue;
         }
-
-        VisibilityQueryContext visibilityContext;
-        if (!context.scene_query->IsVisible(state.current_point, candidate.center_point, visibilityContext) ||
-            !context.scene_query->IsVisible(candidate.center_point, context.rx_point, visibilityContext))
+        Vec3 edgeVec = Subtract(e2, e1);
+        if (Length(edgeVec) <= 0.0)
         {
-            result.failure_reasons.push_back(GeometryValidityReason::VisibilityBlocked);
+            result.failure_reasons.push_back(GeometryValidityReason::DegenerateWedge);
             continue;
         }
+        Vec3 edgeDir = Normalize(edgeVec);
 
-        const Vec3 towardCandidate = Normalize(Subtract(candidate.center_point, state.current_point));
-        const double directionAgreement = std::fabs(Dot(towardCandidate, candidate.direction));
-        if (directionAgreement <= 1.0e-3)
+        // B3: Fermat principle - golden section search for exact diffraction point
+        double tBest = GoldenSectionSearch(state.current_point, context.rx_point, e1, edgeVec);
+        tBest = Clamp(tBest, 0.0, 1.0);
+
+        Point3 dp = MakeVec3(
+            e1.x + tBest * edgeVec.x,
+            e1.y + tBest * edgeVec.y,
+            e1.z + tBest * edgeVec.z);
+
+        // B3: Keller cone verification
+        if (!VerifyKellerCone(state.current_point, context.rx_point, dp, edgeDir))
         {
             result.failure_reasons.push_back(GeometryValidityReason::CandidateRejectedByControl);
             continue;
         }
 
-        PathState nextState = state;
-        nextState.current_point = candidate.center_point;
-        nextState.current_direction = Normalize(Subtract(context.rx_point, candidate.center_point));
-        nextState.last_interaction_type = InteractionType::Diffraction;
-        nextState.last_hit_wedge_id = candidate.wedge_id;
-        nextState.accumulated_length += Length(Subtract(candidate.center_point, state.current_point));
-        nextState.path_depth += 1;
-        nextState.interaction_count += 1;
-        nextState.remaining_total_expansions -= 1;
-        nextState.remaining_diffractions -= 1;
-        nextState.has_diffraction = true;
-        nextState.mixed_path_enabled = false;
-        nextState.clipped_by_control_rules = false;
+        // Visibility using exact diffraction point
+        VisibilityQueryContext vc;
+        if (!context.scene_query->IsVisible(state.current_point, dp, vc) ||
+            !context.scene_query->IsVisible(dp, context.rx_point, vc))
+        {
+            result.failure_reasons.push_back(GeometryValidityReason::VisibilityBlocked);
+            continue;
+        }
+
+        PathState ns = state;
+        ns.current_point = dp;
+        ns.current_direction = Normalize(Subtract(context.rx_point, dp));
+        ns.last_interaction_type = InteractionType::Diffraction;
+        ns.last_hit_wedge_id = cand.wedge_id;
+        double seg = Length(Subtract(dp, state.current_point));
+        ns.accumulated_length += seg;
+        ns.path_depth += 1;
+        ns.interaction_count += 1;
+        ns.remaining_total_expansions -= 1;
+        ns.remaining_diffractions -= 1;
+        ns.has_diffraction = true;
+        ns.mixed_path_enabled = false;
+        ns.clipped_by_control_rules = false;
 
         if (state.last_interaction_type != InteractionType::None &&
             state.last_interaction_type != InteractionType::Tx &&
             state.last_interaction_type != InteractionType::Diffraction)
-        {
-            nextState.mechanism_switch_count += 1;
-        }
-        nextState.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Diffraction)
-            ? (state.consecutive_same_interaction_count + 1)
-            : 0;
+        { ns.mechanism_switch_count += 1; }
+        ns.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Diffraction)
+            ? (state.consecutive_same_interaction_count + 1) : 0;
 
-        PathNode node;
-        node.interaction_type = InteractionType::Diffraction;
-        node.wedge_id = candidate.wedge_id;
-        node.point = candidate.center_point;
-        node.direction = nextState.current_direction;
-        node.segment_length_from_previous = Length(Subtract(candidate.center_point, state.current_point));
-        node.valid = true;
-        nextState.traversed_nodes.push_back(node);
-        nextState.state_signature = BuildStateSignature(nextState, *context.config);
-        nextState.valid = true;
+        PathNode nd;
+        nd.interaction_type = InteractionType::Diffraction;
+        nd.wedge_id = cand.wedge_id;
+        nd.point = dp;
+        nd.direction = ns.current_direction;
+        nd.segment_length_from_previous = seg;
+        nd.valid = true;
+        ns.traversed_nodes.push_back(nd);
+        ns.state_signature = BuildStateSignature(ns, *context.config);
+        ns.valid = true;
 
-        const GeometryValidityResult expandedValidity = IsValidExpandedState(context, nextState);
-        if (!expandedValidity.valid)
-        {
-            result.failure_reasons.push_back(expandedValidity.reason);
-            continue;
-        }
+        GeometryValidityResult ev = IsValidExpandedState(context, ns);
+        if (!ev.valid) { result.failure_reasons.push_back(ev.reason); continue; }
 
-        DiffractionCandidateState candidateState;
-        candidateState.state = nextState;
-        candidateState.score = ComputeDiffractionCandidateScore(state, candidate, context.rx_point);
-        acceptedStates.push_back(candidateState);
+        DCand dc; dc.st = ns; dc.sc = ScoreD(state, dp, context.rx_point);
+        accepted.push_back(dc);
     }
 
-    std::sort(acceptedStates.begin(), acceptedStates.end(),
-        [](const DiffractionCandidateState& lhs, const DiffractionCandidateState& rhs)
-        {
-            return lhs.score < rhs.score;
-        });
-    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 3U);
-    for (std::size_t i = 0; i < keepLimit; ++i)
-    {
-        result.next_states.push_back(acceptedStates[i].state);
-    }
+    std::sort(accepted.begin(), accepted.end(),
+        [](const DCand& a, const DCand& b) { return a.sc < b.sc; });
+    const std::size_t keep = std::min<std::size_t>(accepted.size(), 8U);
+    for (std::size_t i = 0; i < keep; ++i)
+        result.next_states.push_back(accepted[i].st);
 
     if (result.next_states.empty() && result.failure_reasons.empty())
-    {
         result.failure_reasons.push_back(GeometryValidityReason::NoCandidate);
-    }
     return result;
 }
 

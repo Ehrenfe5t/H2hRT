@@ -8,24 +8,24 @@
 
 #include "Batch8AggregateReporter.h"
 
-#include "../core/antenna/AntennaFactory.h"
-#include "../core/em/ApplyDiffractionInteraction.h"
-#include "../core/em/ApplyFreeSpaceSegment.h"
-#include "../core/em/ApplyReflectionInteraction.h"
-#include "../core/em/ApplyTransmissionInteraction.h"
-#include "../core/em/BuildAPS.h"
-#include "../core/em/BuildCIR.h"
-#include "../core/em/BuildChannelStatistics.h"
-#include "../core/em/BuildCoverageResult.h"
-#include "../core/em/BuildISACFeatureSet.h"
-#include "../core/em/BuildPDP.h"
-#include "../core/em/CoverageEMProfile.h"
-#include "../core/em/EMProfile.h"
-#include "../core/em/EMSolverInput.h"
-#include "../core/em/FinalizeAtReceiver.h"
-#include "../core/em/InitializeTxField.h"
-#include "../core/em/PreparePathForEM.h"
-#include "../core/em/PreciseEMProfile.h"
+#include "../../core/antenna/AntennaFactory.h"
+#include "../../core/em/ApplyDiffractionInteraction.h"
+#include "../../core/em/ApplyFreeSpaceSegment.h"
+#include "../../core/em/ApplyReflectionInteraction.h"
+#include "../../core/em/ApplyTransmissionInteraction.h"
+#include "../../core/em/BuildAPS.h"
+#include "../../core/em/BuildCIR.h"
+#include "../../core/em/BuildChannelStatistics.h"
+#include "../../core/em/BuildCoverageResult.h"
+#include "../../core/em/BuildISACFeatureSet.h"
+#include "../../core/em/BuildPDP.h"
+#include "../../core/em/CoverageEMProfile.h"
+#include "../../core/em/EMProfile.h"
+#include "../../core/em/EMSolverInput.h"
+#include "../../core/em/FinalizeAtReceiver.h"
+#include "../../core/em/InitializeTxField.h"
+#include "../../core/em/PreparePathForEM.h"
+#include "../../core/em/PreciseEMProfile.h"
 
 #include <cmath>
 #include <sstream>
@@ -33,20 +33,6 @@
 namespace rt {
 
 namespace {
-
-Vec3 Subtract(const Point3& a, const Point3& b)
-{
-    Vec3 value;
-    value.x = a.x - b.x;
-    value.y = a.y - b.y;
-    value.z = a.z - b.z;
-    return value;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(value.x * value.x + value.y * value.y + value.z * value.z);
-}
 
 Point3 AddOffset(const Point3& point, const Vec3& direction, double scale)
 {

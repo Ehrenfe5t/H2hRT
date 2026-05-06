@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "../core/common/log/Logger.h"
-#include "../preprocess/build/SceneBatch4Builder.h"
+#include "../../core/common/log/Logger.h"
+#include "../../preprocess/build/SceneBatch4Builder.h"
 
 namespace rt {
 

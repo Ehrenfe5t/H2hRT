@@ -1,10 +1,5 @@
-// 文件目标：
-// - 声明模块5批次8的信道统计构建接口。
-//
-// 主要功能：
-// - 根据路径级 EMPathResultSet 生成大尺度/小尺度统计摘要；
-// - 为批次8统计域结果闭环提供结构化输出；
-// - 为后续模块6报告导出提供统一统计入口。
+// Declares the channel statistics builder: aggregates per-path EM results into
+// compact metrics (path count, total/strongest power, mean delay, transmission count).
 
 #pragma once
 
@@ -13,10 +8,12 @@
 namespace rt {
 
 /// <summary>
-/// 构建信道统计结果。
+/// Compute aggregate channel statistics from per-path EM results.
+/// Produces valid path count, total power, strongest path power, mean delay,
+/// and transmission path count for link budget and system analysis.
 /// </summary>
-/// <param name="pathResults">路径级电磁结果集合。</param>
-/// <returns>结构化信道统计结果。</returns>
+/// <param name="pathResults">Per-path EM results from the solver.</param>
+/// <returns>ChannelStatistics with aggregate multipath metrics.</returns>
 ChannelStatistics BuildChannelStatistics(const EMPathResultSet& pathResults);
 
 } // namespace rt

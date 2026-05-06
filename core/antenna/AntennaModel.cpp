@@ -7,42 +7,11 @@
 // - 保持后续 pattern / polarization / orientation 扩展点稳定。
 
 #include "AntennaModel.h"
+#include "../common/math/Vec3.h"
 
 #include <cmath>
 
 namespace rt {
-
-namespace {
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& v)
-{
-    return std::sqrt(Dot(v, v));
-}
-
-Vec3 Normalize(const Vec3& v)
-{
-    const double len = Length(v);
-    if (len <= 0.0)
-    {
-        Vec3 fallback;
-        fallback.x = 1.0;
-        fallback.y = 0.0;
-        fallback.z = 0.0;
-        return fallback;
-    }
-    Vec3 result;
-    result.x = v.x / len;
-    result.y = v.y / len;
-    result.z = v.z / len;
-    return result;
-}
-
-} // namespace
 
 /// <summary>
 /// 构建正式最小 Ideal 天线对象。

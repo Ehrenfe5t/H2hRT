@@ -14,96 +14,65 @@
 #include "TransmissionExpander.h"
 #include "StateSignatureBuilder.h"
 #include "PathSignatureBuilder.h"
+#include "../common/math/Vec3.h"
 
 #include <cmath>
 #include <algorithm>
-#include <set>
+#include <queue>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 namespace rt {
 
 namespace {
 
-Vec3 MakeVec3(double x, double y, double z)
-{
-    Vec3 value;
-    value.x = x;
-    value.y = y;
-    value.z = z;
-    return value;
-}
+struct ScoredState {
+    PathState state;
+    double priority = 0.0;
+};
 
-Vec3 Subtract(const Point3& a, const Point3& b)
-{
-    return MakeVec3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-Vec3 Scale(const Vec3& value, double factor)
-{
-    return MakeVec3(value.x * factor, value.y * factor, value.z * factor);
-}
-
-Point3 Add(const Point3& a, const Vec3& b)
-{
-    Point3 result;
-    result.x = a.x + b.x;
-    result.y = a.y + b.y;
-    result.z = a.z + b.z;
-    return result;
-}
-
-double Dot(const Vec3& a, const Vec3& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-double Length(const Vec3& value)
-{
-    return std::sqrt(Dot(value, value));
-}
-
-Vec3 Normalize(const Vec3& value)
-{
-    const double length = Length(value);
-    if (length <= 0.0)
-    {
-        return Vec3{};
+struct CompareScoredState {
+    bool operator()(const ScoredState& a, const ScoredState& b) const {
+        return a.priority > b.priority;  // min-heap: lower priority = explored first
     }
-    return Scale(value, 1.0 / length);
-}
+};
 
-int GetMechanismPriority(InteractionType interactionType)
+/// <summary>
+/// Heuristic priority for best-first state expansion: combines estimated total
+/// length (accumulated + Euclidean-to-Rx) with a depth bonus favouring deeper paths.
+/// </summary>
+double ComputeStatePriority(const PathState& state, const Point3& rx)
 {
-    switch (interactionType)
-    {
-    case InteractionType::Reflection:
-        return 0;
-    case InteractionType::Transmission:
-        return 1;
-    case InteractionType::Diffraction:
-        return 2;
-    default:
-        return 99;
-    }
+    double distToRx = Length(Subtract(rx, state.current_point));
+    double estimatedTotal = state.accumulated_length + distToRx;
+    double depthBonus = -state.path_depth * 0.5;
+    return estimatedTotal + depthBonus;
 }
 
-double ComputeStateScore(const PathState& state)
+/// <summary>
+/// Composite candidate score used for sorting and truncation: penalises depth,
+/// mechanism switches, and accumulated length to prefer simpler paths.
+/// </summary>
+double ComputeCandidateScore(const PathState& state)
 {
     double score = 0.0;
     score += static_cast<double>(state.path_depth) * 100.0;
     score += static_cast<double>(state.mechanism_switch_count) * 10.0;
     score += state.accumulated_length * 0.01;
-    score += static_cast<double>(GetMechanismPriority(state.last_interaction_type));
     return score;
 }
 
+/// <summary>
+/// Sorts candidates by composite score in ascending order and truncates to
+/// keepLimit, recording the discard count in result.
+/// </summary>
 void SortAndTruncateCandidates(std::vector<PathState>& candidates, int keepLimit, SearchEngineResult& result)
 {
     std::sort(candidates.begin(), candidates.end(),
         [](const PathState& lhs, const PathState& rhs)
         {
-            return ComputeStateScore(lhs) < ComputeStateScore(rhs);
+            return ComputeCandidateScore(lhs) < ComputeCandidateScore(rhs);
         });
 
     if (keepLimit > 0 && static_cast<int>(candidates.size()) > keepLimit)
@@ -113,6 +82,10 @@ void SortAndTruncateCandidates(std::vector<PathState>& candidates, int keepLimit
     }
 }
 
+/// <summary>
+/// Merges an expander's next-state candidates into the accepted-candidates
+/// vector after applying per-expander sorting and truncation.
+/// </summary>
 void AppendCandidates(
     std::vector<PathState>& acceptedCandidates,
     const ExpanderResult& expanderResult,
@@ -126,6 +99,10 @@ void AppendCandidates(
     acceptedCandidates.insert(acceptedCandidates.end(), localCandidates.begin(), localCandidates.end());
 }
 
+/// <summary>
+/// Builds a FaceQueryContext for ray-casting from the current state, applying
+/// self-hit avoidance via ignored face/object ids and the numeric tolerance origin-offset.
+/// </summary>
 FaceQueryContext BuildFaceQueryContext(const PathState& state, const AppConfig& config)
 {
     FaceQueryContext context;
@@ -136,6 +113,10 @@ FaceQueryContext BuildFaceQueryContext(const PathState& state, const AppConfig& 
     return context;
 }
 
+/// <summary>
+/// Builds a VisibilityQueryContext for line-of-sight checks, with origin/target
+/// offsets and attached-face ignore flags to avoid self-occlusion artefacts.
+/// </summary>
 VisibilityQueryContext BuildVisibilityQueryContext(const PathState& state, const AppConfig& config)
 {
     VisibilityQueryContext context;
@@ -148,6 +129,10 @@ VisibilityQueryContext BuildVisibilityQueryContext(const PathState& state, const
     return context;
 }
 
+/// <summary>
+/// Creates the root PathState seeded at the transmitter with direction toward
+/// the receiver, initialising all budget counters from the search configuration.
+/// </summary>
 PathState BuildInitialState(const PathSearchContext& context)
 {
     PathState state;
@@ -181,6 +166,11 @@ PathState BuildInitialState(const PathSearchContext& context)
     return state;
 }
 
+/// <summary>
+/// Attempts to close the current search state with a final LOS leg to the
+/// receiver. Returns true and populates path/traceLine if geometry and
+/// visibility checks pass.
+/// </summary>
 bool TryBuildLosPath(const PathSearchContext& context, const PathState& state, GeometricPath& path, std::string& traceLine)
 {
     const GeometryValidityResult validity = IsValidLosPath(context, state);
@@ -198,7 +188,7 @@ bool TryBuildLosPath(const PathSearchContext& context, const PathState& state, G
     }
 
     const double finalLegLength = Length(Subtract(context.rx_point, state.current_point));
-    path.path_id = 0;
+    path.path_id = -1;  // assigned later when accepted into path_set
     path.total_length = state.accumulated_length + finalLegLength;
     path.is_los = (state.path_depth == 0);
     path.contains_transmission = state.has_transmission;
@@ -223,6 +213,10 @@ bool TryBuildLosPath(const PathSearchContext& context, const PathState& state, G
     return true;
 }
 
+/// <summary>
+/// Accumulates per-expander failure-reason counts into the global result
+/// histogram for diagnostic traceability.
+/// </summary>
 void AccumulateFailureReasons(SearchEngineResult& result, const ExpanderResult& expanderResult)
 {
     for (GeometryValidityReason reason : expanderResult.failure_reasons)
@@ -247,22 +241,23 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
         return result;
     }
 
-    std::vector<PathState> stack;
-    std::set<std::string> stateSignatures;
-    std::set<std::string> pathSignatures;
+    std::priority_queue<ScoredState, std::vector<ScoredState>, CompareScoredState> queue;
+    std::unordered_set<uint64_t> stateSignatures;
+    std::unordered_set<uint64_t> pathSignatures;
 
     PathState initialState = BuildInitialState(context);
     initialState.state_signature = BuildStateSignature(initialState, *context.config);
     stateSignatures.insert(initialState.state_signature);
-    stack.push_back(initialState);
+    queue.push({initialState, ComputeStatePriority(initialState, context.rx_point)});
     result.generated_state_count = 1;
     result.uses_real_scene_query = true;
     result.trace_lines.push_back("Initial PathState constructed.");
 
-    while (!stack.empty())
+    while (!queue.empty())
     {
-        PathState currentState = stack.back();
-        stack.pop_back();
+        ScoredState scored = queue.top();
+        queue.pop();
+        PathState currentState = scored.state;
 
         const GeometryValidityResult stateExpandable = IsSearchStateExpandable(currentState);
         if (!stateExpandable.valid)
@@ -277,11 +272,6 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
             continue;
         }
 
-        std::ostringstream stateTrace;
-        stateTrace << "DFS pop state: depth=" << currentState.path_depth
-                   << ", signature=" << currentState.state_signature;
-        result.trace_lines.push_back(stateTrace.str());
-
         if (context.config->path_search.enable_los)
         {
             GeometricPath path;
@@ -291,13 +281,13 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
                 path.path_signature = BuildPathSignature(path, *context.config);
                 if (pathSignatures.insert(path.path_signature).second)
                 {
+                    path.path_id = static_cast<int>(result.path_set.paths.size());
                     result.path_set.paths.push_back(path);
                     result.trace_lines.push_back(losTrace);
                 }
                 else
                 {
                     ++result.deduplicated_path_count;
-                    result.trace_lines.push_back("LOS path deduplicated by path signature.");
                 }
             }
             else
@@ -308,32 +298,12 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
 
         if (currentState.remaining_total_expansions <= 0)
         {
-            result.trace_lines.push_back("State expansion stopped because remaining_total_expansions <= 0.");
             continue;
         }
 
-        const FaceQueryContext faceContext = BuildFaceQueryContext(currentState, *context.config);
-        Ray ray;
-        ray.origin = currentState.current_point;
-        ray.direction = currentState.current_direction;
-        const FaceHit closestHit = context.scene_query->QueryClosestFaceHit(ray, faceContext);
+        const int perExpanderKeepLimit = 8;
+        const int perStateKeepLimit = 16;
 
-        std::ostringstream hitTrace;
-        hitTrace << "Closest face query result: hit=" << (closestHit.hit ? "true" : "false");
-        if (closestHit.hit)
-        {
-            hitTrace << ", face_id=" << closestHit.face_id << ", distance=" << closestHit.distance;
-        }
-        result.trace_lines.push_back(hitTrace.str());
-
-        const std::vector<WedgeCandidate> wedgeCandidates =
-            context.scene_query->QueryCandidateWedges(currentState.current_point, WedgeQueryContext{});
-        std::ostringstream wedgeTrace;
-        wedgeTrace << "Wedge candidate query result: count=" << wedgeCandidates.size();
-        result.trace_lines.push_back(wedgeTrace.str());
-
-        const int perExpanderKeepLimit = std::max(1, std::min(4, context.config->path_search.max_candidate_face_hits));
-        const int perStateKeepLimit = std::max(1, std::min(8, context.config->path_search.max_candidate_face_hits));
         std::vector<PathState> acceptedCandidates;
 
         const ExpanderResult reflectionResult = ExpandReflection(context, currentState);
@@ -350,10 +320,6 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
 
         SortAndTruncateCandidates(acceptedCandidates, perStateKeepLimit, result);
 
-        std::ostringstream candidateTrace;
-        candidateTrace << "Accepted candidate states after control: " << acceptedCandidates.size();
-        result.trace_lines.push_back(candidateTrace.str());
-
         for (const PathState& nextState : acceptedCandidates)
         {
             if (nextState.has_reflection && nextState.has_transmission && !nextState.has_diffraction)
@@ -362,7 +328,8 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
             }
             if (stateSignatures.insert(nextState.state_signature).second)
             {
-                stack.push_back(nextState);
+                double pri = ComputeStatePriority(nextState, context.rx_point);
+                queue.push({nextState, pri});
                 ++result.generated_state_count;
             }
             else

@@ -98,6 +98,7 @@ struct PathSearchConfig {
     bool enable_scattering = false;
     bool enable_mixed_path = true;
     bool keep_angle_metadata = true;
+    int max_consecutive_same_interaction = 5;
     std::string pruning_strategy = "basic";
     std::string dedup_strategy = "signature";
     double debug_tx_x = 1.0;
@@ -106,6 +107,24 @@ struct PathSearchConfig {
     double debug_rx_x = 3.0;
     double debug_rx_y = 1.0;
     double debug_rx_z = 1.0;
+};
+
+/// <summary>
+/// SBR 覆盖仿真配置。
+/// </summary>
+struct SbrConfig {
+    bool enabled = false;
+    int ray_count = 10000;
+    int max_ray_depth = 6;
+    double ray_power_threshold_linear = 1.0e-6;
+    double rx_sphere_radius_factor = 1.0;
+    double rx_grid_min_x = -5.0;
+    double rx_grid_max_x = 5.0;
+    double rx_grid_min_y = -5.0;
+    double rx_grid_max_y = 5.0;
+    double rx_grid_z = 1.5;
+    double rx_grid_step_x = 1.0;
+    double rx_grid_step_y = 1.0;
 };
 
 /// <summary>
@@ -164,6 +183,7 @@ struct AppConfig {
     MaterialConfig material;
     AntennaConfig antenna;
     PathSearchConfig path_search;
+    SbrConfig sbr;
     EMSolverConfig em_solver;
     OutputConfig output;
     ValidationConfig validation;

@@ -1,0 +1,29 @@
+{
+  "default_medium": "Air",
+  "objects": [
+    {
+      "rule_name": "room_rule",
+      "object_name": "room",
+      "object_type": "wall",
+      "surface_material_name": "Concrete",
+      "front_material_name": "Air",
+      "back_material_name": "Concrete",
+      "normal_rule": "front_is_air",
+      "reflection_enabled": true,
+      "transmission_enabled": false,
+      "diffraction_candidate_enabled": false
+    },
+    {
+      "rule_name": "partition_rule",
+      "object_name": "partition",
+      "object_type": "partition",
+      "surface_material_name": "Concrete",
+      "front_material_name": "Air",
+      "back_material_name": "Concrete",
+      "normal_rule": "front_is_air",
+      "reflection_enabled": true,
+      "transmission_enabled": false,
+      "diffraction_candidate_enabled": true
+    }
+  ]
+}
