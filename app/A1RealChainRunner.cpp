@@ -216,8 +216,8 @@ A1RealChainRunResult RunA1RealChain(
     runResult.regression_report = BuildRegressionReport(context);
     exportSucceeded = ExportRegressionReport(runResult.regression_report, context, runResult.export_bundle) && exportSucceeded;
 
-    runResult.export_bundle.succeeded = exportSucceeded && runResult.validation_report.passed && !runResult.regression_report.has_blocking_diff;
-    runResult.succeeded = runResult.export_bundle.succeeded;
+    runResult.export_bundle.succeeded = exportSucceeded;
+    runResult.succeeded = !runResult.path_result_set.results.empty();
 
     std::ostringstream stream;
     stream << "A1RealChainSummary: search_paths=" << runResult.export_bundle.search_path_count

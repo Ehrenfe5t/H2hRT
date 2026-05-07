@@ -36,6 +36,7 @@ struct AppRuntimeConfig {
 struct SceneImportConfig {
     std::string source_file;
     std::string source_format = "obj";
+    std::string coordinate_transform = "none";  // "none" | "blender_z_up_to_y_up"
     std::string scene_material_map_file = "configs/scenes/scene_material_map.json";
     bool normalize_object_names = true;
     bool allow_name_auto_cleanup = true;
@@ -117,7 +118,7 @@ struct SbrConfig {
     int ray_count = 10000;
     int max_ray_depth = 6;
     double ray_power_threshold_linear = 1.0e-6;
-    double rx_sphere_radius_factor = 1.0;
+    double rx_sphere_radius_m = 0.3;
     double rx_grid_min_x = -5.0;
     double rx_grid_max_x = 5.0;
     double rx_grid_min_y = -5.0;

@@ -87,11 +87,11 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     logger.Initialize(loadResult.config.app_runtime);
 
     const VersionInfo versionInfo = VersionInfo::Current();
-    logger.Log(LogLevel::Info, "App", "RT pipeline bootstrap started.");
-    logger.Log(LogLevel::Info, "App", "Using config file: " + configPath);
-    logger.Log(LogLevel::Info, "App", "Program version: " + versionInfo.program_version);
-    logger.Log(LogLevel::Info, "App", "Config schema version: " + versionInfo.config_schema_version);
-    logger.Log(LogLevel::Info, "App", "Resolved run_id: " + loadResult.config.app_runtime.run_id);
+    logger.Log(LogLevel::Info, "App", "RT 流水线启动。");
+    logger.Log(LogLevel::Info, "App", "配置文件: " + configPath);
+    logger.Log(LogLevel::Info, "App", "程序版本: " + versionInfo.program_version);
+    logger.Log(LogLevel::Info, "App", "配置架构版本: " + versionInfo.config_schema_version);
+    logger.Log(LogLevel::Info, "App", "运行标识: " + loadResult.config.app_runtime.run_id);
 
     for (const RtError& error : loadResult.errors)
     {
@@ -100,7 +100,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     if (!loadResult.load_succeeded)
     {
-        logger.Log(LogLevel::Fatal, "App", "Configuration load failed before validation completed.");
+        logger.Log(LogLevel::Fatal, "App", "配置加载失败，无法继续。");
         return runResult;
     }
 
@@ -109,14 +109,14 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     if (!validation.passed)
     {
-        logger.Log(LogLevel::Fatal, "App", "Configuration validation failed.");
+        logger.Log(LogLevel::Fatal, "App", "配置校验不通过。");
         return runResult;
     }
 
     std::ostringstream summary;
-    summary << "Validation passed. Mode=" << loadResult.config.app_runtime.mode
-            << ", LogLevel=" << loadResult.config.app_runtime.log_level
-            << ", FrequencyHz=" << loadResult.config.em_solver.frequency_hz;
+    summary << "校验通过。模式=" << loadResult.config.app_runtime.mode
+            << ", 日志级别=" << loadResult.config.app_runtime.log_level
+            << ", 频率=" << loadResult.config.em_solver.frequency_hz << " Hz";
     logger.Log(LogLevel::Info, "App", summary.str());
 
     if (loadResult.config.output.export_config_snapshot)
@@ -125,82 +125,57 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         if (!snapshotWriteResult.succeeded)
         {
             logger.LogError("Module1", snapshotWriteResult.error);
-            logger.Log(LogLevel::Fatal, "App", "Configuration snapshot export failed.");
+            logger.Log(LogLevel::Fatal, "App", "配置快照导出失败。");
             return runResult;
         }
 
-        logger.Log(LogLevel::Info, "App", "Config snapshot exported to: " + snapshotWriteResult.output_file_path);
+        logger.Log(LogLevel::Info, "App", "配置快照已导出: " + snapshotWriteResult.output_file_path);
     }
 
-    if (loadResult.config.validation.run_module1_self_check)
-    {
+    if (loadResult.config.validation.run_module1_self_check) {
         const Module1SelfCheckResult selfCheckResult = RunModule1SelfCheck(loadResult.config);
         for (const std::string& detail : selfCheckResult.details)
-        {
-            logger.Log(LogLevel::Info, "Module1", "SelfCheck: " + detail);
-        }
-
-        if (!selfCheckResult.succeeded)
-        {
-            logger.LogError("Module1", selfCheckResult.error);
-            logger.Log(LogLevel::Fatal, "App", "Module1 self-check failed.");
+            logger.Log(LogLevel::Info, "模块1", "自检: " + detail);
+        if (!selfCheckResult.succeeded) {
+            logger.LogError("模块1", selfCheckResult.error);
+            logger.Log(LogLevel::Fatal, "App", "模块1自检未通过。");
             return runResult;
         }
-
-        logger.Log(LogLevel::Info, "Module1", "Module1 self-check passed.");
+        logger.Log(LogLevel::Info, "模块1", "模块1自检通过。");
     }
 
-    logger.Log(LogLevel::Info, "App", "Batch0/1 bootstrap closed loop completed.");
+    logger.Log(LogLevel::Info, "App", "批次0/1: 启动闭环完成。");
 
-    // --- Batch 2: Scene import and semantic recovery ---
+    // Batch2: 场景导入与语义恢复
     const SceneBatch2BuildResult batch2Result = BuildSceneForBatch2(loadResult.config);
-    for (const RtError& error : batch2Result.errors)
-    {
-        logger.LogError("Module2", error);
-    }
-
-    if (!batch2Result.succeeded)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch2 scene import and semantic recovery failed.");
+    for (const RtError& error : batch2Result.errors) logger.LogError("模块2", error);
+    if (!batch2Result.succeeded) {
+        logger.Log(LogLevel::Fatal, "App", "批次2: 场景导入与语义恢复失败。");
         return runResult;
     }
-
-    logger.Log(LogLevel::Info, "App", "Batch2 scene import and semantic recovery closed loop completed.");
+    logger.Log(LogLevel::Info, "App", "批次2: 场景导入与语义恢复完成。");
 
     const SceneBatch3BuildResult batch3Result = BuildSceneForBatch3(loadResult.config, batch2Result.scene);
-    for (const RtError& error : batch3Result.errors)
-    {
-        logger.LogError("Module2", error);
-    }
-
-    if (!batch3Result.succeeded)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch3 topology, diagnostics and acceleration build failed.");
+    for (const RtError& error : batch3Result.errors) logger.LogError("模块2", error);
+    if (!batch3Result.succeeded) {
+        logger.Log(LogLevel::Fatal, "App", "批次3: 拓扑、诊断与加速结构构建失败。");
         return runResult;
     }
-
-    logger.Log(LogLevel::Info, "App", "Batch3 topology, diagnostics and acceleration closed loop completed.");
+    logger.Log(LogLevel::Info, "App", "批次3: 拓扑、诊断与加速结构完成。");
 
     const SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(loadResult.config, batch3Result.scene);
-    for (const RtError& error : batch4Result.errors)
-    {
-        logger.LogError("Module2", error);
-    }
-
-    if (!batch4Result.succeeded)
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch4 query facade and scene cache build failed.");
+    for (const RtError& error : batch4Result.errors) logger.LogError("模块2", error);
+    if (!batch4Result.succeeded) {
+        logger.Log(LogLevel::Fatal, "App", "批次4: 查询门面与场景缓存构建失败。");
         return runResult;
     }
+    logger.Log(LogLevel::Info, "App", "批次4: 查询门面与场景缓存完成。");
 
-    logger.Log(LogLevel::Info, "App", "Batch4 query facade and scene cache closed loop completed.");
-
-    // --- Material DB init: loads dielectric constants for the EM chain ---
+    // 材质数据库: 加载介电常数
     MaterialDatabase matDb;
-    if (!loadResult.config.material.material_database_file.empty())
-    {
+    if (!loadResult.config.material.material_database_file.empty()) {
         matDb.LoadFromCsv(loadResult.config.material.material_database_file);
-        logger.Log(LogLevel::Info, "App", "MaterialDatabase loaded: " + loadResult.config.material.material_database_file);
+        logger.Log(LogLevel::Info, "App", "材质数据库已加载: " + loadResult.config.material.material_database_file);
     }
 
     // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---
@@ -208,32 +183,25 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     SearchEngine searchEngine;
     const SearchEngineResult batch5Result = searchEngine.Run(batch5SearchContext);
 
-    if (!batch5Result.succeeded || batch5Result.path_set.paths.empty())
-    {
-        logger.Log(LogLevel::Fatal, "App", "Batch5 SearchEngine skeleton failed to establish a basic LOS closed loop.");
+    if (!batch5Result.succeeded || batch5Result.path_set.paths.empty()) {
+        logger.Log(LogLevel::Fatal, "App", "搜索器未能建立基本LOS闭环。");
         return runResult;
     }
-
-    logger.Log(LogLevel::Info, "App", "Batch5 module4 SearchEngine skeleton closed loop completed.");
-    logger.Log(LogLevel::Info, "App", "Batch6 module4 expanders closed loop completed.");
-    logger.Log(LogLevel::Info, "App", "Batch7 module5 EM main-chain closed loop completed.");
-    logger.Log(LogLevel::Info, "App", "Batch8 module5 aggregate and dual-profile closed loop completed.");
-    logger.Log(LogLevel::Info, "App", "Batch9 module6 export, validation and regression closed loop completed.");
+    logger.Log(LogLevel::Info, "App", "批次5~9: 搜索/扩展器/EM/汇总/导出 全部完成。");
 
     // --- A1 chain execution: the real production Search->EM->Export pipeline ---
     const A1RealChainRunResult a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger, &matDb);
     if (!a1Result.succeeded)
     {
-        logger.Log(LogLevel::Fatal, "App", "A1 real production chain failed to replace reference path as the primary result chain.");
+        logger.Log(LogLevel::Fatal, "App", "A1真实生产链执行失败。");
         return runResult;
     }
 
-    logger.Log(LogLevel::Info, "App", "A1 real production chain closed loop completed.");
+    logger.Log(LogLevel::Info, "App", "A1真实生产链闭环完成。");
 
-    // --- SBR context build and coverage sweep (optional) ---
-    if (loadResult.config.sbr.enabled)
-    {
-        logger.Log(LogLevel::Info, "App", "B4 SBR coverage mode enabled, building Rx grid...");
+    // SBR覆盖仿真(可选)
+    if (loadResult.config.sbr.enabled) {
+        logger.Log(LogLevel::Info, "App", "SBR覆盖模式已启用，构建Rx网格...");
 
         SbrContext sbrCtx;
         sbrCtx.config = &loadResult.config;

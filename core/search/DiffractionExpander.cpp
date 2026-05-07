@@ -186,6 +186,7 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
         nd.wedge_id = cand.wedge_id;
         nd.point = dp;
         nd.direction = ns.current_direction;
+        nd.incident_direction = Normalize(Subtract(dp, state.current_point)); // C3-A: incoming direction for UTD phi'
         nd.segment_length_from_previous = seg;
         nd.valid = true;
         ns.traversed_nodes.push_back(nd);

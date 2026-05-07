@@ -30,7 +30,8 @@ struct PathNode {
     bool entered_from_front_side = true;
     bool transmission_semantic_complete = false;
     Point3 point;
-    Vec3 direction;
+    Vec3 direction;              // outgoing direction (after interaction, toward next node/Rx)
+    Vec3 incident_direction;      // C3-A(v4): incoming direction (before interaction). Used for UTD phi' calc.
     Vec3 surface_normal;
     double segment_length_from_previous = 0.0;
     bool valid = false;

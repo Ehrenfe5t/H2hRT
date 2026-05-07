@@ -127,38 +127,79 @@ int BuildBVHNodeRecursive(
     }
 
     AABB centroidBounds;
-    for (int i = begin; i < end; ++i)
-    {
-        const Point3 centroid = faces[primitiveFaceIds[i]].centroid;
-        AABB pointBounds;
-        pointBounds.min = centroid;
-        pointBounds.max = centroid;
-        pointBounds.valid = true;
-        centroidBounds = MergeBounds(centroidBounds, pointBounds);
+    for (int i = begin; i < end; ++i) {
+        const Point3 c = faces[primitiveFaceIds[i]].centroid;
+        AABB pb; pb.min = c; pb.max = c; pb.valid = true;
+        centroidBounds = MergeBounds(centroidBounds, pb);
     }
 
-    const double dx = centroidBounds.max.x - centroidBounds.min.x;
-    const double dy = centroidBounds.max.y - centroidBounds.min.y;
-    const double dz = centroidBounds.max.z - centroidBounds.min.z;
-    const int axis = (dx >= dy && dx >= dz) ? 0 : ((dy >= dz) ? 1 : 2);
+    // SAH 16-bin optimal split — replaces median split (v4 C4-A)
+    const int NBINS = 16;
+    const int nTris = end - begin;
+    if (nTris <= leafSize * 2) {
+        // Small node: use median
+        const double dx = centroidBounds.max.x - centroidBounds.min.x;
+        const double dy = centroidBounds.max.y - centroidBounds.min.y;
+        const double dz = centroidBounds.max.z - centroidBounds.min.z;
+        const int axis = (dx >= dy && dx >= dz) ? 0 : ((dy >= dz) ? 1 : 2);
+        std::sort(primitiveFaceIds.begin() + begin, primitiveFaceIds.begin() + end,
+            [&](int l, int r) {
+                const Point3& a = faces[l].centroid; const Point3& b = faces[r].centroid;
+                return (axis == 0) ? a.x < b.x : ((axis == 1) ? a.y < b.y : a.z < b.z);
+            });
+        int middle = begin + nTris / 2;
+        const int leftChild = BuildBVHNodeRecursive(bvh, primitiveFaceIds, faces, begin, middle, depth + 1, leafSize, leafNodeCount, maxDepth);
+        const int rightChild = BuildBVHNodeRecursive(bvh, primitiveFaceIds, faces, middle, end, depth + 1, leafSize, leafNodeCount, maxDepth);
+        bvh.nodes[nodeIndex].left_child = leftChild;
+        bvh.nodes[nodeIndex].right_child = rightChild;
+        return nodeIndex;
+    }
 
+    // SAH: try 3 axes, pick minimal cost
+    int bestAxis = 0; int bestSplit = begin + nTris / 2; double bestCost = 1e30;
+    double parentArea = (node.bounds.max.x - node.bounds.min.x) * (node.bounds.max.y - node.bounds.min.y) * (node.bounds.max.z - node.bounds.min.z);
+    if (parentArea <= 0.0) parentArea = 1.0;
+
+    for (int ax = 0; ax < 3; ++ax) {
+        // Build 16 bins along this axis
+        double cMin = (ax == 0) ? centroidBounds.min.x : ((ax == 1) ? centroidBounds.min.y : centroidBounds.min.z);
+        double cMax = (ax == 0) ? centroidBounds.max.x : ((ax == 1) ? centroidBounds.max.y : centroidBounds.max.z);
+        if (cMax - cMin < 1e-12) continue;
+
+        int binCounts[NBINS] = {0};
+        AABB binBounds[NBINS];
+        for (int i = begin; i < end; ++i) {
+            double cv = (ax == 0) ? faces[primitiveFaceIds[i]].centroid.x : ((ax == 1) ? faces[primitiveFaceIds[i]].centroid.y : faces[primitiveFaceIds[i]].centroid.z);
+            int b = std::min(NBINS - 1, static_cast<int>((cv - cMin) / (cMax - cMin) * NBINS));
+            binCounts[b]++;
+            binBounds[b] = MergeBounds(binBounds[b], faces[primitiveFaceIds[i]].bounds);
+        }
+
+        // Evaluate split at each bin boundary (split after bin k)
+        int leftCount = 0; AABB leftBounds;
+        for (int k = 0; k < NBINS - 1; ++k) {
+            leftCount += binCounts[k];
+            leftBounds = MergeBounds(leftBounds, binBounds[k]);
+            int rightCount = nTris - leftCount;
+            if (leftCount == 0 || rightCount == 0) continue;
+            // Right bounds: merge remaining bins
+            AABB rightBounds;
+            for (int rk = k + 1; rk < NBINS; ++rk) rightBounds = MergeBounds(rightBounds, binBounds[rk]);
+            double leftArea = (leftBounds.max.x - leftBounds.min.x) * (leftBounds.max.y - leftBounds.min.y) * (leftBounds.max.z - leftBounds.min.z);
+            double rightArea = (rightBounds.max.x - rightBounds.min.x) * (rightBounds.max.y - rightBounds.min.y) * (rightBounds.max.z - rightBounds.min.z);
+            double cost = (leftArea * leftCount + rightArea * rightCount) / parentArea;
+            if (cost < bestCost) { bestCost = cost; bestAxis = ax; bestSplit = begin + leftCount; }
+        }
+    }
+
+    // Sort along best axis and split
+    const int axis = bestAxis;
     std::sort(primitiveFaceIds.begin() + begin, primitiveFaceIds.begin() + end,
-        [&](int lhs, int rhs)
-        {
-            const Point3& a = faces[lhs].centroid;
-            const Point3& b = faces[rhs].centroid;
-            if (axis == 0)
-            {
-                return a.x < b.x;
-            }
-            if (axis == 1)
-            {
-                return a.y < b.y;
-            }
-            return a.z < b.z;
+        [&](int l, int r) {
+            const Point3& a = faces[l].centroid; const Point3& b = faces[r].centroid;
+            return (axis == 0) ? a.x < b.x : ((axis == 1) ? a.y < b.y : a.z < b.z);
         });
-
-    const int middle = begin + (end - begin) / 2;
+    const int middle = std::max(begin + 1, std::min(end - 1, bestSplit));
     const int leftChild = BuildBVHNodeRecursive(bvh, primitiveFaceIds, faces, begin, middle, depth + 1, leafSize, leafNodeCount, maxDepth);
     const int rightChild = BuildBVHNodeRecursive(bvh, primitiveFaceIds, faces, middle, end, depth + 1, leafSize, leafNodeCount, maxDepth);
 

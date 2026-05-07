@@ -273,7 +273,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "ray_count", config.sbr.ray_count);
         ReadOptionalNumber(body, "max_ray_depth", config.sbr.max_ray_depth);
         ReadOptionalNumber(body, "ray_power_threshold_linear", config.sbr.ray_power_threshold_linear);
-        ReadOptionalNumber(body, "rx_sphere_radius_factor", config.sbr.rx_sphere_radius_factor);
+        ReadOptionalNumber(body, "rx_sphere_radius_m", config.sbr.rx_sphere_radius_m);
         ReadOptionalNumber(body, "rx_grid_min_x", config.sbr.rx_grid_min_x);
         ReadOptionalNumber(body, "rx_grid_max_x", config.sbr.rx_grid_max_x);
         ReadOptionalNumber(body, "rx_grid_min_y", config.sbr.rx_grid_min_y);
@@ -468,7 +468,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"ray_count\": " << config.sbr.ray_count << ",\n";
     stream << "    \"max_ray_depth\": " << config.sbr.max_ray_depth << ",\n";
     stream << "    \"ray_power_threshold_linear\": " << config.sbr.ray_power_threshold_linear << ",\n";
-    stream << "    \"rx_sphere_radius_factor\": " << config.sbr.rx_sphere_radius_factor << ",\n";
+    stream << "    \"rx_sphere_radius_m\": " << config.sbr.rx_sphere_radius_m << ",\n";
     stream << "    \"rx_grid_min_x\": " << config.sbr.rx_grid_min_x << ",\n";
     stream << "    \"rx_grid_max_x\": " << config.sbr.rx_grid_max_x << ",\n";
     stream << "    \"rx_grid_min_y\": " << config.sbr.rx_grid_min_y << ",\n";

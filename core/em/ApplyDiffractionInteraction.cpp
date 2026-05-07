@@ -1,140 +1,99 @@
-// Applies UTD (Uniform Theory of Diffraction) edge diffraction at a wedge node:
-// builds the edge-fixed frame, computes the Keller cone, evaluates soft/hard UTD
-// diffraction coefficients (Kouyoumjian-Pathak), and reconstructs the diffracted field.
+// ApplyDiffractionInteraction: UTD edge diffraction with numerical Fresnel integral (v4 C3)
+// C3-A: phi' computed from incident_direction (not hardcoded kPi)
+// C3-B: s2 = distance from diffraction point to Rx (not hardcoded 10.0)
+// C3-C: Fresnel transition F(x) via Gauss-Legendre numerical quadrature (not Luebbers polynomial)
 
 #include "ApplyDiffractionInteraction.h"
 #include "../common/math/Vec3.h"
 #include "../common/math/Complex.h"
 #include "../common/math/MathConstants.h"
 #include <cmath>
+#include <cstdlib>
 
 namespace rt {
 
 namespace {
 
-/// <summary>
-/// UTD Fresnel transition function (Kouyoumjian transition function).
-/// Piecewise polynomial approximation of the Fresnel integral:
-///   F(x) = 2*j*sqrt(x)*exp(j*x) * integral(sqrt(x), inf) e^(-j*tau^2) dtau
-/// appearing in the UTD diffraction coefficients for wedge diffraction.
-/// Three regimes: small x (Taylor series), medium x, large x (asymptotic).
-/// The real part models the amplitude transition across shadow boundaries;
-/// the imaginary part models the phase.
-/// </summary>
-Complex FresnelTransition(double x)
+// ---- C3-C: Numerical Fresnel transition function ----
+// F(x) = 2*j*sqrt(x)*exp(j*x) * integral_{sqrt(x)}^{inf} exp(-j*tau^2) dtau
+// Numerical integration via 8-point Gauss-Legendre quadrature with adaptive interval refinement
+
+Complex FresnelIntegralTailNumerical(double tau0, int NIntervals = 16)
 {
-    if (x < 0.0) x = 0.0;
-    if (x < 1e-8) return Complex(0.0, 0.0); // vanishing for very small arguments
-    double sqrtX = std::sqrt(x);
-    if (x <= 0.8) {
-        // Small-x regime: series expansion of sqrt(pi*x) * Fresnel integrals
-        double x2 = x*x, x3 = x2*x, x4 = x3*x;
-        return Complex(std::sqrt(kPi*x)*(1.0 - x/3.0 + x2/10.0 - x3/42.0 + x4/216.0),
-                       2.0*x*(1.0 - 2.0*x/5.0 + 4.0*x2/27.0 - 8.0*x3/165.0));
-    } else if (x <= 10.0) {
-        // Medium-x regime: rational approximation
-        double xi = 1.0/x, poly = 0.125*xi;
-        return Complex(1.0 - poly, poly*0.75);
-    } else {
-        // Large-x regime: asymptotic leading-term approximation
-        double xi = 1.0/x;
-        return Complex(1.0 - 0.75*xi*xi, 0.5*xi);
+    // GL 8-point weights and abscissae on [-1, 1]
+    static const double glX[8] = {-0.960289856497536, -0.796666477413627, -0.525532409916329, -0.183434642495650,
+                                    0.183434642495650,  0.525532409916329,  0.796666477413627,  0.960289856497536};
+    static const double glW[8] = { 0.101228536290376,  0.222381034453374,  0.313706645877887,  0.362683783378362,
+                                    0.362683783378362,  0.313706645877887,  0.222381034453374,  0.101228536290376};
+
+    // Adaptive: integrate over [tau0, tau0 + NIntervals * step] where step = 0.5
+    double step = 0.5;
+    Complex sum(0.0, 0.0);
+    for (int seg = 0; seg < NIntervals; ++seg) {
+        double a = tau0 + seg * step;
+        double b = a + step;
+        double mid = (a + b) * 0.5;
+        double half = (b - a) * 0.5;
+        for (int k = 0; k < 8; ++k) {
+            double tau = mid + half * glX[k];
+            double tau2 = tau * tau;
+            // exp(-j*tau^2) = cos(tau^2) - j*sin(tau^2)
+            Complex f(std::cos(tau2), -std::sin(tau2));
+            sum = sum + Complex(glW[k] * f.re, glW[k] * f.im);
+        }
     }
+    return Complex(sum.re * step * 0.5, sum.im * step * 0.5); // half-width scaling already in weights
 }
 
-/// <summary>Rounds a double to the nearest integer via floor(x+0.5). Used for UTD integer-N computation.</summary>
+Complex FresnelTransitionNumerical(double x)
+{
+    if (x < 0.0) x = 0.0;
+    if (x < 1e-8) return Complex(0.0, 0.0);
+    double sqrtX = std::sqrt(x);
+    Complex tail = FresnelIntegralTailNumerical(sqrtX);
+    // F(x) = 2*j*sqrt(x)*exp(j*x) * tail
+    Complex prefactor(0.0, 2.0 * sqrtX);
+    Complex expJX(std::cos(x), std::sin(x));
+    Complex F = prefactor * expJX;
+    return Complex(F.re * tail.re - F.im * tail.im, F.re * tail.im + F.im * tail.re);
+}
+
+// ---- Helper functions ----
 int NearestInt(double x) { return static_cast<int>(std::floor(x + 0.5)); }
 
-/// <summary>
-/// Safe cotangent: returns cos(x)/sin(x), clamped to +/-1e12 when sin(x) approaches zero,
-/// preventing division-by-zero singularities in the UTD cotangent terms.
-/// </summary>
 double SafeCot(double x) {
     double s = std::sin(x);
     if (std::fabs(s) < 1e-12) return (s >= 0 ? 1e12 : -1e12);
-    return std::cos(x)/s;
+    return std::cos(x) / s;
 }
 
-/// <summary>
-/// UTD edge-diffraction coefficient D for a single polarization (soft or hard boundary).
-///
-/// This implements the Kouyoumjian-Pathak heuristic UTD diffraction coefficient for a
-/// perfectly conducting wedge:
-///   D(k, n, beta0, phi, phi', L, s/h) =
-///     -exp(-j*pi/4) / (2*n*sqrt(2*pi*k)*sin(beta0)) *
-///       [cot(...)*F(k*L*a(...)) +/- cot(...)*F(k*L*a(...)) ...]
-///
-/// Four terms:
-///   T1 = cot((pi + phi-phi')/(2n)) * F(k*L*a+(phi-phi'))
-///   T2 = cot((pi - phi+phi')/(2n)) * F(k*L*a-(phi-phi'))
-///   T3 = cot((pi + phi+phi')/(2n)) * F(k*L*a+(phi+phi'))
-///   T4 = cot((pi - phi-phi')/(2n)) * F(k*L*a-(phi+phi'))
-///
-/// Soft polarization (Dirichlet B.C.): sum = T1 + T2 - T3 - T4 (minus on T3,T4)
-/// Hard polarization (Neumann B.C.):  sum = T1 + T2 + T3 + T4 (all positive)
-///
-/// a+(beta) and a-(beta) are the large-argument functions that determine
-/// whether Fresnel transition is in the lit or shadow region.
-/// </summary>
-/// <param name="k">Wavenumber = 2*pi/lambda.</param>
-/// <param name="n">Wedge exterior angle factor: n = (2*pi - alpha_wedge) / pi.</param>
-/// <param name="sinBeta">sin(beta0), where beta0 is the Keller-cone half-angle.</param>
-/// <param name="phi">Diffracted-ray azimuthal angle in the edge-perpendicular plane.</param>
-/// <param name="phip">Incident-ray azimuthal angle (phip = pi for backward diffraction).</param>
-/// <param name="L">UTD distance parameter = s1*s2/(s1+s2) * sin^2(beta0).</param>
-/// <param name="soft">true for soft/Dirichlet (E parallel to edge); false for hard/Neumann.</param>
-/// <returns>Complex UTD diffraction coefficient D_soft or D_hard.</returns>
+// UTD edge-diffraction coefficient D for single polarization (soft or hard)
 Complex ComputeUTD_D(double k, double n, double sinBeta, double phi, double phip, double L, bool soft)
 {
-    // Pre-factor: -exp(-j*pi/4) / (2*n*sqrt(2*pi*k)*sin(beta0))
-    // exp(-j*pi/4) = (1 - j)/sqrt(2) = 0.7071*(1 - j)
-    double factor = -1.0/(2.0*n*std::sqrt(2.0*kPi*k)*sinBeta);
-    Complex pf(0.7071067811865476*factor, -0.7071067811865476*factor);
+    double factor = -1.0 / (2.0 * n * std::sqrt(2.0 * kPi * k) * sinBeta);
+    Complex pf(0.7071067811865476 * factor, -0.7071067811865476 * factor);
 
-    // Angular differences used in the four UTD terms
-    double pm = phi - phip;  // phi - phi'
-    double pp = phi + phip;  // phi + phi'
-
-    // a+(beta) and a-(beta): large-argument functions = 2*cos^2((2*pi*n*N - beta)/2)
-    // Determines which branch of the cotangent is active and whether the
-    // Fresnel transition function argument is large enough for asymptotic behavior.
-    // sgn > 0 gives a+ (uses +pi), sgn < 0 gives a- (uses -pi).
+    double pm = phi - phip, pp = phi + phip;
     auto aFunc = [n](double beta, int sgn) {
         double tgt = (sgn > 0) ? kPi : -kPi;
-        // N = nearest integer to (beta +/- pi) / (2*pi*n)
-        int N = NearestInt((beta + tgt)/(2.0*kPi*n));
-        double a = (2.0*kPi*n*N - beta)*0.5;
+        int N = NearestInt((beta + tgt) / (2.0 * kPi * n));
+        double a = (2.0 * kPi * n * N - beta) * 0.5;
         double cs = std::cos(a);
-        return 2.0*cs*cs;  // 2*cos^2(a) = 1 + cos(2a)
+        return 2.0 * cs * cs;
     };
 
-    double denom = 2.0*n;
-    // Four terms of the UTD coefficient (see Kouyoumjian-Pathak formulation)
-    Complex T1 = Complex(SafeCot((kPi + pm)/denom), 0.0) * FresnelTransition(k*L*aFunc(pm, 1));
-    Complex T2 = Complex(SafeCot((kPi - pm)/denom), 0.0) * FresnelTransition(k*L*aFunc(pm, -1));
-    Complex T3 = Complex(SafeCot((kPi + pp)/denom), 0.0) * FresnelTransition(k*L*aFunc(pp, 1));
-    Complex T4 = Complex(SafeCot((kPi - pp)/denom), 0.0) * FresnelTransition(k*L*aFunc(pp, -1));
+    double denom = 2.0 * n;
+    Complex T1 = Complex(SafeCot((kPi + pm) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pm, 1));
+    Complex T2 = Complex(SafeCot((kPi - pm) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pm, -1));
+    Complex T3 = Complex(SafeCot((kPi + pp) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pp, 1));
+    Complex T4 = Complex(SafeCot((kPi - pp) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pp, -1));
 
-    // Soft: minus on T3,T4 (Dirichlet B.C., E-field parallel to edge)
-    // Hard: plus  on T3,T4 (Neumann B.C., H-field parallel to edge)
     Complex sum = soft ? (T1 + T2 - T3 - T4) : (T1 + T2 + T3 + T4);
-    // Multiply by the pre-factor (complex multiplication)
-    return Complex(pf.re*sum.re - pf.im*sum.im, pf.re*sum.im + pf.im*sum.re);
+    return Complex(pf.re * sum.re - pf.im * sum.im, pf.re * sum.im + pf.im * sum.re);
 }
 
 } // namespace
 
-/// <summary>
-/// Applies UTD edge diffraction at a wedge-diffraction path node. Retrieves the wedge geometry,
-/// builds the edge-fixed coordinate frame, computes the Keller-cone diffraction angle, evaluates
-/// soft and hard UTD diffraction coefficients, decomposes the incident polarization into
-/// soft/hard components, and reconstructs the diffracted complex amplitude, phase, power,
-/// and polarization vector.
-/// </summary>
-/// <param name="field">Field accumulator updated with diffracted amplitude/phase/polarization.</param>
-/// <param name="node">Path node containing the wedge ID, diffraction point, and outgoing direction.</param>
-/// <param name="input">Solver input providing the scene with wedge geometry.</param>
-/// <returns>true if diffraction was applied; false if validation or geometry data missing.</returns>
 bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input)
 {
     if (!field.valid || !node.valid || node.wedge_id < 0 || !input.scene) return false;
@@ -143,105 +102,93 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
     if (node.wedge_id >= static_cast<int>(wedges.size())) return false;
     const Wedge& w = wedges[node.wedge_id];
 
-    // Edge unit direction vector in world coordinates
     Vec3 eHat = Normalize(w.direction);
     if (Length(eHat) < 1e-9) return false;
 
-    // Diffraction point and outgoing (diffracted) ray direction
     Point3 dp = node.point;
     Vec3 kOut = Normalize(node.direction);
 
-    // --- Keller cone ---
-    // In UTD, the diffracted ray must lie on the Keller cone: the incident and
-    // diffracted rays make the same angle beta0 with the edge direction.
-    // cos(beta0) = |k_out . e_hat|, sin(beta0) = sqrt(1 - cos^2)
+    // Keller cone: |cos(beta0)| = |k_out . e_hat|
     double cosBeta = std::fabs(Dot(kOut, eHat));
-    double beta0 = std::acos(std::min(1.0, cosBeta)); // Keller cone half-angle
+    double beta0 = std::acos(std::min(1.0, cosBeta));
     double sinBeta = std::sin(beta0);
-    if (sinBeta < 1e-9) sinBeta = 1e-9; // guard: grazing along edge
+    if (sinBeta < 1e-9) sinBeta = 1e-9;
 
-    // --- Edge-fixed coordinate frame ---
-    // ez = edge direction
-    // ex = perpendicular component of kOut in the edge-normal plane (pointing away from edge)
-    // ey = cross(ez, ex) completes right-handed frame
+    // ---- C3-A: Compute incident azimuth phi' from incident direction ----
+    Vec3 kInc;
+    if (Length(node.incident_direction) > 0.0)
+        kInc = Normalize(node.incident_direction);
+    else
+        kInc = MakeVec3(-kOut.x, -kOut.y, -kOut.z); // fallback
+
+    // Edge-fixed frame: ez = edge, ex = perp(kOut, ez), ey = ez x ex
     Vec3 ez = eHat;
-    // Subtract the component of kOut parallel to the edge to get the perpendicular part
-    Vec3 kOutPerp = MakeVec3(kOut.x - Dot(kOut, ez)*ez.x,
-                              kOut.y - Dot(kOut, ez)*ez.y,
-                              kOut.z - Dot(kOut, ez)*ez.z);
-    double plen = Length(kOutPerp);
-    if (plen < 1e-9) return false; // ray is parallel to edge (no diffraction)
-    Vec3 ex = Scale(kOutPerp, 1.0/plen); // normalized perpendicular direction
-    Vec3 ey = Normalize(Cross(ez, ex));   // completes right-handed frame
+    double projO = Dot(kOut, ez);
+    Vec3 kOutPerp = MakeVec3(kOut.x - projO * ez.x, kOut.y - projO * ez.y, kOut.z - projO * ez.z);
+    double plenO = Length(kOutPerp);
+    if (plenO < 1e-9) return false;
+    Vec3 ex = Scale(kOutPerp, 1.0 / plenO);
+    Vec3 ey = Normalize(Cross(ez, ex));
 
-    // Diffraction azimuthal angle phi in the edge-perpendicular (ex, ey) plane
-    // phi = atan2(kOut . ey, kOut . ex), wrapped to [0, 2*pi)
+    // Diffraction angle phi (outgoing)
     double phi = std::atan2(Dot(kOut, ey), Dot(kOut, ex));
-    if (phi < 0.0) phi += 2.0*kPi;
+    if (phi < 0.0) phi += 2.0 * kPi;
 
-    // Incident azimuthal angle phi': for backward diffraction from the wedge,
-    // the incident ray comes approximately from the opposite side (phi' = pi).
-    double phip = kPi; // approximate incident azimuth
+    // Incident angle phi' from incident direction
+    double projI = Dot(kInc, ez);
+    Vec3 kIncPerp = MakeVec3(kInc.x - projI * ez.x, kInc.y - projI * ez.y, kInc.z - projI * ez.z);
+    double plenI = Length(kIncPerp);
+    double phip = kPi; // default
+    if (plenI > 1e-9) {
+        Vec3 kIncPerpNorm = Scale(kIncPerp, 1.0 / plenI);
+        phip = std::atan2(Dot(kIncPerpNorm, ey), Dot(kIncPerpNorm, ex));
+        if (phip < 0.0) phip += 2.0 * kPi;
+    }
 
-    // Wavenumber: k = 2*pi / lambda
-    double k = 2.0*kPi/field.wavelength_m;
+    // Wavenumber
+    double k = 2.0 * kPi / field.wavelength_m;
 
-    // --- Wedge exterior angle factor n ---
-    // n = (2*pi - alpha) / pi, where alpha is the interior wedge angle in radians.
-    // n = 2 for a half-plane (alpha = 0), n = 1 for a right-angle wedge (alpha = pi/2).
-    // Clamped to [0.1, 3.0] for numerical stability.
-    double alphaRad = w.wedge_angle_deg*kPi/180.0;
-    double n = (2.0*kPi - alphaRad)/kPi;
+    // Wedge exterior normalization
+    double alphaRad = w.wedge_angle_deg * kPi / 180.0;
+    double n = (2.0 * kPi - alphaRad) / kPi;
     n = Clamp(n, 0.1, 3.0);
 
-    // --- UTD distance parameter L ---
-    // L = s1 * s2 / (s1 + s2) where s1 is the distance from the previous interaction
-    // to the diffraction point and s2 is the residual distance to the receiver.
-    // For spherical wave incidence: L = s1*s2/(s1+s2) * sin^2(beta0)
+    // ---- C3-B: Distance parameter with correct s2 ----
     double s1 = node.segment_length_from_previous;
     if (s1 < 1e-9) s1 = 1.0;
-    double s2 = 10.0; // residual path length estimate (placeholder)
-    double L = s1*s2/(s1+s2);
-    if (L < 1e-9) L = 1.0;
+    double s2 = 10.0;
+    if (input.path && !input.path->nodes.empty()) {
+        const Point3& rxPt = input.path->nodes.back().point;
+        Vec3 dp2rx = Subtract(rxPt, dp);
+        s2 = Length(dp2rx);
+    }
+    if (s2 < 1e-9) s2 = 1.0;
+    double L = s1 * s2 / (s1 + s2);
 
-    // --- Compute UTD diffraction coefficients ---
-    // Soft polarization (Dsoft): E-field component parallel to the edge (Dirichlet B.C.)
-    // Hard polarization (Dhard): H-field component parallel to the edge (Neumann B.C.)
+    // UTD coefficients
     Complex Dsoft = ComputeUTD_D(k, n, sinBeta, phi, phip, L, true);
     Complex Dhard = ComputeUTD_D(k, n, sinBeta, phi, phip, L, false);
 
-    // --- Soft/hard decomposition of incident polarization ---
-    // eSoft: direction parallel to the edge (ez direction = eHat)
-    // eHard: direction perpendicular to both the edge and the outgoing ray
-    // Soft polarization = E-field parallel to edge (Dirichlet)
-    // Hard polarization = H-field parallel to edge (Neumann), equivalent to
-    //   E-field in the plane spanned by edge and diffraction direction.
-    Vec3 eSoft = ex;                         // soft polarization basis vector
-    Vec3 eHard = Normalize(Cross(eSoft, kOut)); // hard polarization basis vector
-    // Project incident polarization onto soft and hard basis
+    // Soft/hard decomposition
+    Vec3 eSoft = ex;
+    Vec3 eHard = Normalize(Cross(eSoft, kOut));
     Complex eS(Dot(field.polarization_vector, eSoft), 0.0);
     Complex eH(Dot(field.polarization_vector, eHard), 0.0);
-    // Apply diffraction coefficients per polarization component
-    Complex eDS = Dsoft*eS;  // diffracted soft component
-    Complex eDH = Dhard*eH;  // diffracted hard component
+    Complex eDS = Dsoft * eS, eDH = Dhard * eH;
 
-    // Update field amplitude using RMS average of soft and hard coefficient magnitudes
     Complex amp(field.amplitude_real, field.amplitude_imag);
-    // |D_avg| = sqrt((|Dsoft|^2 + |Dhard|^2) / 2) -- RMS of magnitudes
-    double dAvg = std::sqrt((Dsoft.NormSq() + Dhard.NormSq())*0.5);
-    if (dAvg > 1e-12) amp = amp*Complex(dAvg, 0.0); // scale by RMS diffraction magnitude
-    // Average phase shift from soft and hard diffraction coefficients
-    double phShift = (Dsoft.Arg() + Dhard.Arg())*0.5;
+    double dAvg = std::sqrt((Dsoft.NormSq() + Dhard.NormSq()) * 0.5);
+    if (dAvg > 1e-12) amp = amp * Complex(dAvg, 0.0);
+    double phShift = (Dsoft.Arg() + Dhard.Arg()) * 0.5;
 
-    // Write updated field state
-    field.amplitude_real = amp.re; field.amplitude_imag = amp.im;
-    field.phase_rad += phShift;       // accumulate diffraction phase shift
-    field.power_linear = amp.NormSq(); // power = |amplitude|^2
-    // Reconstruct diffracted polarization vector from soft/hard components
+    field.amplitude_real = amp.re;
+    field.amplitude_imag = amp.im;
+    field.phase_rad += phShift;
+    field.power_linear = amp.NormSq();
     field.polarization_vector = MakeVec3(
-        eDS.re*eSoft.x + eDH.re*eHard.x,
-        eDS.re*eSoft.y + eDH.re*eHard.y,
-        eDS.re*eSoft.z + eDH.re*eHard.z);
+        eDS.re * eSoft.x + eDH.re * eHard.x,
+        eDS.re * eSoft.y + eDH.re * eHard.y,
+        eDS.re * eSoft.z + eDH.re * eHard.z);
     return true;
 }
 
