@@ -115,7 +115,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMPSupport>true</OpenMPSupport>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,30 +142,22 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <ClCompile Include="app\A1RealChainRunner.cpp" />
-    <ClCompile Include="app\legacy\Batch5SearchReporter.cpp" />
-    <ClCompile Include="app\legacy\Batch6ExpanderReporter.cpp" />
-    <ClCompile Include="app\legacy\Batch7EMReporter.cpp" />
-    <ClCompile Include="app\legacy\Batch8AggregateReporter.cpp" />
-    <ClCompile Include="app\Batch9ExportReporter.cpp" />
+    <ClCompile Include="app\RtRealChainRunner.cpp" />
     <ClCompile Include="app\main.cpp" />
     <ClCompile Include="app\RtPipeline.cpp" />
-    <ClCompile Include="app\legacy\SceneBatch2Reporter.cpp" />
-    <ClCompile Include="app\legacy\SceneBatch3Reporter.cpp" />
-    <ClCompile Include="app\legacy\SceneBatch4Reporter.cpp" />
     <ClCompile Include="core\common\config\AppConfigJsonCodec.cpp" />
     <ClCompile Include="core\common\config\AppConfigLoader.cpp" />
-    <ClCompile Include="core\common\config\Module1SelfCheck.cpp" />
+    <ClCompile Include="core\common\config\ConfigSelfCheck.cpp" />
     <ClCompile Include="core\common\config\AppConfigSnapshotWriter.cpp" />
     <ClCompile Include="core\common\config\AppConfigValidator.cpp" />
     <ClCompile Include="core\antenna\AntennaModel.cpp" />
     <ClCompile Include="core\antenna\AntennaFactory.cpp" />
-    <ClCompile Include="core\antenna\AntennaResponse.cpp" />
+    <!-- v6: AntennaResponse.cpp removed (empty stub) -->
     <ClCompile Include="preprocess\binding\MaterialRuleLoader.cpp" />
     <ClCompile Include="preprocess\binding\ResolveFaceDualSideMaterial.cpp" />
-    <ClCompile Include="preprocess\build\SceneBatch2Builder.cpp" />
-    <ClCompile Include="preprocess\build\SceneBatch3Builder.cpp" />
-    <ClCompile Include="preprocess\build\SceneBatch4Builder.cpp" />
+    <ClCompile Include="preprocess\build\SceneImporter.cpp" />
+    <ClCompile Include="preprocess\build\SceneTopologyBuilder.cpp" />
+    <ClCompile Include="preprocess\build\SceneQueryBuilder.cpp" />
     <ClCompile Include="preprocess\build\EdgeBuilder.cpp" />
     <ClCompile Include="preprocess\build\WedgeBuilder.cpp" />
     <ClCompile Include="preprocess\build\SceneDiagnostics.cpp" />
@@ -200,16 +192,16 @@
     <ClCompile Include="core\em\BuildISACFeatureSet.cpp" />
     <ClCompile Include="core\em\PreciseEMProfile.cpp" />
     <ClCompile Include="core\em\CoverageEMProfile.cpp" />
-    <ClCompile Include="core\result\ExportBundle.cpp" />
+    <!-- v6: ExportBundle.cpp removed (empty stub) -->
     <ClCompile Include="core\result\ResultExportUtils.cpp" />
     <ClCompile Include="core\result\ExportPaths.cpp" />
     <ClCompile Include="core\result\ExportChannel.cpp" />
     <ClCompile Include="core\result\ExportCoverage.cpp" />
     <ClCompile Include="core\result\ExportISAC.cpp" />
     <ClCompile Include="core\result\ExportVisualization.cpp" />
-    <ClCompile Include="core\result\ValidationReport.cpp" />
+    <!-- v6: ValidationReport.cpp removed (empty stub) -->
     <ClCompile Include="core\result\ValidationReportWriter.cpp" />
-    <ClCompile Include="core\result\RegressionReport.cpp" />
+    <!-- v6: RegressionReport.cpp removed (empty stub) -->
     <ClCompile Include="core\result\RegressionReportWriter.cpp" />
     <ClCompile Include="core\common\error\RtError.cpp" />
     <ClCompile Include="core\common\log\Logger.cpp" />
@@ -217,20 +209,12 @@
     <ClCompile Include="core\common\version\VersionInfo.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="app\A1RealChainRunner.h" />
-    <ClInclude Include="app\legacy\Batch5SearchReporter.h" />
-    <ClInclude Include="app\legacy\Batch6ExpanderReporter.h" />
-    <ClInclude Include="app\legacy\Batch7EMReporter.h" />
-    <ClInclude Include="app\legacy\Batch8AggregateReporter.h" />
-    <ClInclude Include="app\Batch9ExportReporter.h" />
+    <ClInclude Include="app\RtRealChainRunner.h" />
     <ClInclude Include="app\RtPipeline.h" />
-    <ClInclude Include="app\legacy\SceneBatch2Reporter.h" />
-    <ClInclude Include="app\legacy\SceneBatch3Reporter.h" />
-    <ClInclude Include="app\legacy\SceneBatch4Reporter.h" />
     <ClInclude Include="core\common\config\AppConfig.h" />
     <ClInclude Include="core\common\config\AppConfigJsonCodec.h" />
     <ClInclude Include="core\common\config\AppConfigLoader.h" />
-    <ClInclude Include="core\common\config\Module1SelfCheck.h" />
+    <ClInclude Include="core\common\config\ConfigSelfCheck.h" />
     <ClInclude Include="core\common\config\AppConfigSnapshotWriter.h" />
     <ClInclude Include="core\common\config\AppConfigValidator.h" />
     <ClInclude Include="core\antenna\AntennaModel.h" />
@@ -244,9 +228,9 @@
     <ClInclude Include="core\common\numeric\NumericToleranceConfig.h" />
     <ClInclude Include="preprocess\binding\MaterialRuleLoader.h" />
     <ClInclude Include="preprocess\binding\ResolveFaceDualSideMaterial.h" />
-    <ClInclude Include="preprocess\build\SceneBatch2Builder.h" />
-    <ClInclude Include="preprocess\build\SceneBatch3Builder.h" />
-    <ClInclude Include="preprocess\build\SceneBatch4Builder.h" />
+    <ClInclude Include="preprocess\build\SceneImporter.h" />
+    <ClInclude Include="preprocess\build\SceneTopologyBuilder.h" />
+    <ClInclude Include="preprocess\build\SceneQueryBuilder.h" />
     <ClInclude Include="preprocess\build\EdgeBuilder.h" />
     <ClInclude Include="preprocess\build\WedgeBuilder.h" />
     <ClInclude Include="preprocess\build\SceneDiagnostics.h" />
@@ -309,6 +293,13 @@
     <ClInclude Include="core\scene\SceneMeta.h" />
     <ClInclude Include="core\common\version\VersionInfo.h" />
     <ClInclude Include="core\scene\Wedge.h" />
+    <ClInclude Include="core\antenna\AntennaPattern.h" />
+    <ClInclude Include="core\common\material\MaterialDatabase.h" />
+    <ClInclude Include="core\common\math\Vec3.h" />
+    <ClInclude Include="core\common\math\Complex.h" />
+    <ClInclude Include="core\common\math\Matrix3x3.h" />
+    <ClInclude Include="core\common\math\MathConstants.h" />
+    <ClInclude Include="core\common\math\CoordinateFrame.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

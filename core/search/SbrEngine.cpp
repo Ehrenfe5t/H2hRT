@@ -162,12 +162,12 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const int maxRefl=cfg.max_reflection_count;
     const int maxTrans=cfg.enable_transmission?cfg.max_transmission_count:0;
     const int maxDiff=cfg.enable_diffraction?cfg.max_diffraction_count:0;
-    const double pwrTh=cfg.ray_power_threshold_linear, sphereR=cfg.rx_sphere_radius_m;
+    const double pwrTh=std::pow(10.0, cfg.ray_power_threshold_dB/10.0), sphereR=cfg.rx_sphere_radius_m;
     const int NRx=static_cast<int>(context.rx_grid.size());
-    const double txPowerMW=context.tx_power_w*1000.0;
+    const double txPowerMW=std::pow(10.0, context.tx_power_dBm/10.0);
     const double normFactor=1.0/static_cast<double>(N);
     const double wedgeMD=cfg.wedge_max_distance_m;
-    const int wedgeMS=cfg.wedge_sample_count;
+    const int wedgeMS=cfg.wedge_max_candidates;
 
     RxHashGrid rxGrid; rxGrid.Build(context.rx_grid,sphereR);
     result.rx_records.resize(NRx);

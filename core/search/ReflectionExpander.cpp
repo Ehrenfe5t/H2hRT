@@ -166,6 +166,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         ray.direction = candidateDirection;
         FaceQueryContext queryContext;
         queryContext.ignored_face_id = state.ignored_face_id;
+        queryContext.ignored_object_id = state.ignored_object_id; // v6 C5: 防止同Object自相交
         queryContext.origin_ignore_distance = context.config->numeric_tolerance.self_hit_ignore_distance;
         const FaceHit hit = context.scene_query->QueryClosestFaceHit(ray, queryContext);
         const GeometryValidityResult candidateValidity = IsValidReflectionHitCandidate(hit, context);
@@ -187,8 +188,8 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
             continue;
         }
 
-        const Vec3 incoming = Normalize(Subtract(hit.position, state.current_point));
-        const Vec3 outgoing = Normalize(Subtract(context.rx_point, hit.position));
+        const Vec3 incoming = SafeNormalize(Subtract(hit.position, state.current_point));
+        const Vec3 outgoing = SafeNormalize(Subtract(context.rx_point, hit.position));
         const double incomingNormalComponent = std::fabs(Dot(incoming, hit.normal));
         const double outgoingNormalComponent = std::fabs(Dot(outgoing, hit.normal));
         if (incomingNormalComponent <= 1.0e-3 || outgoingNormalComponent <= 1.0e-3)
@@ -199,7 +200,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
 
         PathState nextState = state;
         nextState.current_point = hit.position;
-        nextState.current_direction = Normalize(Subtract(context.rx_point, hit.position));
+        nextState.current_direction = SafeNormalize(Subtract(context.rx_point, hit.position));
         nextState.last_interaction_type = InteractionType::Reflection;
         nextState.last_interaction_object_id = hit.object_id;
         nextState.last_hit_face_id = hit.face_id;

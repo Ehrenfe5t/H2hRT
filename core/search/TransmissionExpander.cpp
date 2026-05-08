@@ -126,11 +126,11 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
                 else { n1 = std::sqrt(std::max(1.0, p2.epsilon_r)); n2 = std::sqrt(std::max(1.0, p1.epsilon_r)); }
             }
             txDir = SnellRefract(incidentDir, hit.normal, n1, n2);
-            if (Length(txDir) <= 0.0) txDir = Normalize(Subtract(context.rx_point, hit.position)); // TIR fallback
+            if (Length(txDir) <= 0.0) txDir = SafeNormalize(Subtract(context.rx_point, hit.position)); // v6 C4
         }
         else
         {
-            txDir = Normalize(Subtract(context.rx_point, hit.position)); // no DB fallback
+            txDir = SafeNormalize(Subtract(context.rx_point, hit.position)); // v6 C4
         }
 
         PathState nextState = state;

@@ -33,17 +33,20 @@ public:
             std::istringstream ss(line);
             while (std::getline(ss, token, ',')) parts.push_back(token);
             if (parts.size() < 7) continue;
-            int id = std::stoi(parts[0]);
-            std::string name = parts[1];
+            // v6 C6: 异常保护, 解析失败跳过该行而非崩溃
+            int id; double freq, epsR, sigma, muR; std::string name;
+            try {
+                id = std::stoi(parts[0]);
+                name = parts[1];
+                freq = std::stod(parts[3]);
+                epsR = std::stod(parts[4]);
+                sigma = std::stod(parts[5]);
+                muR = std::stod(parts[6]);
+            } catch (...) { continue; }
             // 清理中文注解: "Concrete[水泥]" → "Concrete"
             { auto bp = name.find('['); if (bp != std::string::npos) name = name.substr(0, bp); }
             { auto bp = name.find('('); if (bp != std::string::npos) name = name.substr(0, bp); }
-            // 去除首尾空格
             while (!name.empty() && name.back() == ' ') name.pop_back();
-            double freq = std::stod(parts[3]);
-            double epsR = std::stod(parts[4]);
-            double sigma = std::stod(parts[5]);
-            double muR = std::stod(parts[6]);
             MaterialProps p; p.epsilon_r = epsR; p.sigma = sigma; p.mu_r = muR; p.name = name;
             byName_[name][freq] = p;
             byId_[id][freq] = p;

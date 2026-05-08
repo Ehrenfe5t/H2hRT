@@ -423,9 +423,10 @@ std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origi
             return lhs.length > rhs.length;
         });
 
-    if (static_cast<int>(candidates.size()) > config_.path_search.max_candidate_wedges)
+    constexpr int kMaxWedgeCandidates = 64;
+    if (static_cast<int>(candidates.size()) > kMaxWedgeCandidates)
     {
-        candidates.resize(static_cast<std::size_t>(config_.path_search.max_candidate_wedges));
+        candidates.resize(static_cast<std::size_t>(kMaxWedgeCandidates));
     }
 
     return candidates;

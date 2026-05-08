@@ -81,16 +81,10 @@ std::string BuildPreprocessConfigSignature(const AppConfig& config)
     std::ostringstream stream;
     stream << config.scene_preprocess.enable_wedge_build << "|"
            << config.scene_preprocess.enable_scene_cache << "|"
-           << config.scene_preprocess.enable_bvh_bruteforce_validation << "|"
-           << config.scene_preprocess.filter_non_manifold_wedge_sources << "|"
-           << config.scene_preprocess.skip_coplanar_edges_for_wedge << "|"
-           << config.scene_preprocess.preprocess_mode << "|"
-           << config.scene_preprocess.scene_cache_format_version << "|"
-           << config.scene_preprocess.scene_preprocess_algorithm_version << "|"
-           << config.scene_preprocess.wedge_min_angle_deg << "|"
-           << config.scene_preprocess.wedge_max_angle_deg << "|"
+           << "0|1|1|1|1.0|10.0|170.0|"  // v6: hardcoded defaults
+
            << config.scene_preprocess.bvh_leaf_size << "|"
-           << config.scene_preprocess.bvh_bruteforce_sample_count;
+           << "16"; // v6: hardcoded
     return stream.str();
 }
 
@@ -659,7 +653,7 @@ std::string BuildSceneCacheContentFilePath(const AppConfig& config)
 SceneCacheMeta BuildSceneCacheMeta(const AppConfig& config, const Scene& scene)
 {
     SceneCacheMeta meta;
-    meta.cache_format_version = config.scene_preprocess.scene_cache_format_version;
+    meta.cache_format_version = std::string("1.0");
     meta.generated_timestamp = CurrentTimestamp();
     meta.scene_source_file_path = config.scene_import.source_file;
     meta.scene_source_last_write_time = GetLastWriteTimeString(config.scene_import.source_file);
@@ -671,13 +665,13 @@ SceneCacheMeta BuildSceneCacheMeta(const AppConfig& config, const Scene& scene)
     meta.material_database_last_write_time = GetLastWriteTimeString(config.material.material_database_file);
     meta.material_database_hash = ComputeFileHash(config.material.material_database_file);
     meta.preprocess_config_hash = ComputeSimpleHash(BuildPreprocessConfigSignature(config));
-    meta.preprocess_algorithm_version = config.scene_preprocess.scene_preprocess_algorithm_version;
+    meta.preprocess_algorithm_version = std::string("v6");
     meta.vertex_count = static_cast<int>(scene.vertices.size());
     meta.face_count = static_cast<int>(scene.faces.size());
     meta.edge_count = static_cast<int>(scene.edges.size());
     meta.wedge_count = static_cast<int>(scene.wedges.size());
-    meta.contains_full_diagnostics = config.scene_preprocess.preprocess_mode == "debug";
-    meta.contains_debug_auxiliary_data = config.scene_preprocess.preprocess_mode == "debug";
+    meta.contains_full_diagnostics = true;
+    meta.contains_debug_auxiliary_data = true;
     meta.replay_support_ready = meta.face_count > 0;
     meta.cache_status_reason = "built_from_current_scene";
     return meta;

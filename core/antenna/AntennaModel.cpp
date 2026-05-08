@@ -66,13 +66,10 @@ AntennaResponse EvaluateAntennaResponse(const AntennaModel& model, const Vec3& p
     response.antenna_id = model.antenna_id;
     response.source_type = model.source_type;
     response.gain_linear = model.reference_gain_linear;
-    response.gain_db = 10.0 * std::log10(response.gain_linear <= 0.0 ? 1.0 : response.gain_linear);
     response.effective_polarization = model.polarization_vector;
-
-    const Vec3 dir = Normalize(propagationDirection);
-    response.polarization_alignment = std::fabs(Dot(model.polarization_vector, dir));
-    response.gain_linear *= (0.75 + 0.25 * response.polarization_alignment);
-    response.gain_db = 10.0 * std::log10(response.gain_linear <= 0.0 ? 1.0 : response.gain_linear);
+    // v6 C1: 极化对齐由EM链TE/TM投影处理, 天线模型仅提供方向增益
+    response.polarization_alignment = 1.0;
+    response.gain_db = 10.0 * std::log10(std::max(1.0, response.gain_linear));
     return response;
 }
 

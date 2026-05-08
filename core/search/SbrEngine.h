@@ -34,7 +34,7 @@ struct SbrContext {
     Point3 tx_point;
     std::vector<Point3> rx_grid;
     bool store_paths = false;
-    double tx_power_w = 1.0;
+    double tx_power_dBm = 0.0;  // v6: was tx_power_w (W)
 };
 
 class SbrEngine {

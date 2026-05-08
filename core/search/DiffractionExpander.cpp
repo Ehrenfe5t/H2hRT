@@ -161,7 +161,7 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
 
         PathState ns = state;
         ns.current_point = dp;
-        ns.current_direction = Normalize(Subtract(context.rx_point, dp));
+        ns.current_direction = SafeNormalize(Subtract(context.rx_point, dp));
         ns.last_interaction_type = InteractionType::Diffraction;
         ns.last_hit_wedge_id = cand.wedge_id;
         double seg = Length(Subtract(dp, state.current_point));

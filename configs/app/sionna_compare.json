@@ -28,12 +28,12 @@
     "enable_reflection": true,
     "enable_transmission": false,
     "enable_diffraction": false,
-    "debug_tx_x": 0.5,
-    "debug_tx_y": 1.0,
-    "debug_tx_z": 1.0,
-    "debug_rx_x": 0.5,
-    "debug_rx_y": 1.0,
-    "debug_rx_z": 2.0
+    "tx_x": 0.5,
+    "tx_y": 1.0,
+    "tx_z": 1.0,
+    "rx_x": 0.5,
+    "rx_y": 1.0,
+    "rx_z": 2.0
   },
   "em_solver": {
     "frequency_hz": 2400000000.0,

@@ -27,7 +27,7 @@ struct AppRuntimeConfig {
     std::string config_snapshot_directory = "output/config_snapshots";
     std::string cache_directory = "output/cache";
     std::string run_id = "local-run";
-    int worker_threads = 1;
+    // v6: worker_threads removed (OpenMP auto-detects)
 };
 
 /// <summary>
@@ -39,7 +39,7 @@ struct SceneImportConfig {
     std::string coordinate_transform = "none";  // "none" | "blender_z_up_to_y_up"
     std::string scene_material_map_file = "configs/scenes/scene_material_map.json";
     bool normalize_object_names = true;
-    bool allow_name_auto_cleanup = true;
+    // v6: allow_name_auto_cleanup removed
 };
 
 /// <summary>
@@ -49,16 +49,8 @@ struct ScenePreprocessConfig {
     bool rebuild_normals = false;
     bool enable_wedge_build = true;
     bool enable_scene_cache = false;
-    bool enable_bvh_bruteforce_validation = true;
-    bool filter_non_manifold_wedge_sources = true;
-    bool skip_coplanar_edges_for_wedge = true;
-    std::string preprocess_mode = "debug";
-    std::string scene_cache_format_version = "1.0.0";
-    std::string scene_preprocess_algorithm_version = "batch4-v1";
-    double wedge_min_angle_deg = 1.0;
-    double wedge_max_angle_deg = 179.0;
-    int bvh_leaf_size = 8;
-    int bvh_bruteforce_sample_count = 16;
+    // v6: removed enable_bvh_bruteforce, filter_non_manifold, skip_coplanar, wedge_angles, preprocess_mode, cache_versions, bvh_bruteforce_sample
+    int bvh_leaf_size = 16;
 };
 
 /// <summary>
@@ -66,10 +58,8 @@ struct ScenePreprocessConfig {
 /// </summary>
 struct MaterialConfig {
     std::string material_database_file;
-    std::string material_mapping_file;
-    std::string frequency_query_mode = "exact";
-    bool allow_material_fallback = false;
-    std::string default_background_medium = "air";
+    // v6: material_mapping_file, frequency_query_mode, allow_material_fallback, default_background_medium removed
+    // 材质映射统一用 scene_import.scene_material_map_file
 };
 
 /// <summary>
@@ -90,24 +80,20 @@ struct PathSearchConfig {
     int max_transmission_count = 0;
     int max_diffraction_count = 0;
     int max_scattering_count = 0;
-    int max_candidate_face_hits = 64;
-    int max_candidate_wedges = 64;
+    // v6: max_candidate_face_hits, max_candidate_wedges removed (unused)
     bool enable_los = true;
     bool enable_reflection = true;
     bool enable_transmission = false;
     bool enable_diffraction = false;
     bool enable_scattering = false;
-    bool enable_mixed_path = true;
-    bool keep_angle_metadata = true;
     int max_consecutive_same_interaction = 5;
-    std::string pruning_strategy = "basic";
-    std::string dedup_strategy = "signature";
-    double debug_tx_x = 1.0;
-    double debug_tx_y = 1.0;
-    double debug_tx_z = 1.0;
-    double debug_rx_x = 3.0;
-    double debug_rx_y = 1.0;
-    double debug_rx_z = 1.0;
+    // v6: enable_mixed_path, keep_angle_metadata, pruning_strategy, dedup_strategy removed
+    double tx_x = 1.0;   // v6: was debug_tx_x
+    double tx_y = 1.0;
+    double tx_z = 1.0;
+    double rx_x = 3.0;   // v6: was debug_rx_x
+    double rx_y = 1.0;
+    double rx_z = 1.0;
 };
 
 /// <summary>
@@ -122,10 +108,10 @@ struct SbrConfig {
     int max_diffraction_count = 0;
     bool enable_transmission = false;
     bool enable_diffraction = false;
-    double ray_power_threshold_linear = 1.0e-6;
+    double ray_power_threshold_dB = -60.0;  // v6: was linear, now dB relative to Tx
     double rx_sphere_radius_m = 0.3;
     bool auto_grid_bounds = true;
-    double grid_margin_m = 0.2;
+    // v6: grid_margin_m removed
     double rx_grid_min_x = -5.0;
     double rx_grid_max_x = 5.0;
     double rx_grid_min_y = -5.0;
@@ -135,10 +121,10 @@ struct SbrConfig {
     double rx_grid_step_x = 1.0;
     double rx_grid_step_y = 1.0;
     double rx_grid_step_z = 1.0;
-    double tx_power_w = 1.0;
+    double tx_power_dBm = 0.0;  // v6: was tx_power_w (W), now dBm. 0dBm=1mW
     bool store_paths = false;
     double wedge_max_distance_m = 5.0;
-    int wedge_sample_count = 16;
+    int wedge_max_candidates = 8;  // v6: was wedge_sample_count
 };
 
 /// <summary>
@@ -147,20 +133,19 @@ struct SbrConfig {
 struct EMSolverConfig {
     double frequency_hz = 2.4e9;
     std::string solver_mode = "Precise";
-    bool enable_polarization = true;
+    // v6: enable_polarization removed
 };
 
 /// <summary>
 /// 输出控制配置。
 /// </summary>
 struct OutputConfig {
-    std::string output_directory = "output";
     bool export_paths = true;
     bool export_cir = false;
     bool export_pdp = false;
     bool export_aps = false;
-    bool export_debug_files = false;
     bool export_config_snapshot = true;
+    // v6: output_directory, export_debug_files removed
 };
 
 /// <summary>

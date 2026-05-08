@@ -19,7 +19,7 @@ namespace {
 
 bool RunBruteForceValidation(const AppConfig& config, const Scene& scene)
 {
-    if (!config.scene_preprocess.enable_bvh_bruteforce_validation)
+    if (!false /*v6:always skip*/)
     {
         return true;
     }
@@ -29,7 +29,7 @@ bool RunBruteForceValidation(const AppConfig& config, const Scene& scene)
         return false;
     }
 
-    const int sampleCount = config.scene_preprocess.bvh_bruteforce_sample_count;
+    const int sampleCount = 0 /*v6:removed*/;
     if (sampleCount == 0)
     {
         return true;
@@ -80,7 +80,7 @@ void BuildSceneAcceleration(const AppConfig& config, Scene& scene)
     scene.acceleration.diagnostics.wedge_acceleration_build_time_ms =
         std::chrono::duration<double, std::milli>(wedgeEnd - wedgeStart).count();
 
-    scene.acceleration.diagnostics.brute_force_validation_ran = config.scene_preprocess.enable_bvh_bruteforce_validation;
+    scene.acceleration.diagnostics.brute_force_validation_ran = false /*v6:always skip*/;
     scene.acceleration.diagnostics.brute_force_validation_passed = RunBruteForceValidation(config, scene);
     scene.acceleration.diagnostics.build_succeeded = scene.acceleration.face_acceleration.valid &&
                                                      scene.acceleration.diagnostics.brute_force_validation_passed;

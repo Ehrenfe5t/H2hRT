@@ -9,21 +9,21 @@
 
 #include <fstream>
 
-#include "A1RealChainRunner.h"
+#include "RtRealChainRunner.h"
 #include "../core/search/SbrEngine.h"
 #include "../core/common/config/AppConfig.h"
 #include "../core/common/config/AppConfigLoader.h"
 #include "../core/common/config/AppConfigSnapshotWriter.h"
 #include "../core/common/config/AppConfigValidator.h"
-#include "../core/common/config/Module1SelfCheck.h"
+#include "../core/common/config/ConfigSelfCheck.h"
 #include "../core/common/log/Logger.h"
 #include "../core/common/material/MaterialDatabase.h"
 #include "../core/common/version/VersionInfo.h"
 #include "../core/search/SearchEngine.h"
 #include "../core/path/PathSearchContext.h"
-#include "../preprocess/build/SceneBatch2Builder.h"
-#include "../preprocess/build/SceneBatch3Builder.h"
-#include "../preprocess/build/SceneBatch4Builder.h"
+#include "../preprocess/build/SceneImporter.h"
+#include "../preprocess/build/SceneTopologyBuilder.h"
+#include "../preprocess/build/SceneQueryBuilder.h"
 
 #include <sstream>
 
@@ -64,12 +64,12 @@ PathSearchContext BuildBatch5SearchContext(const AppConfig& config, const Scene&
     context.scene = &scene;
     context.scene_query = scene.query.get();
     context.material_db = matDb;
-    context.tx_point.x = config.path_search.debug_tx_x;
-    context.tx_point.y = config.path_search.debug_tx_y;
-    context.tx_point.z = config.path_search.debug_tx_z;
-    context.rx_point.x = config.path_search.debug_rx_x;
-    context.rx_point.y = config.path_search.debug_rx_y;
-    context.rx_point.z = config.path_search.debug_rx_z;
+    context.tx_point.x = config.path_search.tx_x;
+    context.tx_point.y = config.path_search.tx_y;
+    context.tx_point.z = config.path_search.tx_z;
+    context.rx_point.x = config.path_search.rx_x;
+    context.rx_point.y = config.path_search.rx_y;
+    context.rx_point.z = config.path_search.rx_z;
     return context;
 }
 
@@ -138,7 +138,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     }
 
     if (loadResult.config.validation.run_module1_self_check) {
-        const Module1SelfCheckResult selfCheckResult = RunModule1SelfCheck(loadResult.config);
+        const ConfigSelfCheckResult selfCheckResult = RunModule1SelfCheck(loadResult.config);
         for (const std::string& detail : selfCheckResult.details)
             logger.Log(LogLevel::Info, "模块1", "自检: " + detail);
         if (!selfCheckResult.succeeded) {
@@ -212,9 +212,9 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         sbrCtx.config = &loadResult.config;
         sbrCtx.scene = &batch4Result.scene;
         sbrCtx.scene_query = batch4Result.scene.query.get();
-        sbrCtx.tx_point.x = loadResult.config.path_search.debug_tx_x;
-        sbrCtx.tx_point.y = loadResult.config.path_search.debug_tx_y;
-        sbrCtx.tx_point.z = loadResult.config.path_search.debug_tx_z;
+        sbrCtx.tx_point.x = loadResult.config.path_search.tx_x;
+        sbrCtx.tx_point.y = loadResult.config.path_search.tx_y;
+        sbrCtx.tx_point.z = loadResult.config.path_search.tx_z;
 
         const auto& sc = loadResult.config.sbr;
         double gxMin = sc.rx_grid_min_x, gxMax = sc.rx_grid_max_x;
@@ -225,7 +225,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         if (sc.auto_grid_bounds && batch4Result.scene.acceleration.face_acceleration.valid) {
             const auto& sb = batch4Result.scene.acceleration.face_acceleration.scene_bounds;
             if (sb.valid) {
-                double m = sc.grid_margin_m;
+                double m = std::max({sc.rx_grid_step_x, sc.rx_grid_step_y, sc.rx_grid_step_z}); // v6: auto
                 gxMin = sb.min.x + m; gxMax = sb.max.x - m;
                 gyMin = sb.min.y + m; gyMax = sb.max.y - m;
                 gzMin = sb.min.z + m; gzMax = sb.max.z - m;
@@ -237,7 +237,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                 for (double rz = gzMin; rz <= gzMax + 1e-9; rz += sc.rx_grid_step_z)
                     sbrCtx.rx_grid.push_back(MakeVec3(rx, ry, rz));
         sbrCtx.store_paths = sc.store_paths;
-        sbrCtx.tx_power_w = sc.tx_power_w;
+        sbrCtx.tx_power_dBm = sc.tx_power_dBm;
         sbrCtx.material_db = &matDb;
 
         SbrEngine sbrEngine;
@@ -253,7 +253,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         logger.Log(LogLevel::Info, "SBR", sbrSum.str());
 
         // 导出SBR覆盖结果JSON (v5 D3: 每Rx功率+路径+命中数)
-        std::string sbrOutDir = loadResult.config.output.output_directory + "/a1_real_chain/coverage";
+        std::string sbrOutDir = "output/" + loadResult.config.app_runtime.run_id + "/coverage";
         std::string sbrJsonPath = sbrOutDir + "/sbr_coverage.json";
         std::ofstream sbrFile(sbrJsonPath);
         if (sbrFile.is_open()) {
@@ -261,7 +261,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
             sbrFile << "  \"total_rays\": " << sbrResult.total_rays << ",\n";
             sbrFile << "  \"active_rx_count\": " << sbrResult.active_rx_count << ",\n";
             sbrFile << "  \"rx_grid_count\": " << sbrCtx.rx_grid.size() << ",\n";
-            sbrFile << "  \"tx_power_w\": " << loadResult.config.sbr.tx_power_w << ",\n";
+            sbrFile << "  \"tx_power_dBm\": " << loadResult.config.sbr.tx_power_dBm << ",\n";
             sbrFile << "  \"rx_sphere_radius_m\": " << loadResult.config.sbr.rx_sphere_radius_m << ",\n";
             sbrFile << "  \"records\": [\n";
             for (size_t i = 0; i < sbrResult.rx_records.size(); ++i) {

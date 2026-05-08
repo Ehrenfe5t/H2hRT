@@ -61,15 +61,8 @@ void BuildSceneWedges(const AppConfig& config, Scene& scene)
             continue;
         }
 
-        if (edge.is_non_manifold && config.scene_preprocess.filter_non_manifold_wedge_sources)
-        {
-            continue;
-        }
-
-        if (edge.is_coplanar && config.scene_preprocess.skip_coplanar_edges_for_wedge)
-        {
-            continue;
-        }
+        if (edge.is_non_manifold) { continue; }  // v6: always filter
+        if (edge.is_coplanar) { continue; }       // v6: always filter
 
         const Face& positiveFace = scene.faces[edge.face_id0];
         const Face& negativeFace = scene.faces[edge.face_id1];
@@ -80,8 +73,7 @@ void BuildSceneWedges(const AppConfig& config, Scene& scene)
 
         const double dihedral = edge.dihedral_angle_deg;
         const double wedgeAngle = 180.0 - dihedral;
-        if (wedgeAngle < config.scene_preprocess.wedge_min_angle_deg ||
-            wedgeAngle > config.scene_preprocess.wedge_max_angle_deg)
+        if (wedgeAngle < 10.0 || wedgeAngle > 170.0)  // v6: UTD valid range
         {
             continue;
         }

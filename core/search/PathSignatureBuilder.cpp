@@ -28,6 +28,11 @@ uint64_t BuildPathSignature(const GeometricPath& path, const AppConfig& config)
         h = HashCombine(h, static_cast<uint64_t>(node.interaction_type));
         h = HashCombine(h, static_cast<uint64_t>(node.face_id));
         h = HashCombine(h, static_cast<uint64_t>(node.wedge_id));
+        // v6 C3: 透射路径需区分介质侧, 否则不同介质过渡被误判为重复路径
+        if (node.interaction_type == InteractionType::Transmission) {
+            h = HashCombine(h, static_cast<uint64_t>(node.medium_in_id));
+            h = HashCombine(h, static_cast<uint64_t>(node.medium_out_id));
+        }
     }
     return h;
 }

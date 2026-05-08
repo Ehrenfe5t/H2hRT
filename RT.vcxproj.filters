@@ -123,9 +123,6 @@
     <ClCompile Include="app\Batch8AggregateReporter.cpp">
       <Filter>源文件\app</Filter>
     </ClCompile>
-    <ClCompile Include="app\Batch9ExportReporter.cpp">
-      <Filter>源文件\app</Filter>
-    </ClCompile>
     <ClCompile Include="app\main.cpp">
       <Filter>源文件\app</Filter>
     </ClCompile>
@@ -147,7 +144,7 @@
     <ClCompile Include="core\common\config\AppConfigLoader.cpp">
       <Filter>源文件\core\common\config</Filter>
     </ClCompile>
-    <ClCompile Include="core\common\config\Module1SelfCheck.cpp">
+    <ClCompile Include="core\common\config\ConfigSelfCheck.cpp">
       <Filter>源文件\core\common\config</Filter>
     </ClCompile>
     <ClCompile Include="core\common\config\AppConfigSnapshotWriter.cpp">
@@ -162,13 +159,13 @@
     <ClCompile Include="preprocess\binding\ResolveFaceDualSideMaterial.cpp">
       <Filter>源文件\preprocess\binding</Filter>
     </ClCompile>
-    <ClCompile Include="preprocess\build\SceneBatch2Builder.cpp">
+    <ClCompile Include="preprocess\build\SceneImporter.cpp">
       <Filter>源文件\preprocess\build</Filter>
     </ClCompile>
-    <ClCompile Include="preprocess\build\SceneBatch3Builder.cpp">
+    <ClCompile Include="preprocess\build\SceneTopologyBuilder.cpp">
       <Filter>源文件\preprocess\build</Filter>
     </ClCompile>
-    <ClCompile Include="preprocess\build\SceneBatch4Builder.cpp">
+    <ClCompile Include="preprocess\build\SceneQueryBuilder.cpp">
       <Filter>源文件\preprocess\build</Filter>
     </ClCompile>
     <ClCompile Include="preprocess\build\EdgeBuilder.cpp">
@@ -267,9 +264,6 @@
     <ClCompile Include="core\em\CoverageEMProfile.cpp">
       <Filter>源文件\core\em</Filter>
     </ClCompile>
-    <ClCompile Include="core\result\ExportBundle.cpp">
-      <Filter>源文件\core\result</Filter>
-    </ClCompile>
     <ClCompile Include="core\result\ResultExportUtils.cpp">
       <Filter>源文件\core\result</Filter>
     </ClCompile>
@@ -288,13 +282,7 @@
     <ClCompile Include="core\result\ExportVisualization.cpp">
       <Filter>源文件\core\result</Filter>
     </ClCompile>
-    <ClCompile Include="core\result\ValidationReport.cpp">
-      <Filter>源文件\core\result</Filter>
-    </ClCompile>
     <ClCompile Include="core\result\ValidationReportWriter.cpp">
-      <Filter>源文件\core\result</Filter>
-    </ClCompile>
-    <ClCompile Include="core\result\RegressionReport.cpp">
       <Filter>源文件\core\result</Filter>
     </ClCompile>
     <ClCompile Include="core\result\RegressionReportWriter.cpp">
@@ -329,9 +317,6 @@
     <ClInclude Include="app\Batch8AggregateReporter.h">
       <Filter>头文件\app</Filter>
     </ClInclude>
-    <ClInclude Include="app\Batch9ExportReporter.h">
-      <Filter>头文件\app</Filter>
-    </ClInclude>
     <ClInclude Include="app\RtPipeline.h">
       <Filter>头文件\app</Filter>
     </ClInclude>
@@ -353,7 +338,7 @@
     <ClInclude Include="core\common\config\AppConfigLoader.h">
       <Filter>头文件\core\common\config</Filter>
     </ClInclude>
-    <ClInclude Include="core\common\config\Module1SelfCheck.h">
+    <ClInclude Include="core\common\config\ConfigSelfCheck.h">
       <Filter>头文件\core\common\config</Filter>
     </ClInclude>
     <ClInclude Include="core\common\config\AppConfigSnapshotWriter.h">
@@ -386,13 +371,13 @@
     <ClInclude Include="preprocess\binding\ResolveFaceDualSideMaterial.h">
       <Filter>头文件\preprocess\binding</Filter>
     </ClInclude>
-    <ClInclude Include="preprocess\build\SceneBatch2Builder.h">
+    <ClInclude Include="preprocess\build\SceneImporter.h">
       <Filter>头文件\preprocess\build</Filter>
     </ClInclude>
-    <ClInclude Include="preprocess\build\SceneBatch3Builder.h">
+    <ClInclude Include="preprocess\build\SceneTopologyBuilder.h">
       <Filter>头文件\preprocess\build</Filter>
     </ClInclude>
-    <ClInclude Include="preprocess\build\SceneBatch4Builder.h">
+    <ClInclude Include="preprocess\build\SceneQueryBuilder.h">
       <Filter>头文件\preprocess\build</Filter>
     </ClInclude>
     <ClInclude Include="preprocess\build\EdgeBuilder.h">
@@ -523,9 +508,6 @@
     </ClInclude>
     <ClInclude Include="core\em\CoverageEMProfile.h">
       <Filter>头文件\core\em</Filter>
-    </ClInclude>
-    <ClInclude Include="core\result\ExportBundle.h">
-      <Filter>头文件\core\result</Filter>
     </ClInclude>
     <ClInclude Include="core\result\ValidationReport.h">
       <Filter>头文件\core\result</Filter>

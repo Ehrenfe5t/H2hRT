@@ -36,25 +36,25 @@
     "enable_diffraction": true,
     "enable_mixed_path": true,
     "max_consecutive_same_interaction": 5,
-    "debug_tx_x": 16.0,
-    "debug_tx_y": 1.5,
-    "debug_tx_z": -12.0,
-    "debug_rx_x": 10.0,
-    "debug_rx_y": 1.5,
-    "debug_rx_z": -10.0
+    "tx_x": 16.0,
+    "tx_y": 1.5,
+    "tx_z": -12.0,
+    "rx_x": 10.0,
+    "rx_y": 1.5,
+    "rx_z": -10.0
   },
   "sbr": {
     "enabled": true,
     "ray_count": 200000,
     "max_ray_depth": 6,
-    "ray_power_threshold_linear": 0.0001,
+    "ray_power_threshold_dB": 0.0001,
     "auto_grid_bounds": true,
     "grid_margin_m": 0.3,
     "rx_grid_step_x": 0.2,
     "rx_grid_step_y": 0.2,
     "rx_grid_step_z": 0.2,
     "rx_sphere_radius_m": 0.3,
-    "tx_power_w": 0.001,
+    "tx_power_dBm": 0.001,
     "store_paths": false
   },
   "em_solver": {

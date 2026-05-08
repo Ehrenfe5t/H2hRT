@@ -137,7 +137,7 @@ PathState BuildInitialState(const PathSearchContext& context)
 {
     PathState state;
     state.current_point = context.tx_point;
-    state.current_direction = Normalize(Subtract(context.rx_point, context.tx_point));
+    state.current_direction = SafeNormalize(Subtract(context.rx_point, context.tx_point));
     state.current_medium_id = 0;
     state.last_interaction_type = InteractionType::Tx;
     state.accumulated_length = 0.0;

@@ -136,9 +136,13 @@ inline double Length(const Vec3& v) {
 /// <returns>单位向量；零向量输入返回零向量。</returns>
 inline Vec3 Normalize(const Vec3& v) {
     double len = Length(v);
-    if (len <= 0.0) {
-        return Vec3{};
-    }
+    if (len <= 0.0) { return Vec3{}; }
+    return Scale(v, 1.0 / len);
+}
+// v6 C4: 安全归一化, 零向量时返回fallback而非零向量
+inline Vec3 SafeNormalize(const Vec3& v, const Vec3& fallback = MakeVec3(1,0,0)) {
+    double len = Length(v);
+    if (len <= 1e-12) { return fallback; }
     return Scale(v, 1.0 / len);
 }
 

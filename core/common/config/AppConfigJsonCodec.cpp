@@ -195,7 +195,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalString(body, "config_snapshot_directory", config.app_runtime.config_snapshot_directory);
         ReadOptionalString(body, "cache_directory", config.app_runtime.cache_directory);
         ReadOptionalString(body, "run_id", config.app_runtime.run_id);
-        ReadOptionalNumber(body, "worker_threads", config.app_runtime.worker_threads);
+        // v6: worker_threads removed
     }
 
     if (ExtractObjectBody(text, "scene_import", body))
@@ -204,7 +204,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalString(body, "source_format", config.scene_import.source_format);
         ReadOptionalString(body, "scene_material_map_file", config.scene_import.scene_material_map_file);
         ReadOptionalBool(body, "normalize_object_names", config.scene_import.normalize_object_names);
-        ReadOptionalBool(body, "allow_name_auto_cleanup", config.scene_import.allow_name_auto_cleanup);
+        // v6: removed
     }
 
     if (ExtractObjectBody(text, "scene_preprocess", body))
@@ -212,25 +212,22 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "rebuild_normals", config.scene_preprocess.rebuild_normals);
         ReadOptionalBool(body, "enable_wedge_build", config.scene_preprocess.enable_wedge_build);
         ReadOptionalBool(body, "enable_scene_cache", config.scene_preprocess.enable_scene_cache);
-        ReadOptionalBool(body, "enable_bvh_bruteforce_validation", config.scene_preprocess.enable_bvh_bruteforce_validation);
-        ReadOptionalBool(body, "filter_non_manifold_wedge_sources", config.scene_preprocess.filter_non_manifold_wedge_sources);
-        ReadOptionalBool(body, "skip_coplanar_edges_for_wedge", config.scene_preprocess.skip_coplanar_edges_for_wedge);
-        ReadOptionalString(body, "preprocess_mode", config.scene_preprocess.preprocess_mode);
-        ReadOptionalString(body, "scene_cache_format_version", config.scene_preprocess.scene_cache_format_version);
-        ReadOptionalString(body, "scene_preprocess_algorithm_version", config.scene_preprocess.scene_preprocess_algorithm_version);
-        ReadOptionalNumber(body, "wedge_min_angle_deg", config.scene_preprocess.wedge_min_angle_deg);
-        ReadOptionalNumber(body, "wedge_max_angle_deg", config.scene_preprocess.wedge_max_angle_deg);
+        // v6: removed
+        // v6: removed
+        // v6: removed
+        // v6: removed
+        // v6: removed
+        // v6: removed
+        // v6: removed
+        // v6: removed
         ReadOptionalNumber(body, "bvh_leaf_size", config.scene_preprocess.bvh_leaf_size);
-        ReadOptionalNumber(body, "bvh_bruteforce_sample_count", config.scene_preprocess.bvh_bruteforce_sample_count);
+        // v6: removed
     }
 
     if (ExtractObjectBody(text, "material", body))
     {
         ReadOptionalString(body, "material_database_file", config.material.material_database_file);
-        ReadOptionalString(body, "material_mapping_file", config.material.material_mapping_file);
-        ReadOptionalString(body, "frequency_query_mode", config.material.frequency_query_mode);
-        ReadOptionalBool(body, "allow_material_fallback", config.material.allow_material_fallback);
-        ReadOptionalString(body, "default_background_medium", config.material.default_background_medium);
+        // v6: material_mapping_file, frequency_query_mode, allow_material_fallback, default_background_medium removed
     }
 
     if (ExtractObjectBody(text, "antenna", body))
@@ -247,24 +244,19 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "max_transmission_count", config.path_search.max_transmission_count);
         ReadOptionalNumber(body, "max_diffraction_count", config.path_search.max_diffraction_count);
         ReadOptionalNumber(body, "max_scattering_count", config.path_search.max_scattering_count);
-        ReadOptionalNumber(body, "max_candidate_face_hits", config.path_search.max_candidate_face_hits);
-        ReadOptionalNumber(body, "max_candidate_wedges", config.path_search.max_candidate_wedges);
         ReadOptionalBool(body, "enable_los", config.path_search.enable_los);
         ReadOptionalBool(body, "enable_reflection", config.path_search.enable_reflection);
         ReadOptionalBool(body, "enable_transmission", config.path_search.enable_transmission);
         ReadOptionalBool(body, "enable_diffraction", config.path_search.enable_diffraction);
         ReadOptionalBool(body, "enable_scattering", config.path_search.enable_scattering);
-        ReadOptionalBool(body, "enable_mixed_path", config.path_search.enable_mixed_path);
-        ReadOptionalBool(body, "keep_angle_metadata", config.path_search.keep_angle_metadata);
         ReadOptionalNumber(body, "max_consecutive_same_interaction", config.path_search.max_consecutive_same_interaction);
-        ReadOptionalString(body, "pruning_strategy", config.path_search.pruning_strategy);
-        ReadOptionalString(body, "dedup_strategy", config.path_search.dedup_strategy);
-        ReadOptionalNumber(body, "debug_tx_x", config.path_search.debug_tx_x);
-        ReadOptionalNumber(body, "debug_tx_y", config.path_search.debug_tx_y);
-        ReadOptionalNumber(body, "debug_tx_z", config.path_search.debug_tx_z);
-        ReadOptionalNumber(body, "debug_rx_x", config.path_search.debug_rx_x);
-        ReadOptionalNumber(body, "debug_rx_y", config.path_search.debug_rx_y);
-        ReadOptionalNumber(body, "debug_rx_z", config.path_search.debug_rx_z);
+        // v6: max_candidate_face_hits/wedges, enable_mixed_path, keep_angle_metadata, pruning_strategy, dedup_strategy removed
+        ReadOptionalNumber(body, "tx_x", config.path_search.tx_x);
+        ReadOptionalNumber(body, "tx_y", config.path_search.tx_y);
+        ReadOptionalNumber(body, "tx_z", config.path_search.tx_z);
+        ReadOptionalNumber(body, "rx_x", config.path_search.rx_x);
+        ReadOptionalNumber(body, "rx_y", config.path_search.rx_y);
+        ReadOptionalNumber(body, "rx_z", config.path_search.rx_z);
     }
 
     if (ExtractObjectBody(text, "sbr", body))
@@ -277,10 +269,10 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "max_diffraction_count", config.sbr.max_diffraction_count);
         ReadOptionalBool(body, "enable_transmission", config.sbr.enable_transmission);
         ReadOptionalBool(body, "enable_diffraction", config.sbr.enable_diffraction);
-        ReadOptionalNumber(body, "ray_power_threshold_linear", config.sbr.ray_power_threshold_linear);
+        ReadOptionalNumber(body, "ray_power_threshold_dB", config.sbr.ray_power_threshold_dB);
         ReadOptionalNumber(body, "rx_sphere_radius_m", config.sbr.rx_sphere_radius_m);
         ReadOptionalBool(body, "auto_grid_bounds", config.sbr.auto_grid_bounds);
-        ReadOptionalNumber(body, "grid_margin_m", config.sbr.grid_margin_m);
+        // v6: removed
         ReadOptionalNumber(body, "rx_grid_min_x", config.sbr.rx_grid_min_x);
         ReadOptionalNumber(body, "rx_grid_max_x", config.sbr.rx_grid_max_x);
         ReadOptionalNumber(body, "rx_grid_min_y", config.sbr.rx_grid_min_y);
@@ -290,27 +282,26 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "rx_grid_step_x", config.sbr.rx_grid_step_x);
         ReadOptionalNumber(body, "rx_grid_step_y", config.sbr.rx_grid_step_y);
         ReadOptionalNumber(body, "rx_grid_step_z", config.sbr.rx_grid_step_z);
-        ReadOptionalNumber(body, "tx_power_w", config.sbr.tx_power_w);
+        ReadOptionalNumber(body, "tx_power_dBm", config.sbr.tx_power_dBm);
         ReadOptionalBool(body, "store_paths", config.sbr.store_paths);
         ReadOptionalNumber(body, "wedge_max_distance_m", config.sbr.wedge_max_distance_m);
-        ReadOptionalNumber(body, "wedge_sample_count", config.sbr.wedge_sample_count);
+        ReadOptionalNumber(body, "wedge_max_candidates", config.sbr.wedge_max_candidates);
     }
 
     if (ExtractObjectBody(text, "em_solver", body))
     {
         ReadOptionalNumber(body, "frequency_hz", config.em_solver.frequency_hz);
         ReadOptionalString(body, "solver_mode", config.em_solver.solver_mode);
-        ReadOptionalBool(body, "enable_polarization", config.em_solver.enable_polarization);
+        // v6: removed
     }
 
     if (ExtractObjectBody(text, "output", body))
     {
-        ReadOptionalString(body, "output_directory", config.output.output_directory);
+        // v6: removed
         ReadOptionalBool(body, "export_paths", config.output.export_paths);
         ReadOptionalBool(body, "export_cir", config.output.export_cir);
         ReadOptionalBool(body, "export_pdp", config.output.export_pdp);
         ReadOptionalBool(body, "export_aps", config.output.export_aps);
-        ReadOptionalBool(body, "export_debug_files", config.output.export_debug_files);
         ReadOptionalBool(body, "export_config_snapshot", config.output.export_config_snapshot);
     }
 
@@ -408,8 +399,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"log_file_path\": \"" << EscapeJsonString(config.app_runtime.log_file_path) << "\",\n";
     stream << "    \"config_snapshot_directory\": \"" << EscapeJsonString(config.app_runtime.config_snapshot_directory) << "\",\n";
     stream << "    \"cache_directory\": \"" << EscapeJsonString(config.app_runtime.cache_directory) << "\",\n";
-    stream << "    \"run_id\": \"" << EscapeJsonString(config.app_runtime.run_id) << "\",\n";
-    stream << "    \"worker_threads\": " << config.app_runtime.worker_threads << "\n";
+    stream << "    \"run_id\": \"" << EscapeJsonString(config.app_runtime.run_id) << "\"\n";
     stream << "  },\n";
 
     stream << "  \"scene_import\": {\n";
@@ -417,31 +407,17 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"source_format\": \"" << EscapeJsonString(config.scene_import.source_format) << "\",\n";
     stream << "    \"scene_material_map_file\": \"" << EscapeJsonString(config.scene_import.scene_material_map_file) << "\",\n";
     stream << "    \"normalize_object_names\": " << (config.scene_import.normalize_object_names ? "true" : "false") << ",\n";
-    stream << "    \"allow_name_auto_cleanup\": " << (config.scene_import.allow_name_auto_cleanup ? "true" : "false") << "\n";
     stream << "  },\n";
 
     stream << "  \"scene_preprocess\": {\n";
     stream << "    \"rebuild_normals\": " << (config.scene_preprocess.rebuild_normals ? "true" : "false") << ",\n";
     stream << "    \"enable_wedge_build\": " << (config.scene_preprocess.enable_wedge_build ? "true" : "false") << ",\n";
     stream << "    \"enable_scene_cache\": " << (config.scene_preprocess.enable_scene_cache ? "true" : "false") << ",\n";
-    stream << "    \"enable_bvh_bruteforce_validation\": " << (config.scene_preprocess.enable_bvh_bruteforce_validation ? "true" : "false") << ",\n";
-    stream << "    \"filter_non_manifold_wedge_sources\": " << (config.scene_preprocess.filter_non_manifold_wedge_sources ? "true" : "false") << ",\n";
-    stream << "    \"skip_coplanar_edges_for_wedge\": " << (config.scene_preprocess.skip_coplanar_edges_for_wedge ? "true" : "false") << ",\n";
-    stream << "    \"preprocess_mode\": \"" << EscapeJsonString(config.scene_preprocess.preprocess_mode) << "\",\n";
-    stream << "    \"scene_cache_format_version\": \"" << EscapeJsonString(config.scene_preprocess.scene_cache_format_version) << "\",\n";
-    stream << "    \"scene_preprocess_algorithm_version\": \"" << EscapeJsonString(config.scene_preprocess.scene_preprocess_algorithm_version) << "\",\n";
-    stream << "    \"wedge_min_angle_deg\": " << config.scene_preprocess.wedge_min_angle_deg << ",\n";
-    stream << "    \"wedge_max_angle_deg\": " << config.scene_preprocess.wedge_max_angle_deg << ",\n";
     stream << "    \"bvh_leaf_size\": " << config.scene_preprocess.bvh_leaf_size << ",\n";
-    stream << "    \"bvh_bruteforce_sample_count\": " << config.scene_preprocess.bvh_bruteforce_sample_count << "\n";
     stream << "  },\n";
 
     stream << "  \"material\": {\n";
-    stream << "    \"material_database_file\": \"" << EscapeJsonString(config.material.material_database_file) << "\",\n";
-    stream << "    \"material_mapping_file\": \"" << EscapeJsonString(config.material.material_mapping_file) << "\",\n";
-    stream << "    \"frequency_query_mode\": \"" << EscapeJsonString(config.material.frequency_query_mode) << "\",\n";
-    stream << "    \"allow_material_fallback\": " << (config.material.allow_material_fallback ? "true" : "false") << ",\n";
-    stream << "    \"default_background_medium\": \"" << EscapeJsonString(config.material.default_background_medium) << "\"\n";
+    stream << "    \"material_database_file\": \"" << EscapeJsonString(config.material.material_database_file) << "\"\n";
     stream << "  },\n";
 
     stream << "  \"antenna\": {\n";
@@ -456,24 +432,18 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"max_transmission_count\": " << config.path_search.max_transmission_count << ",\n";
     stream << "    \"max_diffraction_count\": " << config.path_search.max_diffraction_count << ",\n";
     stream << "    \"max_scattering_count\": " << config.path_search.max_scattering_count << ",\n";
-    stream << "    \"max_candidate_face_hits\": " << config.path_search.max_candidate_face_hits << ",\n";
-    stream << "    \"max_candidate_wedges\": " << config.path_search.max_candidate_wedges << ",\n";
     stream << "    \"enable_los\": " << (config.path_search.enable_los ? "true" : "false") << ",\n";
     stream << "    \"enable_reflection\": " << (config.path_search.enable_reflection ? "true" : "false") << ",\n";
     stream << "    \"enable_transmission\": " << (config.path_search.enable_transmission ? "true" : "false") << ",\n";
     stream << "    \"enable_diffraction\": " << (config.path_search.enable_diffraction ? "true" : "false") << ",\n";
     stream << "    \"enable_scattering\": " << (config.path_search.enable_scattering ? "true" : "false") << ",\n";
-    stream << "    \"enable_mixed_path\": " << (config.path_search.enable_mixed_path ? "true" : "false") << ",\n";
-    stream << "    \"keep_angle_metadata\": " << (config.path_search.keep_angle_metadata ? "true" : "false") << ",\n";
     stream << "    \"max_consecutive_same_interaction\": " << config.path_search.max_consecutive_same_interaction << ",\n";
-    stream << "    \"pruning_strategy\": \"" << EscapeJsonString(config.path_search.pruning_strategy) << "\",\n";
-    stream << "    \"dedup_strategy\": \"" << EscapeJsonString(config.path_search.dedup_strategy) << "\",\n";
-    stream << "    \"debug_tx_x\": " << config.path_search.debug_tx_x << ",\n";
-    stream << "    \"debug_tx_y\": " << config.path_search.debug_tx_y << ",\n";
-    stream << "    \"debug_tx_z\": " << config.path_search.debug_tx_z << ",\n";
-    stream << "    \"debug_rx_x\": " << config.path_search.debug_rx_x << ",\n";
-    stream << "    \"debug_rx_y\": " << config.path_search.debug_rx_y << ",\n";
-    stream << "    \"debug_rx_z\": " << config.path_search.debug_rx_z << "\n";
+    stream << "    \"tx_x\": " << config.path_search.tx_x << ",\n";
+    stream << "    \"tx_y\": " << config.path_search.tx_y << ",\n";
+    stream << "    \"tx_z\": " << config.path_search.tx_z << ",\n";
+    stream << "    \"rx_x\": " << config.path_search.rx_x << ",\n";
+    stream << "    \"rx_y\": " << config.path_search.rx_y << ",\n";
+    stream << "    \"rx_z\": " << config.path_search.rx_z << "\n";
     stream << "  },\n";
 
     stream << "  \"sbr\": {\n";
@@ -485,10 +455,9 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"max_diffraction_count\": " << config.sbr.max_diffraction_count << ",\n";
     stream << "    \"enable_transmission\": " << (config.sbr.enable_transmission ? "true" : "false") << ",\n";
     stream << "    \"enable_diffraction\": " << (config.sbr.enable_diffraction ? "true" : "false") << ",\n";
-    stream << "    \"ray_power_threshold_linear\": " << config.sbr.ray_power_threshold_linear << ",\n";
+    stream << "    \"ray_power_threshold_dB\": " << config.sbr.ray_power_threshold_dB << ",\n";
     stream << "    \"rx_sphere_radius_m\": " << config.sbr.rx_sphere_radius_m << ",\n";
     stream << "    \"auto_grid_bounds\": " << (config.sbr.auto_grid_bounds ? "true" : "false") << ",\n";
-    stream << "    \"grid_margin_m\": " << config.sbr.grid_margin_m << ",\n";
     stream << "    \"rx_grid_min_x\": " << config.sbr.rx_grid_min_x << ",\n";
     stream << "    \"rx_grid_max_x\": " << config.sbr.rx_grid_max_x << ",\n";
     stream << "    \"rx_grid_min_y\": " << config.sbr.rx_grid_min_y << ",\n";
@@ -498,25 +467,22 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"rx_grid_step_x\": " << config.sbr.rx_grid_step_x << ",\n";
     stream << "    \"rx_grid_step_y\": " << config.sbr.rx_grid_step_y << ",\n";
     stream << "    \"rx_grid_step_z\": " << config.sbr.rx_grid_step_z << ",\n";
-    stream << "    \"tx_power_w\": " << config.sbr.tx_power_w << ",\n";
+    stream << "    \"tx_power_dBm\": " << config.sbr.tx_power_dBm << ",\n";
     stream << "    \"store_paths\": " << (config.sbr.store_paths ? "true" : "false") << ",\n";
     stream << "    \"wedge_max_distance_m\": " << config.sbr.wedge_max_distance_m << ",\n";
-    stream << "    \"wedge_sample_count\": " << config.sbr.wedge_sample_count << "\n";
+    stream << "    \"wedge_max_candidates\": " << config.sbr.wedge_max_candidates << "\n";
     stream << "  },\n";
 
     stream << "  \"em_solver\": {\n";
     stream << "    \"frequency_hz\": " << config.em_solver.frequency_hz << ",\n";
     stream << "    \"solver_mode\": \"" << EscapeJsonString(config.em_solver.solver_mode) << "\",\n";
-    stream << "    \"enable_polarization\": " << (config.em_solver.enable_polarization ? "true" : "false") << "\n";
     stream << "  },\n";
 
     stream << "  \"output\": {\n";
-    stream << "    \"output_directory\": \"" << EscapeJsonString(config.output.output_directory) << "\",\n";
     stream << "    \"export_paths\": " << (config.output.export_paths ? "true" : "false") << ",\n";
     stream << "    \"export_cir\": " << (config.output.export_cir ? "true" : "false") << ",\n";
     stream << "    \"export_pdp\": " << (config.output.export_pdp ? "true" : "false") << ",\n";
     stream << "    \"export_aps\": " << (config.output.export_aps ? "true" : "false") << ",\n";
-    stream << "    \"export_debug_files\": " << (config.output.export_debug_files ? "true" : "false") << ",\n";
     stream << "    \"export_config_snapshot\": " << (config.output.export_config_snapshot ? "true" : "false") << "\n";
     stream << "  },\n";
 

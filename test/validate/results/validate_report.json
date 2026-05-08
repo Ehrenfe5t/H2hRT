@@ -1,6 +1,6 @@
 {
   "version": "v4",
-  "timestamp": "2026-05-08T13:24:35.098269",
+  "timestamp": "2026-05-09T05:31:59.861509",
   "results": {
     "L1": {
       "total": 5,
@@ -41,20 +41,20 @@
     },
     "L2": {
       "total": 2,
-      "passed": 2,
-      "failed": 0,
+      "passed": 0,
+      "failed": 2,
       "details": [
         {
           "id": "L2-1",
           "name": "b1路径数≥300(基线)",
-          "passed": true,
-          "detail": "precise paths=362"
+          "passed": false,
+          "detail": "precise paths=0"
         },
         {
           "id": "L2-2",
           "name": "SBR可运行",
-          "passed": true,
-          "detail": "pipeline_ok=True"
+          "passed": false,
+          "detail": "pipeline_ok=False"
         }
       ]
     },
@@ -67,16 +67,16 @@
           "id": "L3-1",
           "name": "路径JSON存在",
           "passed": true,
-          "detail": "362 paths"
+          "detail": "664 paths"
         },
         {
           "id": "L3-2",
           "name": "RMS时延扩展",
           "passed": true,
-          "detail": "RMS DS=6.28e-09s"
+          "detail": "RMS DS=5.16e-09s"
         }
       ]
     }
   },
-  "overall_passed": true
+  "overall_passed": false
 }
