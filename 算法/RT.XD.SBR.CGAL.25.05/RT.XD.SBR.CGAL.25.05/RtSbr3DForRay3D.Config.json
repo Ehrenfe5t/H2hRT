@@ -56,7 +56,7 @@
         "gapDiffuseScatteringPitchAngle": 0.05,
         "radiusCorner": 0.02,
         "radiusRx": 0.03,
-        "rayNumber": 2000000,
+        "rayNumber": 200000,
         "realWorldRefraction": true
     }
 }

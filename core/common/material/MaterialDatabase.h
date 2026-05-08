@@ -35,6 +35,11 @@ public:
             if (parts.size() < 7) continue;
             int id = std::stoi(parts[0]);
             std::string name = parts[1];
+            // 清理中文注解: "Concrete[水泥]" → "Concrete"
+            { auto bp = name.find('['); if (bp != std::string::npos) name = name.substr(0, bp); }
+            { auto bp = name.find('('); if (bp != std::string::npos) name = name.substr(0, bp); }
+            // 去除首尾空格
+            while (!name.empty() && name.back() == ' ') name.pop_back();
             double freq = std::stod(parts[3]);
             double epsR = std::stod(parts[4]);
             double sigma = std::stod(parts[5]);

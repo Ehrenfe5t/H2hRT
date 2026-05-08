@@ -1,0 +1,81 @@
+{
+  "app_runtime": {
+    "mode": "production",
+    "log_level": "INFO",
+    "run_id": "meeting-full"
+  },
+  "scene_import": {
+    "source_file": "demo/meeting.obj",
+    "source_format": "obj",
+    "scene_material_map_file": "configs/scenes/scene_material_map.json",
+    "coordinate_transform": "none"
+  },
+  "scene_preprocess": {
+    "enable_wedge_build": true,
+    "enable_scene_cache": false,
+    "enable_bvh_bruteforce_validation": false,
+    "bvh_leaf_size": 16,
+    "wedge_min_angle_deg": 10,
+    "wedge_max_angle_deg": 170
+  },
+  "material": {
+    "material_database_file": "demo/ItuMaterial.csv",
+    "material_mapping_file": "configs/scenes/scene_material_map.json"
+  },
+  "antenna": {
+    "source_type": "Ideal"
+  },
+  "path_search": {
+    "max_path_depth": 6,
+    "max_reflection_count": 4,
+    "max_transmission_count": 1,
+    "max_diffraction_count": 2,
+    "enable_los": true,
+    "enable_reflection": true,
+    "enable_transmission": true,
+    "enable_diffraction": true,
+    "enable_mixed_path": true,
+    "max_consecutive_same_interaction": 5,
+    "debug_tx_x": 16.0,
+    "debug_tx_y": 1.5,
+    "debug_tx_z": -12.0,
+    "debug_rx_x": 10.0,
+    "debug_rx_y": 1.5,
+    "debug_rx_z": -10.0
+  },
+  "sbr": {
+    "enabled": true,
+    "ray_count": 200000,
+    "max_ray_depth": 6,
+    "ray_power_threshold_linear": 0.0001,
+    "auto_grid_bounds": true,
+    "grid_margin_m": 0.3,
+    "rx_grid_step_x": 0.2,
+    "rx_grid_step_y": 0.2,
+    "rx_grid_step_z": 0.2,
+    "rx_sphere_radius_m": 0.3,
+    "tx_power_w": 0.001,
+    "store_paths": false
+  },
+  "em_solver": {
+    "frequency_hz": 2400000000.0,
+    "solver_mode": "Coverage",
+    "enable_polarization": true
+  },
+  "output": {
+    "output_directory": "output",
+    "export_paths": true,
+    "export_cir": true,
+    "export_pdp": true,
+    "export_aps": true,
+    "export_config_snapshot": true
+  },
+  "numeric_tolerance": {
+    "eps_length": 1e-06,
+    "eps_intersection": 1e-07,
+    "eps_deduplicate": 1e-05,
+    "self_hit_ignore_distance": 1e-05,
+    "visibility_origin_offset": 1e-05,
+    "visibility_target_shrink": 1e-05
+  }
+}

@@ -24,7 +24,8 @@ SceneBatch2BuildResult BuildSceneForBatch2(const AppConfig& config)
 {
     SceneBatch2BuildResult result;
 
-    const OBJImportResult importResult = ImportSceneFromOBJ(config.scene_import.source_file);
+    const OBJImportResult importResult = ImportSceneFromOBJ(config.scene_import.source_file,
+                                                            config.scene_import.coordinate_transform);
     for (const RtError& error : importResult.errors)
     {
         result.errors.push_back(error);

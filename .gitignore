@@ -11,3 +11,18 @@ output/
 
 # Temporary / caches
 *.log
+*.pdb
+*.ipdb
+*.iobj
+*.ipch
+
+# Reference implementation artifacts
+算法/RT.XD.SBR.CGAL.25.05/**/b1_cross/
+算法/RT.XD.SBR.CGAL.25.05/**/OutPutDirectory*/
+算法/RT.XD.SBR.CGAL.25.05/**/Output/
+test/DrawScenarioMain_ModelSci4_power.m
+test/frequency*.csv
+
+# Python
+__pycache__/
+*.pyc

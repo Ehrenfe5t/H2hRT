@@ -1,6 +1,9 @@
-// Console entry point for the RT raytracing pipeline.
-// Parses an optional config-file path from the command line, delegates all work to RtPipeline,
-// and returns a unified exit code for scripting / CI use.
+// ───────────────────────────────────────────────────────────────────
+// 文件: main.cpp
+// 用途: RT射线追踪管线控制台入口。解析命令行配置路径，委托RtPipeline执行，
+//       返回统一退出码供脚本/CI使用。
+// 所属模块: 应用层入口
+// ───────────────────────────────────────────────────────────────────
 
 #include "RtPipeline.h"
 
@@ -9,20 +12,17 @@
 #include <string>
 
 /// <summary>
-/// Application entry point. Parses an optional config-file path from argv[1],
-/// delegates to RtPipeline::Run, and returns a unified exit code.
+/// 程序入口。从 argv[1] 解析可选配置文件路径，委托 RtPipeline::Run，
+/// 返回统一退出码（0=成功，非0=失败）。
 /// </summary>
-/// <param name="argc">Number of command-line arguments.</param>
-/// <param name="argv">Command-line argument array; argv[1], if present, is the config file path.</param>
-/// <returns>Process exit code; 0 = success, nonzero = failure.</returns>
 int main(int argc, char* argv[])
 {
     try
     {
-        // Resolve config path: CLI arg first, otherwise fall back to the minimal default.
-        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/meeting_v3.json";
+        // 解析配置路径: 命令行参数优先, 否则回退到默认配置
+        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/meeting_coverage_hires.json";
 
-        // Bootstrap the full pipeline (config, validation, batches, A1 chain, SBR).
+        // 启动完整管线 (配置→校验→批次→A1生产链→SBR覆盖)
         rt::RtPipeline pipeline;
         const rt::PipelineRunResult result = pipeline.Run(configPath);
 

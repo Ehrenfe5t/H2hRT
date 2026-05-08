@@ -1,4 +1,4 @@
-// ApplyTransmissionInteraction: Fresnel TE/TM coherent polarization + dynamic material + medium attenuation (v4 C1)
+// ApplyTransmissionInteraction: Fresnel TE/TM coherent + Jones vector + dynamic material + medium attenuation (v4 C1 + v5 D6-A)
 
 #include "ApplyTransmissionInteraction.h"
 #include "../common/math/Vec3.h"
@@ -23,11 +23,15 @@ Complex FresnelTE_T(double cosI, const Complex& epsC) {
     return (cosI_c + cosI_c) / (cosI_c + sqrtTerm);
 }
 
+// v5 D6-A修复: TM透射分子由 ε_c → √ε_c (D1审计#4 Critical)
+// T_TM = 2·√ε_c·cosθ_i / (ε_c·cosθ_i + √(ε_c - sin²θ_i))
 Complex FresnelTM_T(double cosI, const Complex& epsC) {
     Complex sin2i(1.0 - cosI * cosI, 0.0);
     Complex sqrtTerm = Sqrt(Complex(epsC.re, epsC.im) - sin2i);
+    Complex sqrtEpsC = Sqrt(epsC);
+    Complex nCos(sqrtEpsC.re * cosI, sqrtEpsC.im * cosI);
     Complex e_cos(epsC.re * cosI, epsC.im * cosI);
-    return (e_cos + e_cos) / (e_cos + sqrtTerm);
+    return (nCos + nCos) / (e_cos + sqrtTerm);
 }
 
 } // namespace
@@ -57,10 +61,10 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     Vec3 eTM = Normalize(Cross(eTE, kInc));
 
     Complex A_inc(field.amplitude_real, field.amplitude_imag);
-    double pTE = Dot(field.polarization_vector, eTE);
-    double pTM = Dot(field.polarization_vector, eTM);
-    Complex A_TE_inc = A_inc * Complex(pTE, 0.0);
-    Complex A_TM_inc = A_inc * Complex(pTM, 0.0);
+    Complex pTE(Dot(field.polarization_vector, eTE), Dot(field.polarization_imag, eTE));
+    Complex pTM(Dot(field.polarization_vector, eTM), Dot(field.polarization_imag, eTM));
+    Complex A_TE_inc = A_inc * pTE;
+    Complex A_TM_inc = A_inc * pTM;
 
     Complex tTE = FresnelTE_T(cosI, epsC);
     Complex tTM = FresnelTM_T(cosI, epsC);
@@ -70,15 +74,23 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     double power_trans = A_TE_trans.NormSq() + A_TM_trans.NormSq();
     Complex amp_trans = A_TE_trans + A_TM_trans;
 
-    double tx = A_TE_trans.Real() * eTE.x + A_TM_trans.Real() * eTM.x;
-    double ty = A_TE_trans.Real() * eTE.y + A_TM_trans.Real() * eTM.y;
-    double tz = A_TE_trans.Real() * eTE.z + A_TM_trans.Real() * eTM.z;
+    double tx = A_TE_trans.re * eTE.x + A_TM_trans.re * eTM.x;
+    double ty = A_TE_trans.re * eTE.y + A_TM_trans.re * eTM.y;
+    double tz = A_TE_trans.re * eTE.z + A_TM_trans.re * eTM.z;
+    double ix = A_TE_trans.im * eTE.x + A_TM_trans.im * eTM.x;
+    double iy = A_TE_trans.im * eTE.y + A_TM_trans.im * eTM.y;
+    double iz = A_TE_trans.im * eTE.z + A_TM_trans.im * eTM.z;
 
     field.amplitude_real = amp_trans.re;
     field.amplitude_imag = amp_trans.im;
     field.power_linear = power_trans;
-    field.phase_rad += (tTE.Arg() + tTM.Arg()) * 0.5;
-    field.polarization_vector = Normalize(MakeVec3(tx, ty, tz));
+    double polLen = std::sqrt(tx*tx + ty*ty + tz*tz);
+    if (polLen < 1e-12) {
+        field.polarization_vector = field.polarization_vector; // 保持入射极化方向
+    } else {
+        field.polarization_vector = Normalize(MakeVec3(tx, ty, tz));
+    }
+    field.polarization_imag = MakeVec3(ix, iy, iz);
 
     field.current_medium_id = node.medium_out_id;
     field.last_transmission_medium_in_id = node.medium_in_id;

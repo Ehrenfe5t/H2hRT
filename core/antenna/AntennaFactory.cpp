@@ -20,8 +20,9 @@ namespace rt {
 /// <returns>初始化完成的发射天线模型，若配置了 pattern 文件则已加载方向图。</returns>
 AntennaModel BuildTxAntennaModel(const AppConfig& config, const Point3& position, const std::string& antennaId)
 {
-    // 默认极化方向为 +X
-    Vec3 pol = MakeVec3(1.0, 0.0, 0.0);
+    // v5 D6-A: 默认垂直极化 (Y-up场景中Y=垂直), 替代原来的+X
+    // 垂直极化确保与水平面内的绕射边缘坐标系有非零投影
+    Vec3 pol = MakeVec3(0.0, 1.0, 0.0);
     AntennaModel m = BuildIdealAntennaModel(antennaId, config.antenna.source_type, true, config.em_solver.frequency_hz, position, pol);
     // B9: 若配置了方向图文件则加载
     if (!config.antenna.pattern_file.empty()) {
@@ -40,8 +41,8 @@ AntennaModel BuildTxAntennaModel(const AppConfig& config, const Point3& position
 /// <returns>初始化完成的接收天线模型，若配置了 pattern 文件则已加载方向图。</returns>
 AntennaModel BuildRxAntennaModel(const AppConfig& config, const Point3& position, const std::string& antennaId)
 {
-    // 默认极化方向为 +X
-    Vec3 pol = MakeVec3(1.0, 0.0, 0.0);
+    // v5 D6-A: 默认垂直极化
+    Vec3 pol = MakeVec3(0.0, 1.0, 0.0);
     AntennaModel m = BuildIdealAntennaModel(antennaId, config.antenna.source_type, false, config.em_solver.frequency_hz, position, pol);
     if (!config.antenna.pattern_file.empty()) {
         m.pattern_file = config.antenna.pattern_file;

@@ -34,7 +34,8 @@ struct EMPathResult {
     std::string tx_antenna_source_type; ///< Transmit antenna source type.
     std::string rx_antenna_id;          ///< Receive antenna identifier.
     std::string rx_antenna_source_type; ///< Receive antenna source type.
-    Vec3 polarization_vector;           ///< Final polarization direction vector at the receiver.
+    Vec3 polarization_vector;           ///< 极化方向实部 (Jones矢量实分量).
+    Vec3 polarization_imag;            ///< v5 D6-A: 极化方向虚部 (Jones矢量虚分量).
     bool is_los = false;                ///< Whether this is a line-of-sight path.
     uint64_t source_path_signature = 0; ///< Hash/signature of the source geometric path.
     std::string source_tag = "unknown"; ///< Label indicating the path origin (e.g. "search_engine_real_output").

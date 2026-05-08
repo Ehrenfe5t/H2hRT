@@ -1,7 +1,6 @@
-// ApplyDiffractionInteraction: UTD edge diffraction with numerical Fresnel integral (v4 C3)
-// C3-A: phi' computed from incident_direction (not hardcoded kPi)
-// C3-B: s2 = distance from diffraction point to Rx (not hardcoded 10.0)
-// C3-C: Fresnel transition F(x) via Gauss-Legendre numerical quadrature (not Luebbers polynomial)
+// ApplyDiffractionInteraction: UTD edge diffraction + Jones vector (v4 C3 + v5 D6-A)
+// C3-A: phi' computed from incident_direction | C3-B: s2 from path geometry
+// C3-C: Fresnel F(x) via 8-point Gauss-Legendre | v5: 复极化soft/hard投影
 
 #include "ApplyDiffractionInteraction.h"
 #include "../common/math/Vec3.h"
@@ -169,26 +168,29 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
     Complex Dsoft = ComputeUTD_D(k, n, sinBeta, phi, phip, L, true);
     Complex Dhard = ComputeUTD_D(k, n, sinBeta, phi, phip, L, false);
 
-    // Soft/hard decomposition
+    // Soft/hard decomposition (v5 Jones: 复投影)
     Vec3 eSoft = ex;
     Vec3 eHard = Normalize(Cross(eSoft, kOut));
-    Complex eS(Dot(field.polarization_vector, eSoft), 0.0);
-    Complex eH(Dot(field.polarization_vector, eHard), 0.0);
+    Complex eS(Dot(field.polarization_vector, eSoft), Dot(field.polarization_imag, eSoft));
+    Complex eH(Dot(field.polarization_vector, eHard), Dot(field.polarization_imag, eHard));
     Complex eDS = Dsoft * eS, eDH = Dhard * eH;
 
     Complex amp(field.amplitude_real, field.amplitude_imag);
-    double dAvg = std::sqrt((Dsoft.NormSq() + Dhard.NormSq()) * 0.5);
-    if (dAvg > 1e-12) amp = amp * Complex(dAvg, 0.0);
-    double phShift = (Dsoft.Arg() + Dhard.Arg()) * 0.5;
+    Complex ampDiff = eDS + eDH;
+    amp = amp * ampDiff;
 
     field.amplitude_real = amp.re;
     field.amplitude_imag = amp.im;
-    field.phase_rad += phShift;
     field.power_linear = amp.NormSq();
+    // v5 Jones: 全复极化重构
     field.polarization_vector = MakeVec3(
         eDS.re * eSoft.x + eDH.re * eHard.x,
         eDS.re * eSoft.y + eDH.re * eHard.y,
         eDS.re * eSoft.z + eDH.re * eHard.z);
+    field.polarization_imag = MakeVec3(
+        eDS.im * eSoft.x + eDH.im * eHard.x,
+        eDS.im * eSoft.y + eDH.im * eHard.y,
+        eDS.im * eSoft.z + eDH.im * eHard.z);
     return true;
 }
 

@@ -56,9 +56,9 @@
         "gapDiffuseScatteringPitchAngle": 0.05,
         "radiusCorner": 0.02,
         "radiusRx": 0.03,
-        "rayNumber": 2000000,
+        "rayNumber": 200000,
         "realWorldRefraction": true
     }
 }
 
-程序运行总时长为 2.3643e+06 ms.
+程序运行总时长为 310394 ms.

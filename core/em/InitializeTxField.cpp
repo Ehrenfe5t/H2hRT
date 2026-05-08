@@ -65,8 +65,9 @@ bool InitializeTxField(const EMSolverInput& input, FieldAccumulator& field)
     field.last_transmission_medium_out_id = -1;
     field.transmission_semantic_consumed = false;
 
-    // Initial polarization vector comes from the Tx antenna definition
+    // 初始极化: Tx天线定义的方向为实部, 虚部初始化为零 (线极化出发)
     field.polarization_vector = txAnt.polarization_vector;
+    field.polarization_imag = MakeVec3(0.0, 0.0, 0.0);
 
     // Medium attenuation accumulators start at zero (no lossy medium yet)
     field.media_attenuation_np = 0.0;

@@ -1,0 +1,20 @@
+{
+  "inputAntennaPatternDatabaseJsonFileName": "AntennaPatternDatabaseZero.json",
+  "inputPolarization3DDatabaseJsonFileName": "Polarization3DDatabase.json",
+  "transmittingAntennaJsonFiles": [
+    {
+      "transmittingAntennaId": 0,
+      "center_location_x": 1.0,
+      "center_location_y": 2.0,
+      "center_location_z": 1.5,
+      "emissionPower": 1.0,
+      "frequencys": [
+        2400000000.0
+      ],
+      "inputReceivingAntennaCsvFileName": "ReceiverAntenna.csv",
+      "materialTypeNumber": -999,
+      "radiationPatternId": -1,
+      "polarization3DModelId": 1
+    }
+  ]
+}

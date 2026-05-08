@@ -1,8 +1,13 @@
-// Pipeline orchestrator implementation.
-// Wires together config load, scene construction (Batches 2-4), the legacy Batch-5-to-9
-// self-check chain, the A1 real-chain (Search->EM->Export), and an optional SBR coverage pass.
+// ───────────────────────────────────────────────────────────────────
+// 文件: RtPipeline.cpp
+// 用途: 管线编排器实现。串联配置加载、场景构建(批次2-4)、遗留批次5-9自检链、
+//       A1真实生产链(搜索→EM→导出)及可选SBR覆盖通道。
+// 所属模块: 应用层
+// ───────────────────────────────────────────────────────────────────
 
 #include "RtPipeline.h"
+
+#include <fstream>
 
 #include "A1RealChainRunner.h"
 #include "../core/search/SbrEngine.h"
@@ -212,9 +217,28 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         sbrCtx.tx_point.z = loadResult.config.path_search.debug_tx_z;
 
         const auto& sc = loadResult.config.sbr;
-        for (double rx = sc.rx_grid_min_x; rx <= sc.rx_grid_max_x; rx += sc.rx_grid_step_x)
-            for (double ry = sc.rx_grid_min_y; ry <= sc.rx_grid_max_y; ry += sc.rx_grid_step_y)
-                sbrCtx.rx_grid.push_back(MakeVec3(rx, ry, sc.rx_grid_z));
+        double gxMin = sc.rx_grid_min_x, gxMax = sc.rx_grid_max_x;
+        double gyMin = sc.rx_grid_min_y, gyMax = sc.rx_grid_max_y;
+        double gzMin = sc.rx_grid_min_z, gzMax = sc.rx_grid_max_z;
+
+        // 自动从场景AABB推导网格范围
+        if (sc.auto_grid_bounds && batch4Result.scene.acceleration.face_acceleration.valid) {
+            const auto& sb = batch4Result.scene.acceleration.face_acceleration.scene_bounds;
+            if (sb.valid) {
+                double m = sc.grid_margin_m;
+                gxMin = sb.min.x + m; gxMax = sb.max.x - m;
+                gyMin = sb.min.y + m; gyMax = sb.max.y - m;
+                gzMin = sb.min.z + m; gzMax = sb.max.z - m;
+            }
+        }
+
+        for (double rx = gxMin; rx <= gxMax + 1e-9; rx += sc.rx_grid_step_x)
+            for (double ry = gyMin; ry <= gyMax + 1e-9; ry += sc.rx_grid_step_y)
+                for (double rz = gzMin; rz <= gzMax + 1e-9; rz += sc.rx_grid_step_z)
+                    sbrCtx.rx_grid.push_back(MakeVec3(rx, ry, rz));
+        sbrCtx.store_paths = sc.store_paths;
+        sbrCtx.tx_power_w = sc.tx_power_w;
+        sbrCtx.material_db = &matDb;
 
         SbrEngine sbrEngine;
         SbrCoverageResult sbrResult = sbrEngine.Run(sbrCtx);
@@ -227,6 +251,39 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                << ", activeRx=" << sbrResult.active_rx_count
                << "/" << sbrCtx.rx_grid.size();
         logger.Log(LogLevel::Info, "SBR", sbrSum.str());
+
+        // 导出SBR覆盖结果JSON (v5 D3: 每Rx功率+路径+命中数)
+        std::string sbrOutDir = loadResult.config.output.output_directory + "/a1_real_chain/coverage";
+        std::string sbrJsonPath = sbrOutDir + "/sbr_coverage.json";
+        std::ofstream sbrFile(sbrJsonPath);
+        if (sbrFile.is_open()) {
+            sbrFile << "{\n";
+            sbrFile << "  \"total_rays\": " << sbrResult.total_rays << ",\n";
+            sbrFile << "  \"active_rx_count\": " << sbrResult.active_rx_count << ",\n";
+            sbrFile << "  \"rx_grid_count\": " << sbrCtx.rx_grid.size() << ",\n";
+            sbrFile << "  \"tx_power_w\": " << loadResult.config.sbr.tx_power_w << ",\n";
+            sbrFile << "  \"rx_sphere_radius_m\": " << loadResult.config.sbr.rx_sphere_radius_m << ",\n";
+            sbrFile << "  \"records\": [\n";
+            for (size_t i = 0; i < sbrResult.rx_records.size(); ++i) {
+                const auto& rec = sbrResult.rx_records[i];
+                sbrFile << "    {";
+                sbrFile << "\"rx_index\": " << rec.rx_index << ", ";
+                sbrFile << "\"x\": " << rec.rx_position.x << ", ";
+                sbrFile << "\"y\": " << rec.rx_position.y << ", ";
+                sbrFile << "\"z\": " << rec.rx_position.z << ", ";
+                sbrFile << "\"power_dBm\": " << rec.total_power_dBm << ", ";
+                sbrFile << "\"power_linear\": " << rec.total_power_linear << ", ";
+                sbrFile << "\"ray_hit_count\": " << rec.ray_hit_count << ", ";
+                sbrFile << "\"path_count\": " << rec.paths.size();
+                sbrFile << "}";
+                if (i < sbrResult.rx_records.size() - 1) sbrFile << ",";
+                sbrFile << "\n";
+            }
+            sbrFile << "  ]\n";
+            sbrFile << "}\n";
+            sbrFile.close();
+            logger.Log(LogLevel::Info, "SBR", "SBR coverage exported: " + sbrJsonPath);
+        }
     }
 
     runResult.succeeded = true;

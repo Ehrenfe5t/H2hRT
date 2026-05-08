@@ -67,7 +67,8 @@ bool ParseFace(std::istringstream& lineStream, Face& face)
 
 } // namespace
 
-OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
+OBJImportResult ImportSceneFromOBJ(const std::string& filePath,
+                                   const std::string& coordinateTransform)
 {
     OBJImportResult result;
     result.scene.meta.source_file_path = filePath;
@@ -240,6 +241,28 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath)
                     ? "The file may contain unsupported face syntax; current importer expects triangle faces in 'v//n' format."
                     : "Check whether the input file is a triangle-face OBJ text.",
                 true));
+        }
+    }
+
+    // v5 D6-A: OBJ坐标变换 (Blender Z-up → 算法 Y-up)
+    if (coordinateTransform == "blender_z_up_to_y_up") {
+        for (auto& v : result.scene.vertices) {
+            double tmp = v.y;
+            v.y = v.z;  // Blender Z → 算法 Y (up)
+            v.z = tmp;  // Blender Y → 算法 Z
+        }
+        for (auto& face : result.scene.faces) {
+            double tmp = face.normal.y;
+            face.normal.y = face.normal.z;
+            face.normal.z = tmp;
+            // 面元centroid也需变换 (在BuildFaceBVHAcceleration中重新计算, 此处可跳过)
+        }
+        for (auto& edge : result.scene.edges) {
+            double tmp = edge.midpoint.y;
+            edge.midpoint.y = edge.midpoint.z;
+            edge.midpoint.z = tmp;
+            tmp = edge.start.y; edge.start.y = edge.start.z; edge.start.z = tmp;
+            tmp = edge.end.y; edge.end.y = edge.end.z; edge.end.z = tmp;
         }
     }
 

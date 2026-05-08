@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../common/config/AppConfig.h"
+#include "../common/material/MaterialDatabase.h"
 #include "../path/GeometricPath.h"
 #include "../scene/Scene.h"
 #include "../query/SceneQuery.h"
@@ -29,8 +30,11 @@ struct SbrContext {
     const AppConfig* config = nullptr;
     const Scene* scene = nullptr;
     const SceneQuery* scene_query = nullptr;
+    const MaterialDatabase* material_db = nullptr;
     Point3 tx_point;
     std::vector<Point3> rx_grid;
+    bool store_paths = false;
+    double tx_power_w = 1.0;
 };
 
 class SbrEngine {

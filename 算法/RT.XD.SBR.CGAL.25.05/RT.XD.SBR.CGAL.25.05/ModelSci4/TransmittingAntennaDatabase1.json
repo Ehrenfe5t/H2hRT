@@ -8,9 +8,7 @@
       "center_location_z": 2.0,
       "emissionPower": 10.0,
       "frequencys": [
-        2e9,
-		3e9,
-        5e9
+        2e9
       ],
       "inputReceivingAntennaCsvFileName": "ModelSci4\\ReceiverAntenna.0.1m.csv",
       "materialTypeNumber": -999,

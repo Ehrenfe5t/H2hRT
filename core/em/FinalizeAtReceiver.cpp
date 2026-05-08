@@ -57,9 +57,11 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     result.power_linear = result.amplitude_real * result.amplitude_real
                         + result.amplitude_imag * result.amplitude_imag;
 
-    // 极化信息
+    // 极化信息 (v5 Jones: 实部+虚部)
     result.polarization_vector = field.polarization_vector;
-    result.polarization_magnitude = std::sqrt(Dot(field.polarization_vector, field.polarization_vector));
+    result.polarization_imag = field.polarization_imag;
+    result.polarization_magnitude = std::sqrt(Dot(field.polarization_vector, field.polarization_vector)
+                                            + Dot(field.polarization_imag, field.polarization_imag));
 
     // 元数据拷贝
     result.tx_antenna_id = field.tx_antenna_id;

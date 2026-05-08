@@ -272,15 +272,28 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "enabled", config.sbr.enabled);
         ReadOptionalNumber(body, "ray_count", config.sbr.ray_count);
         ReadOptionalNumber(body, "max_ray_depth", config.sbr.max_ray_depth);
+        ReadOptionalNumber(body, "max_reflection_count", config.sbr.max_reflection_count);
+        ReadOptionalNumber(body, "max_transmission_count", config.sbr.max_transmission_count);
+        ReadOptionalNumber(body, "max_diffraction_count", config.sbr.max_diffraction_count);
+        ReadOptionalBool(body, "enable_transmission", config.sbr.enable_transmission);
+        ReadOptionalBool(body, "enable_diffraction", config.sbr.enable_diffraction);
         ReadOptionalNumber(body, "ray_power_threshold_linear", config.sbr.ray_power_threshold_linear);
         ReadOptionalNumber(body, "rx_sphere_radius_m", config.sbr.rx_sphere_radius_m);
+        ReadOptionalBool(body, "auto_grid_bounds", config.sbr.auto_grid_bounds);
+        ReadOptionalNumber(body, "grid_margin_m", config.sbr.grid_margin_m);
         ReadOptionalNumber(body, "rx_grid_min_x", config.sbr.rx_grid_min_x);
         ReadOptionalNumber(body, "rx_grid_max_x", config.sbr.rx_grid_max_x);
         ReadOptionalNumber(body, "rx_grid_min_y", config.sbr.rx_grid_min_y);
         ReadOptionalNumber(body, "rx_grid_max_y", config.sbr.rx_grid_max_y);
-        ReadOptionalNumber(body, "rx_grid_z", config.sbr.rx_grid_z);
+        ReadOptionalNumber(body, "rx_grid_min_z", config.sbr.rx_grid_min_z);
+        ReadOptionalNumber(body, "rx_grid_max_z", config.sbr.rx_grid_max_z);
         ReadOptionalNumber(body, "rx_grid_step_x", config.sbr.rx_grid_step_x);
         ReadOptionalNumber(body, "rx_grid_step_y", config.sbr.rx_grid_step_y);
+        ReadOptionalNumber(body, "rx_grid_step_z", config.sbr.rx_grid_step_z);
+        ReadOptionalNumber(body, "tx_power_w", config.sbr.tx_power_w);
+        ReadOptionalBool(body, "store_paths", config.sbr.store_paths);
+        ReadOptionalNumber(body, "wedge_max_distance_m", config.sbr.wedge_max_distance_m);
+        ReadOptionalNumber(body, "wedge_sample_count", config.sbr.wedge_sample_count);
     }
 
     if (ExtractObjectBody(text, "em_solver", body))
@@ -467,15 +480,28 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"enabled\": " << (config.sbr.enabled ? "true" : "false") << ",\n";
     stream << "    \"ray_count\": " << config.sbr.ray_count << ",\n";
     stream << "    \"max_ray_depth\": " << config.sbr.max_ray_depth << ",\n";
+    stream << "    \"max_reflection_count\": " << config.sbr.max_reflection_count << ",\n";
+    stream << "    \"max_transmission_count\": " << config.sbr.max_transmission_count << ",\n";
+    stream << "    \"max_diffraction_count\": " << config.sbr.max_diffraction_count << ",\n";
+    stream << "    \"enable_transmission\": " << (config.sbr.enable_transmission ? "true" : "false") << ",\n";
+    stream << "    \"enable_diffraction\": " << (config.sbr.enable_diffraction ? "true" : "false") << ",\n";
     stream << "    \"ray_power_threshold_linear\": " << config.sbr.ray_power_threshold_linear << ",\n";
     stream << "    \"rx_sphere_radius_m\": " << config.sbr.rx_sphere_radius_m << ",\n";
+    stream << "    \"auto_grid_bounds\": " << (config.sbr.auto_grid_bounds ? "true" : "false") << ",\n";
+    stream << "    \"grid_margin_m\": " << config.sbr.grid_margin_m << ",\n";
     stream << "    \"rx_grid_min_x\": " << config.sbr.rx_grid_min_x << ",\n";
     stream << "    \"rx_grid_max_x\": " << config.sbr.rx_grid_max_x << ",\n";
     stream << "    \"rx_grid_min_y\": " << config.sbr.rx_grid_min_y << ",\n";
     stream << "    \"rx_grid_max_y\": " << config.sbr.rx_grid_max_y << ",\n";
-    stream << "    \"rx_grid_z\": " << config.sbr.rx_grid_z << ",\n";
+    stream << "    \"rx_grid_min_z\": " << config.sbr.rx_grid_min_z << ",\n";
+    stream << "    \"rx_grid_max_z\": " << config.sbr.rx_grid_max_z << ",\n";
     stream << "    \"rx_grid_step_x\": " << config.sbr.rx_grid_step_x << ",\n";
-    stream << "    \"rx_grid_step_y\": " << config.sbr.rx_grid_step_y << "\n";
+    stream << "    \"rx_grid_step_y\": " << config.sbr.rx_grid_step_y << ",\n";
+    stream << "    \"rx_grid_step_z\": " << config.sbr.rx_grid_step_z << ",\n";
+    stream << "    \"tx_power_w\": " << config.sbr.tx_power_w << ",\n";
+    stream << "    \"store_paths\": " << (config.sbr.store_paths ? "true" : "false") << ",\n";
+    stream << "    \"wedge_max_distance_m\": " << config.sbr.wedge_max_distance_m << ",\n";
+    stream << "    \"wedge_sample_count\": " << config.sbr.wedge_sample_count << "\n";
     stream << "  },\n";
 
     stream << "  \"em_solver\": {\n";

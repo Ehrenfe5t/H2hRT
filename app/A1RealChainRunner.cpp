@@ -1,7 +1,10 @@
-// A1 real production chain runner -- implementation.
-// Takes the SearchEngine's real path set through per-path EM solving, builds both Precise and
-// Coverage aggregate profiles, then exports results, validation, and regression reports.
-// This is the primary production chain; it does NOT rely on hand-crafted reference paths.
+// ───────────────────────────────────────────────────────────────────
+// 文件: A1RealChainRunner.cpp
+// 用途: A1真实生产链运行器实现。将SearchEngine的真实路径集送入逐路径EM求解，
+//       构建Precise和Coverage双profile聚合结果，执行导出/验证/回归闭环。
+//       这是主生产链，不依赖手工参考路径。
+// 所属模块: 应用层
+// ───────────────────────────────────────────────────────────────────
 
 #include "A1RealChainRunner.h"
 
@@ -38,14 +41,11 @@ namespace rt {
 namespace {
 
 /// <summary>
-/// Runs the full EM solve for a single geometric path (Tx antenna -> propagation -> Rx antenna).
+/// 对单条几何路径执行完整EM求解 (Tx天线 → 传播 → Rx天线)。
 /// </summary>
-/// <param name="config">Application configuration.</param>
-/// <param name="scene">Static scene with geometry and materials.</param>
-/// <param name="path">Geometric ray path whose EM result is to be computed.</param>
-/// <param name="result">[out] EM result for this path (field, delay, power, etc.).</param>
-/// <param name="materialDb">Optional material database for dielectric constants.</param>
-/// <returns>true if the EM solve completed and produced a valid result.</returns>
+/// <param name="result">[out] 该路径的EM结果 (场、时延、功率等)。</param>
+/// <param name="materialDb">可选材质数据库, 供介电常数查询。</param>
+/// <returns>EM求解完成并产出有效结果时返回true。</returns>
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result, const MaterialDatabase* materialDb)
 {
     EMSolverInput input;
@@ -60,7 +60,7 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
     input.tx_antenna = &tx;
     input.rx_antenna = &rx;
 
-    // EM pipeline: prepare path, initialize TX field, walk interactions along the path.
+    // EM管线: 路径准备 → 初始化Tx场 → 沿路径遍历各交互节点
     if (!PreparePathForEM(input))
     {
         return false;
@@ -72,7 +72,7 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
         return false;
     }
 
-    // Walk each path segment: free-space attenuation followed by the interaction.
+    // 遍历每个路径段: 先施加自由空间衰减, 再处理交互类型
     for (std::size_t i = 1; i < path.nodes.size(); ++i)
     {
         const PathNode& node = path.nodes[i];
@@ -110,28 +110,31 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
 }
 
 /// <summary>
-/// Builds the complete EM path result set by solving every path from the search engine.
-/// Logs a warning for each path that fails the EM solve.
+/// 对搜索引擎的全部路径执行EM求解, 构建完整的EM路径结果集。
+/// 对每条EM求解失败的路径记录警告日志。
 /// </summary>
 EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& scene, const SearchEngineResult& searchResult, Logger& logger, const MaterialDatabase* materialDb)
 {
     EMPathResultSet set;
     set.from_search_engine = true;
-    set.input_path_count = static_cast<int>(searchResult.path_set.paths.size());
+    const int nPaths = static_cast<int>(searchResult.path_set.paths.size());
+    set.input_path_count = nPaths;
     set.source_tag = searchResult.source_tag;
 
-    for (const GeometricPath& path : searchResult.path_set.paths)
+    // v5 D7: 逐路径EM求解可完全并行 (各路径独立)
+    const auto& paths = searchResult.path_set.paths;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(dynamic)
+#endif
+    for (int i = 0; i < nPaths; ++i)
     {
         EMPathResult result;
-        if (SolveSinglePathEM(config, scene, path, result, materialDb))
+        if (SolveSinglePathEM(config, scene, paths[i], result, materialDb))
         {
+#ifdef _OPENMP
+#pragma omp critical
+#endif
             set.results.push_back(result);
-        }
-        else
-        {
-            std::ostringstream stream;
-            stream << "A1RealChain: EM solve skipped/failed for path_id=" << path.path_id;
-            logger.Log(LogLevel::Warn, "Module5", stream.str());
         }
     }
 
@@ -140,8 +143,7 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
 }
 
 /// <summary>
-/// Aggregates per-path EM results into CIR, PDP, APS, channel statistics, coverage,
-/// and ISAC feature sets for a given solve profile.
+/// 将逐路径EM结果聚合为CIR/PDP/APS/信道统计/覆盖/ISAC特征集。
 /// </summary>
 EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
 {
@@ -168,14 +170,14 @@ A1RealChainRunResult RunA1RealChain(
 {
     A1RealChainRunResult runResult;
     (void)materialDb;
-    // Guard: SearchEngine must have produced a non-empty real path set.
+    // 守卫: SearchEngine必须产出非空的真实路径集
     if (!searchResult.succeeded || searchResult.path_set.paths.empty())
     {
         logger.Log(LogLevel::Error, "A1", "A1 real chain aborted because SearchEngine produced no real path set.");
         return runResult;
     }
 
-    // Step 1: Per-path EM solving (Module 5 real chain).
+    // 步骤1: 逐路径EM求解 (模块5真实链)
     runResult.path_result_set = BuildRealPathResultSet(config, scene, searchResult, logger, materialDb);
     if (runResult.path_result_set.results.empty())
     {
@@ -183,7 +185,7 @@ A1RealChainRunResult RunA1RealChain(
         return runResult;
     }
 
-    // Step 2: Build aggregate results for both Precise and Coverage EM profiles.
+    // 步骤2: 构建Precise和Coverage双EM profile的聚合结果
     runResult.precise_result = BuildAggregateResult(runResult.path_result_set, BuildPreciseEMProfile());
     runResult.coverage_result = BuildAggregateResult(runResult.path_result_set, BuildCoverageEMProfile());
 
@@ -202,7 +204,7 @@ A1RealChainRunResult RunA1RealChain(
     runResult.export_bundle.em_path_result_count = static_cast<int>(runResult.path_result_set.results.size());
     runResult.export_bundle.used_reference_path_fallback = false;
 
-    // Step 3: Module-6 real export: Paths, Channel, Coverage, ISAC, Visualization.
+    // 步骤3: 模块6真实导出: 路径/信道/覆盖/ISAC/可视化
     bool exportSucceeded = true;
     exportSucceeded = ExportPaths(context, runResult.export_bundle) && exportSucceeded;
     exportSucceeded = ExportChannel(context, runResult.export_bundle) && exportSucceeded;
@@ -210,7 +212,7 @@ A1RealChainRunResult RunA1RealChain(
     exportSucceeded = ExportISAC(context, runResult.export_bundle) && exportSucceeded;
     exportSucceeded = ExportVisualization(context, runResult.export_bundle) && exportSucceeded;
 
-    // Step 4: Validation and regression close-loop.
+    // 步骤4: 验证与回归闭环
     runResult.validation_report = BuildValidationReport(runResult.export_bundle, context);
     exportSucceeded = ExportValidationReport(runResult.validation_report, context, runResult.export_bundle) && exportSucceeded;
     runResult.regression_report = BuildRegressionReport(context);

@@ -34,7 +34,7 @@
       "back_material_name": "Wood",
       "normal_rule": "front_is_air",
       "reflection_enabled": true,
-      "transmission_enabled": false,
+      "transmission_enabled": true,
       "diffraction_candidate_enabled": true
     },
     {
@@ -70,7 +70,7 @@
       "back_material_name": "Wood",
       "normal_rule": "front_is_air",
       "reflection_enabled": true,
-      "transmission_enabled": false,
+      "transmission_enabled": true,
       "diffraction_candidate_enabled": true
     },
     {

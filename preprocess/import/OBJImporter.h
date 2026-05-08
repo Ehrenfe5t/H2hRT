@@ -29,7 +29,9 @@ struct OBJImportResult {
 /// 从 OBJ 文本文件导入 Scene 基础几何层。
 /// </summary>
 /// <param name="filePath">OBJ 文件路径。</param>
+/// <param name="coordinateTransform">坐标变换: "none"(默认) | "blender_z_up_to_y_up"。</param>
 /// <returns>结构化 OBJ 导入结果。</returns>
-OBJImportResult ImportSceneFromOBJ(const std::string& filePath);
+OBJImportResult ImportSceneFromOBJ(const std::string& filePath,
+                                   const std::string& coordinateTransform = "none");
 
 } // namespace rt

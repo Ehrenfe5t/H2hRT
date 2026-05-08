@@ -1,6 +1,6 @@
 {
   "version": "v4",
-  "timestamp": "2026-05-07T09:05:42.409269",
+  "timestamp": "2026-05-08T13:24:35.098269",
   "results": {
     "L1": {
       "total": 5,
@@ -73,7 +73,7 @@
           "id": "L3-2",
           "name": "RMS时延扩展",
           "passed": true,
-          "detail": "RMS DS=1.19e-09s"
+          "detail": "RMS DS=6.28e-09s"
         }
       ]
     }

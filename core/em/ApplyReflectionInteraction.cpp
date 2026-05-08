@@ -1,5 +1,5 @@
-// ApplyReflectionInteraction: Fresnel TE/TM coherent polarization + dynamic material lookup (v4 C1)
-// Limitation: polarization stored as real vector (linear approx). Jones vector upgrade deferred to v5.
+// ApplyReflectionInteraction: Fresnel TE/TM coherent polarization + Jones vector (v4 C1 + v5 D6-A)
+// v5: 复极化投影/重构, 替换实向量近似, 支持椭圆极化传播
 
 #include "ApplyReflectionInteraction.h"
 #include "../common/math/Vec3.h"
@@ -43,12 +43,12 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     const Face& face = input.scene->faces[node.face_id];
     Vec3 kInc = Normalize(node.direction);
     Vec3 n = Normalize(node.surface_normal);
-    std::string matName = (Dot(kInc, n) < 0.0) ? face.front_material_name : face.back_material_name;
+    // 反射使用面元表面实体材质, 非介质侧材质
+    std::string matName = face.surface_material_name;
     if (matName.empty()) matName = "Concrete";
-    MaterialProps props = input.material_db->QueryByName(matName, field.frequency_hz);
-
-    Complex epsC = CalcEpsC(props.epsilon_r, props.sigma, field.frequency_hz);
     double cosI = std::fabs(Dot(kInc, n));
+    MaterialProps props = input.material_db->QueryByName(matName, field.frequency_hz);
+    Complex epsC = CalcEpsC(props.epsilon_r, props.sigma, field.frequency_hz);
     if (cosI < 1e-9) cosI = 1e-9;
 
     Vec3 eTE = Normalize(Cross(kInc, n));
@@ -56,10 +56,11 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     Vec3 eTM = Normalize(Cross(eTE, kInc));
 
     Complex A_inc(field.amplitude_real, field.amplitude_imag);
-    double pTE = Dot(field.polarization_vector, eTE);
-    double pTM = Dot(field.polarization_vector, eTM);
-    Complex A_TE_inc = A_inc * Complex(pTE, 0.0);
-    Complex A_TM_inc = A_inc * Complex(pTM, 0.0);
+    // v5 Jones: 复投影到TE/TM基
+    Complex pTE(Dot(field.polarization_vector, eTE), Dot(field.polarization_imag, eTE));
+    Complex pTM(Dot(field.polarization_vector, eTM), Dot(field.polarization_imag, eTM));
+    Complex A_TE_inc = A_inc * pTE;
+    Complex A_TM_inc = A_inc * pTM;
 
     Complex gammaTE = FresnelTE(cosI, epsC);
     Complex gammaTM = FresnelTM(cosI, epsC);
@@ -69,15 +70,27 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     double power_ref = A_TE_ref.NormSq() + A_TM_ref.NormSq();
     Complex amp_ref = A_TE_ref + A_TM_ref;
 
-    double rx = A_TE_ref.Real() * eTE.x + A_TM_ref.Real() * eTM.x;
-    double ry = A_TE_ref.Real() * eTE.y + A_TM_ref.Real() * eTM.y;
-    double rz = A_TE_ref.Real() * eTE.z + A_TM_ref.Real() * eTM.z;
+    // v5 Jones: 全复极化重构 (实部+虚部)
+    double rx = A_TE_ref.re * eTE.x + A_TM_ref.re * eTM.x;
+    double ry = A_TE_ref.re * eTE.y + A_TM_ref.re * eTM.y;
+    double rz = A_TE_ref.re * eTE.z + A_TM_ref.re * eTM.z;
+    double ix = A_TE_ref.im * eTE.x + A_TM_ref.im * eTM.x;
+    double iy = A_TE_ref.im * eTE.y + A_TM_ref.im * eTM.y;
+    double iz = A_TE_ref.im * eTE.z + A_TM_ref.im * eTM.z;
 
     field.amplitude_real = amp_ref.re;
     field.amplitude_imag = amp_ref.im;
     field.power_linear = power_ref;
-    field.phase_rad += (gammaTE.Arg() + gammaTM.Arg()) * 0.5;
-    field.polarization_vector = Normalize(MakeVec3(rx, ry, rz));
+    // 极化重构: 检查退化情况
+    double polLen = std::sqrt(rx*rx + ry*ry + rz*rz);
+    if (polLen < 1e-12) {
+        // 极化实部退化为零: 可能在eTE/eTM基上投影正交导致
+        // 回退: 使用反射前的极化方向(物理上反射不改变线极化方向仅改相位)
+        field.polarization_vector = field.polarization_vector; // 保持不变
+    } else {
+        field.polarization_vector = Normalize(MakeVec3(rx, ry, rz));
+    }
+    field.polarization_imag = MakeVec3(ix, iy, iz);
     return true;
 }
 

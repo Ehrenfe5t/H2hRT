@@ -117,15 +117,28 @@ struct SbrConfig {
     bool enabled = false;
     int ray_count = 10000;
     int max_ray_depth = 6;
+    int max_reflection_count = 6;
+    int max_transmission_count = 0;
+    int max_diffraction_count = 0;
+    bool enable_transmission = false;
+    bool enable_diffraction = false;
     double ray_power_threshold_linear = 1.0e-6;
     double rx_sphere_radius_m = 0.3;
+    bool auto_grid_bounds = true;
+    double grid_margin_m = 0.2;
     double rx_grid_min_x = -5.0;
     double rx_grid_max_x = 5.0;
     double rx_grid_min_y = -5.0;
     double rx_grid_max_y = 5.0;
-    double rx_grid_z = 1.5;
+    double rx_grid_min_z = 1.5;
+    double rx_grid_max_z = 1.5;
     double rx_grid_step_x = 1.0;
     double rx_grid_step_y = 1.0;
+    double rx_grid_step_z = 1.0;
+    double tx_power_w = 1.0;
+    bool store_paths = false;
+    double wedge_max_distance_m = 5.0;
+    int wedge_sample_count = 16;
 };
 
 /// <summary>

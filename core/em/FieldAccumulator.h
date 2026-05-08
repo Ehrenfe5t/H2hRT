@@ -34,7 +34,8 @@ struct FieldAccumulator {
     double current_attenuation_np_per_m = 0.0; ///< Attenuation constant (Np/m) of the current medium (0 = lossless).
     double media_attenuation_np = 0.0;   ///< Cumulative exponential attenuation in nepers = sum(alpha_i * d_i).
     bool transmission_semantic_consumed = false; ///< Whether a transmission interaction has already been applied on this path.
-    Vec3 polarization_vector;            ///< Current polarization direction (unit vector in 3D).
+    Vec3 polarization_vector;            ///< 极化方向实部 (单位向量). v5: 保留兼容, 实投影时的主分量.
+    Vec3 polarization_imag;              ///< v5 D6-A: 极化方向虚部 (Jones矢量). 默认零向量.
     bool valid = false;                  ///< Set to true after successful InitializeTxField; false aborts the path.
 };
 

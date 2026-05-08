@@ -1,0 +1,56 @@
+{
+  "app_runtime": {
+    "mode": "production",
+    "log_level": "INFO",
+    "run_id": "sionna-compare"
+  },
+  "scene_import": {
+    "source_file": "demo/sionna_reflector.obj",
+    "source_format": "obj",
+    "scene_material_map_file": "configs/scenes/scene_material_map_sionna.json"
+  },
+  "scene_preprocess": {
+    "enable_wedge_build": false,
+    "enable_bvh_bruteforce_validation": false,
+    "bvh_leaf_size": 4
+  },
+  "material": {
+    "material_database_file": "demo/ItuMaterial.csv",
+    "material_mapping_file": "configs/scenes/scene_material_map_sionna.json"
+  },
+  "antenna": { "source_type": "Ideal" },
+  "path_search": {
+    "max_path_depth": 3,
+    "max_reflection_count": 3,
+    "max_transmission_count": 0,
+    "max_diffraction_count": 0,
+    "enable_los": true,
+    "enable_reflection": true,
+    "enable_transmission": false,
+    "enable_diffraction": false,
+    "debug_tx_x": 0.5,
+    "debug_tx_y": 1.0,
+    "debug_tx_z": 1.0,
+    "debug_rx_x": 0.5,
+    "debug_rx_y": 1.0,
+    "debug_rx_z": 2.0
+  },
+  "em_solver": {
+    "frequency_hz": 2400000000.0,
+    "solver_mode": "Precise",
+    "enable_polarization": true
+  },
+  "output": {
+    "output_directory": "output/compare_sionna",
+    "export_paths": true,
+    "export_config_snapshot": false
+  },
+  "numeric_tolerance": {
+    "eps_length": 1e-06,
+    "eps_intersection": 1e-07,
+    "eps_deduplicate": 1e-05,
+    "self_hit_ignore_distance": 1e-05,
+    "visibility_origin_offset": 1e-05,
+    "visibility_target_shrink": 1e-05
+  }
+}
