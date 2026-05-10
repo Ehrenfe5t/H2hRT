@@ -11,12 +11,19 @@
 #include <iostream>
 #include <string>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 /// <summary>
 /// 程序入口。从 argv[1] 解析可选配置文件路径，委托 RtPipeline::Run，
 /// 返回统一退出码（0=成功，非0=失败）。
 /// </summary>
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);  // v7: 修复控制台中文乱码
+#endif
     try
     {
         // 解析配置路径: 命令行参数优先, 否则回退到默认配置

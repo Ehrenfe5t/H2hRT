@@ -6,7 +6,9 @@
 #include "../common/math/Complex.h"
 #include "../common/math/MathConstants.h"
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <omp.h>
 #include <sstream>
@@ -70,18 +72,43 @@ struct RxHashGrid {
         }
     }
     void CheckSegment(const Point3& a,const Point3& b,std::vector<int>& out) const {
-        double mx=(a.x+b.x)*0.5,my=(a.y+b.y)*0.5,mz=(a.z+b.z)*0.5;
-        int cx=static_cast<int>(std::floor(mx/cellSize));
-        int cy=static_cast<int>(std::floor(my/cellSize));
-        int cz=static_cast<int>(std::floor(mz/cellSize));
         double r2=sphereR*sphereR;
-        for (int dx=-1;dx<=1;++dx) for (int dy=-1;dy<=1;++dy) for (int dz=-1;dz<=1;++dz) {
-            uint64_t key=(uint64_t((cx+dx)&0x1FFFFF)<<42)
-                       |(uint64_t((cy+dy)&0x1FFFFF)<<21)
-                       |uint64_t((cz+dz)&0x1FFFFF);
-            auto it=cells.find(key); if (it==cells.end()) continue;
-            for (int rxi:it->second) {
-                if (PointToSegmentDistSq((*rxPositions)[rxi],a,b)<=r2) out.push_back(rxi);
+        double dxb=std::abs(b.x-a.x), dyb=std::abs(b.y-a.y), dzb=std::abs(b.z-a.z);
+        // 27邻域覆盖半径≈1.5cell → 跨≤2cell仍可被中点查询覆盖
+        bool spansMultiCell = (dxb>2.0*cellSize || dyb>2.0*cellSize || dzb>2.0*cellSize);
+
+        auto queryCell = [&](double mx, double my, double mz) {
+            int cx=static_cast<int>(std::floor(mx/cellSize));
+            int cy=static_cast<int>(std::floor(my/cellSize));
+            int cz=static_cast<int>(std::floor(mz/cellSize));
+            for (int dx=-1;dx<=1;++dx) for (int dy=-1;dy<=1;++dy) for (int dz=-1;dz<=1;++dz) {
+                uint64_t key=(uint64_t((cx+dx)&0x1FFFFF)<<42)
+                           |(uint64_t((cy+dy)&0x1FFFFF)<<21)
+                           |uint64_t((cz+dz)&0x1FFFFF);
+                auto it=cells.find(key); if (it==cells.end()) continue;
+                for (int rxi:it->second) {
+                    if (PointToSegmentDistSq((*rxPositions)[rxi],a,b)<=r2) {
+                        bool dup=false;
+                        for (int prev:out) if (prev==rxi) {dup=true; break;}
+                        if (!dup) out.push_back(rxi);
+                    }
+                }
+            }
+        };
+
+        if (!spansMultiCell) {
+            // 短线段: 中点查询 (覆盖99%情况, 避免多点采样开销)
+            double mx=(a.x+b.x)*0.5, my=(a.y+b.y)*0.5, mz=(a.z+b.z)*0.5;
+            queryCell(mx, my, mz);
+        } else {
+            // 长线段: 多点采样防止跨cell漏检
+            double segLen=std::sqrt(dxb*dxb+dyb*dyb+dzb*dzb);
+            double step=std::max(sphereR, cellSize*0.5);
+            int nSamples=std::max(2, static_cast<int>(std::ceil(segLen/step)));
+            double invN=1.0/static_cast<double>(nSamples-1);
+            for (int si=0; si<nSamples; ++si) {
+                double t=si*invN;
+                queryCell(a.x+(b.x-a.x)*t, a.y+(b.y-a.y)*t, a.z+(b.z-a.z)*t);
             }
         }
     }
@@ -102,17 +129,16 @@ Vec3 RefractDir(const Vec3& inc, const Vec3& n, double cosI, double n2) {
         (inc.z-idn*n.z)/n2 - n.z*cosT));
 }
 
-// ── Fresnel with cache ──
-// 分档: 16 材质 × 20 cosI 档 = 320 条目
+// ── Fresnel with cache (v7 H4: thread_local 消除 OpenMP 数据竞争) ──
+// 分档: 16 材质 × 20 cosI 档 = 320 条目/线程
 static constexpr int FCACHE_BINS = 20;
-static double FresnelCache[32][FCACHE_BINS] = {}; // 0=未初始化
-static bool FresnelCacheInit = false;
 
 double FresnelPowerReflectionCached(double cosI, double epsR, double sigma, double freqHz,
                                      int matHash) {
+    thread_local double tlCache[32][FCACHE_BINS] = {}; // 每线程独立缓存, 无竞争
     int bin = std::min(FCACHE_BINS-1, static_cast<int>(cosI * FCACHE_BINS));
     int mh = matHash & 31;
-    double& cached = FresnelCache[mh][bin];
+    double& cached = tlCache[mh][bin];
     if (cached > 0.0) return cached;
     // 实际计算
     double omega=6.28318530717958647693*freqHz;
@@ -192,6 +218,9 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const auto* matDb=context.material_db;
     const double freqHz=context.config->em_solver.frequency_hz;
 
+    std::atomic<int> rayDone{0};
+    const int reportStep = std::max(1, N / 20); // 每5%报告一次
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(nTh)
 #endif
@@ -201,6 +230,12 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
 #ifdef _OPENMP
         tid=omp_get_thread_num();
 #endif
+        // v7: 进度反馈 — 射线计数器达到里程碑时输出进度 (任意线程)
+        int done = ++rayDone;
+        if (done % reportStep == 0 || done == N) {
+#pragma omp critical
+            { std::fprintf(stderr, "\r  SBR rays: %.0f%% (%d/%d)", 100.0*done/N, done, N); std::fflush(stderr); }
+        }
         auto& myP=tp[tid]; auto& myH=th[tid];
         uint32_t rng=static_cast<uint32_t>(ri*2654435761u+1); // 每射线独立种子
 
@@ -239,10 +274,11 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
                     double nW=(360.0-w.wedge_angle_deg)/180.0; if(nW<0.5)nW=0.5;
                     double bF=0.02*(1.0/(nW*nW))*(1.0/(sB0*sB0));
                     for (int d=0;d<4;++d){double phi=(d*0.5+0.25)*kPi;
+                        Vec3 crossTerm = Cross(eD, pB);
                         Vec3 dd=MakeVec3(
-                            std::sin(b0)*std::cos(phi)*pB.x+std::cos(b0)*eD.x+std::sin(b0)*std::sin(phi)*Cross(eD,pB).x,
-                            std::sin(b0)*std::cos(phi)*pB.y+std::cos(b0)*eD.y,
-                            std::sin(b0)*std::cos(phi)*pB.z+std::cos(b0)*eD.z);
+                            std::sin(b0)*std::cos(phi)*pB.x+std::cos(b0)*eD.x+std::sin(b0)*std::sin(phi)*crossTerm.x,
+                            std::sin(b0)*std::cos(phi)*pB.y+std::cos(b0)*eD.y+std::sin(b0)*std::sin(phi)*crossTerm.y,
+                            std::sin(b0)*std::cos(phi)*pB.z+std::cos(b0)*eD.z+std::sin(b0)*std::sin(phi)*crossTerm.z);
                         Ray dr; dr.origin=w.center_point; dr.direction=dd;
                         FaceHit dh=context.scene_query->QueryClosestFaceHit(dr,fqc);
                         Point3 dEnd=dh.hit?dh.position:Add(w.center_point,Scale(dd,10.0));
@@ -266,20 +302,28 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
                 transEpsR=mp.epsilon_r; hasMat=true;
             }
 
-            // ── 透射 (Monte Carlo: 概率选择+物理功率衰减, 不分裂) ──
-            if (cfg.enable_transmission && face.transmission_enabled && ct<maxTrans && hasMat
-                && face.dual_side_material_resolved) {
+            // ── 透射 (Monte Carlo: 重要性采样, 不分裂) ──
+            // v7 H3: 概率p=|Γ|²选反射, 1-p选透射. 重要性权重=P_fraction/p=1 → 不额外缩放功率
+            bool useMC = cfg.enable_transmission && face.transmission_enabled && ct<maxTrans
+                      && hasMat && face.dual_side_material_resolved;
+            if (useMC) {
                 double r=RandDouble(rng);
-                if (r>=refPwr) { // 透射 (概率=1-|Γ|²)
+                if (r>=refPwr) { // 透射 (概率=1-|Γ|², 重要性权重恒为1)
                     double n2=std::sqrt(std::max(1.0,transEpsR));
                     curDir=RefractDir(curDir,hit.normal,cosI,n2);
                     curPt=Add(hit.position,Scale(curDir,0.01));
-                    curPwr*=(1.0-refPwr); ct++; continue; // 物理透射衰减
+                    ct++; continue;
                 }
-                // 反射 (概率=|Γ|²) — 走下面反射分支 (curPwr*=refPwr)
+                // 反射 (概率=|Γ|², 重要性权重恒为1) — 走下面反射分支, 不额外缩放功率
+                if (face.reflection_enabled && cr<maxRefl) {
+                    curDir=ReflectDir(curDir,hit.normal);
+                    curPt=Add(hit.position,Scale(curDir,0.01));
+                    cr++; continue;
+                }
+                break;
             }
 
-            // ── 反射 ──
+            // ── 反射 (确定性, 非MC) ──
             if (face.reflection_enabled && cr<maxRefl) {
                 curDir=ReflectDir(curDir,hit.normal);
                 curPt=Add(hit.position,Scale(curDir,0.01));
@@ -290,13 +334,20 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
         }
     }
 
+    std::fprintf(stderr, "\n"); // SBR进度收尾换行
+
     // 归并
     for (int t=0;t<nTh;++t){auto&tp_=tp[t];auto&th_=th[t];
         for (int i=0;i<NRx;++i){if(th_[i]>0){result.rx_records[i].total_power_linear+=tp_[i];result.rx_records[i].ray_hit_count+=th_[i];}}}
 
-    for (auto& rec:result.rx_records){if(rec.ray_hit_count>0){
-        rec.total_power_dBm=10.0*std::log10(std::max(1e-30,rec.total_power_linear*txPowerMW));
-        result.active_rx_count++;}}
+    for (auto& rec:result.rx_records){
+        if(rec.ray_hit_count>0){
+            rec.total_power_dBm=10.0*std::log10(std::max(1e-30,rec.total_power_linear*txPowerMW));
+            result.active_rx_count++;
+        } else {
+            rec.total_power_dBm = -200.0; // 未命中Rx: colorbar最低值
+        }
+    }
     result.succeeded=true;
     oss.str("");oss<<"SbrEngine: activeRx="<<result.active_rx_count<<"/"<<NRx;
     result.trace_lines.push_back(oss.str());

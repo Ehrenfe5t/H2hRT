@@ -68,9 +68,11 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     Complex A_TM_ref = gammaTM * A_TM_inc;
 
     double power_ref = A_TE_ref.NormSq() + A_TM_ref.NormSq();
-    Complex amp_ref = A_TE_ref + A_TM_ref;
+    // v7 C5修复: TE/TM正交分量不做标量加法，复振幅由Jones矢量编码
+    // amplitude存储|E|，Jones矢量(实部+虚部)存储归一化复方向
+    double ampMag = std::sqrt(std::max(0.0, power_ref));
 
-    // v5 Jones: 全复极化重构 (实部+虚部)
+    // v5 Jones: 全复极化重构 — 在世界坐标中构建复场矢量并归一化
     double rx = A_TE_ref.re * eTE.x + A_TM_ref.re * eTM.x;
     double ry = A_TE_ref.re * eTE.y + A_TM_ref.re * eTM.y;
     double rz = A_TE_ref.re * eTE.z + A_TM_ref.re * eTM.z;
@@ -78,19 +80,18 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     double iy = A_TE_ref.im * eTE.y + A_TM_ref.im * eTM.y;
     double iz = A_TE_ref.im * eTE.z + A_TM_ref.im * eTM.z;
 
-    field.amplitude_real = amp_ref.re;
-    field.amplitude_imag = amp_ref.im;
+    field.amplitude_real = ampMag;
+    field.amplitude_imag = 0.0;
     field.power_linear = power_ref;
-    // 极化重构: 检查退化情况
-    double polLen = std::sqrt(rx*rx + ry*ry + rz*rz);
-    if (polLen < 1e-12) {
-        // 极化实部退化为零: 可能在eTE/eTM基上投影正交导致
-        // 回退: 使用反射前的极化方向(物理上反射不改变线极化方向仅改相位)
-        field.polarization_vector = field.polarization_vector; // 保持不变
+    // 极化归一化: 实部+虚部联合归一化使|Jones|=1
+    double fullPolLen = std::sqrt(rx*rx + ry*ry + rz*rz + ix*ix + iy*iy + iz*iz);
+    if (fullPolLen > 1e-12) {
+        double pInv = 1.0 / fullPolLen;
+        field.polarization_vector = MakeVec3(rx * pInv, ry * pInv, rz * pInv);
+        field.polarization_imag    = MakeVec3(ix * pInv, iy * pInv, iz * pInv);
     } else {
-        field.polarization_vector = Normalize(MakeVec3(rx, ry, rz));
+        // 退化为零场: 保持入射极化方向
     }
-    field.polarization_imag = MakeVec3(ix, iy, iz);
     return true;
 }
 

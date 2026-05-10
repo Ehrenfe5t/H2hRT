@@ -1,6 +1,6 @@
 {
   "version": "v4",
-  "timestamp": "2026-05-09T05:31:59.861509",
+  "timestamp": "2026-05-09T09:01:27.048735",
   "results": {
     "L1": {
       "total": 5,
@@ -41,39 +41,33 @@
     },
     "L2": {
       "total": 2,
-      "passed": 0,
-      "failed": 2,
-      "details": [
-        {
-          "id": "L2-1",
-          "name": "b1路径数≥300(基线)",
-          "passed": false,
-          "detail": "precise paths=0"
-        },
-        {
-          "id": "L2-2",
-          "name": "SBR可运行",
-          "passed": false,
-          "detail": "pipeline_ok=False"
-        }
-      ]
-    },
-    "L3": {
-      "total": 2,
       "passed": 2,
       "failed": 0,
       "details": [
         {
-          "id": "L3-1",
-          "name": "路径JSON存在",
+          "id": "L2-1",
+          "name": "b1路径数≥300(基线)",
           "passed": true,
-          "detail": "664 paths"
+          "detail": "precise paths=362"
         },
         {
-          "id": "L3-2",
-          "name": "RMS时延扩展",
+          "id": "L2-2",
+          "name": "SBR可运行",
           "passed": true,
-          "detail": "RMS DS=5.16e-09s"
+          "detail": "pipeline_ok=True"
+        }
+      ]
+    },
+    "L3": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "details": [
+        {
+          "id": "L3-1",
+          "name": "路径JSON存在",
+          "passed": false,
+          "detail": "file not found"
         }
       ]
     }

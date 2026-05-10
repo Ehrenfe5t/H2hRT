@@ -120,24 +120,36 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
     else
         kInc = MakeVec3(-kOut.x, -kOut.y, -kOut.z); // fallback
 
-    // Edge-fixed frame: ez = edge, ex = perp(kOut, ez), ey = ez x ex
+    // v7 C2修复: 边缘固定坐标系基于楔面0-face构建 (K&P 1974, Balanis Ch.12)
+    // φ和φ'必须从0-face测量，否则T3/T4的cot(π±(φ+φ'))/(2n)参数错误
     Vec3 ez = eHat;
-    double projO = Dot(kOut, ez);
-    Vec3 kOutPerp = MakeVec3(kOut.x - projO * ez.x, kOut.y - projO * ez.y, kOut.z - projO * ez.z);
+    Vec3 n0face;
+    if (w.positive_face_id >= 0 && w.positive_face_id < static_cast<int>(input.scene->faces.size()))
+        n0face = Normalize(input.scene->faces[w.positive_face_id].normal);
+    else
+        n0face = MakeVec3(1.0, 0.0, 0.0);
+    // ex = 0-face内垂直于边缘的方向: Cross(n0face, ez)
+    Vec3 ex = Normalize(Cross(n0face, ez));
+    if (Length(ex) < 1e-9) {
+        // 退化保护: n0face∥ez (不可能在合法楔面上发生, 但做安全兜底)
+        double po = Dot(kOut, ez);
+        ex = MakeVec3(kOut.x - po*ez.x, kOut.y - po*ez.y, kOut.z - po*ez.z);
+        double le = Length(ex); if (le < 1e-9) return false;
+        ex = Scale(ex, 1.0/le);
+    }
+    Vec3 ey = Normalize(Cross(ez, ex));
+    if (Length(ey) < 1e-9) return false;
+
+    // φ, φ' 均从0-face(ex方向)测量
+    Vec3 kOutPerp = MakeVec3(kOut.x - Dot(kOut,ez)*ez.x, kOut.y - Dot(kOut,ez)*ez.y, kOut.z - Dot(kOut,ez)*ez.z);
     double plenO = Length(kOutPerp);
     if (plenO < 1e-9) return false;
-    Vec3 ex = Scale(kOutPerp, 1.0 / plenO);
-    Vec3 ey = Normalize(Cross(ez, ex));
-
-    // Diffraction angle phi (outgoing)
-    double phi = std::atan2(Dot(kOut, ey), Dot(kOut, ex));
+    double phi = std::atan2(Dot(kOutPerp, ey), Dot(kOutPerp, ex));
     if (phi < 0.0) phi += 2.0 * kPi;
 
-    // Incident angle phi' from incident direction
-    double projI = Dot(kInc, ez);
-    Vec3 kIncPerp = MakeVec3(kInc.x - projI * ez.x, kInc.y - projI * ez.y, kInc.z - projI * ez.z);
+    Vec3 kIncPerp = MakeVec3(kInc.x - Dot(kInc,ez)*ez.x, kInc.y - Dot(kInc,ez)*ez.y, kInc.z - Dot(kInc,ez)*ez.z);
     double plenI = Length(kIncPerp);
-    double phip = kPi; // default
+    double phip = kPi;
     if (plenI > 1e-9) {
         Vec3 kIncPerpNorm = Scale(kIncPerp, 1.0 / plenI);
         phip = std::atan2(Dot(kIncPerpNorm, ey), Dot(kIncPerpNorm, ex));
@@ -162,35 +174,46 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
         s2 = Length(dp2rx);
     }
     if (s2 < 1e-9) s2 = 1.0;
-    double L = s1 * s2 / (s1 + s2);
+    // v7 C3修复: 球面波入射距离参数需包含 sin²β₀ 因子 (K&P Eq.27)
+    double L = s1 * s2 * sinBeta * sinBeta / (s1 + s2);
 
     // UTD coefficients
     Complex Dsoft = ComputeUTD_D(k, n, sinBeta, phi, phip, L, true);
     Complex Dhard = ComputeUTD_D(k, n, sinBeta, phi, phip, L, false);
 
-    // Soft/hard decomposition (v5 Jones: 复投影)
-    Vec3 eSoft = ex;
-    Vec3 eHard = Normalize(Cross(eSoft, kOut));
-    Complex eS(Dot(field.polarization_vector, eSoft), Dot(field.polarization_imag, eSoft));
-    Complex eH(Dot(field.polarization_vector, eHard), Dot(field.polarization_imag, eHard));
+    // v7 C4修复: Soft(TE)/Hard(TM)方向与系数配对
+    // 射线固定坐标系 (与phi/phi'角度的边缘固定坐标系独立)
+    // D_soft→ê_φ (垂直于衍射面), D_hard→ê_β (在衍射面内, 垂直于kOut)
+    Vec3 eSoft_dir = Normalize(Cross(kOut, ez));          // ⟂衍射面
+    if (Length(eSoft_dir) < 1e-9) eSoft_dir = MakeVec3(1.0, 0.0, 0.0);
+    Vec3 eHard_dir = Normalize(Cross(kOut, eSoft_dir));   // 在衍射面内, ⟂kOut
+    Complex eS(Dot(field.polarization_vector, eSoft_dir), Dot(field.polarization_imag, eSoft_dir));
+    Complex eH(Dot(field.polarization_vector, eHard_dir), Dot(field.polarization_imag, eHard_dir));
     Complex eDS = Dsoft * eS, eDH = Dhard * eH;
 
-    Complex amp(field.amplitude_real, field.amplitude_imag);
-    Complex ampDiff = eDS + eDH;
-    amp = amp * ampDiff;
+    // v7 C5修复: soft/hard正交分量不做标量加法
+    double ampIn = std::sqrt(field.amplitude_real * field.amplitude_real +
+                             field.amplitude_imag * field.amplitude_imag);
+    double diffPower = eDS.NormSq() + eDH.NormSq();
+    double ampMag = ampIn * std::sqrt(std::max(0.0, diffPower));
 
-    field.amplitude_real = amp.re;
-    field.amplitude_imag = amp.im;
-    field.power_linear = amp.NormSq();
-    // v5 Jones: 全复极化重构
-    field.polarization_vector = MakeVec3(
-        eDS.re * eSoft.x + eDH.re * eHard.x,
-        eDS.re * eSoft.y + eDH.re * eHard.y,
-        eDS.re * eSoft.z + eDH.re * eHard.z);
-    field.polarization_imag = MakeVec3(
-        eDS.im * eSoft.x + eDH.im * eHard.x,
-        eDS.im * eSoft.y + eDH.im * eHard.y,
-        eDS.im * eSoft.z + eDH.im * eHard.z);
+    // v5 Jones: 全复极化重构 — 先构建世界坐标复场矢量再归一化
+    double prx = eDS.re * eSoft_dir.x + eDH.re * eHard_dir.x;
+    double pry = eDS.re * eSoft_dir.y + eDH.re * eHard_dir.y;
+    double prz = eDS.re * eSoft_dir.z + eDH.re * eHard_dir.z;
+    double pix = eDS.im * eSoft_dir.x + eDH.im * eHard_dir.x;
+    double piy = eDS.im * eSoft_dir.y + eDH.im * eHard_dir.y;
+    double piz = eDS.im * eSoft_dir.z + eDH.im * eHard_dir.z;
+
+    field.amplitude_real = ampMag;
+    field.amplitude_imag = 0.0;
+    field.power_linear = ampMag * ampMag;
+    double polLen = std::sqrt(prx*prx + pry*pry + prz*prz + pix*pix + piy*piy + piz*piz);
+    if (polLen > 1e-12) {
+        double pInv = 1.0 / polLen;
+        field.polarization_vector = MakeVec3(prx * pInv, pry * pInv, prz * pInv);
+        field.polarization_imag    = MakeVec3(pix * pInv, piy * pInv, piz * pInv);
+    }
     return true;
 }
 

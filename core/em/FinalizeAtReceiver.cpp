@@ -63,6 +63,20 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     result.polarization_magnitude = std::sqrt(Dot(field.polarization_vector, field.polarization_vector)
                                             + Dot(field.polarization_imag, field.polarization_imag));
 
+    // v7 H10: AoD/AoA 从路径几何节点提取
+    if (path.nodes.size() >= 2) {
+        // AoD: 发射方向 Tx(node[0]) → 第一个交互点或Rx(node[1])
+        Vec3 aodDir = Normalize(Subtract(path.nodes[1].point, path.nodes[0].point));
+        result.aod_theta_deg = std::acos(Clamp(aodDir.y, -1.0, 1.0)) * 180.0 / kPi;  // Y-up zenith
+        result.aod_phi_deg   = std::atan2(aodDir.z, aodDir.x) * 180.0 / kPi;
+
+        // AoA: 到达方向 倒数第二个节点 → Rx(node[last])
+        std::size_t nIdx = path.nodes.size() - 1;
+        Vec3 aoaDir = Normalize(Subtract(path.nodes[nIdx].point, path.nodes[nIdx-1].point));
+        result.aoa_theta_deg = std::acos(Clamp(aoaDir.y, -1.0, 1.0)) * 180.0 / kPi;
+        result.aoa_phi_deg   = std::atan2(aoaDir.z, aoaDir.x) * 180.0 / kPi;
+    }
+
     // 元数据拷贝
     result.tx_antenna_id = field.tx_antenna_id;
     result.tx_antenna_source_type = field.tx_antenna_source_type;

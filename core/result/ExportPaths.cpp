@@ -60,11 +60,15 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << ", \"power_linear\": " << item.power_linear
              << ", \"free_space_loss_db\": " << item.free_space_loss_db
              << ", \"polarization_magnitude\": " << item.polarization_magnitude
+             << ", \"polarization_vector\": [" << item.polarization_vector.x << "," << item.polarization_vector.y << "," << item.polarization_vector.z << "]"
+             << ", \"polarization_imag\": [" << item.polarization_imag.x << "," << item.polarization_imag.y << "," << item.polarization_imag.z << "]"
              << ", \"is_los\": " << (item.is_los ? "true" : "false")
              << ", \"contains_transmission\": " << (item.contains_transmission ? "true" : "false")
              << ", \"transmission_semantic_consumed\": " << (item.transmission_semantic_consumed ? "true" : "false")
              << ", \"first_transmission_medium_in_id\": " << item.first_transmission_medium_in_id
              << ", \"first_transmission_medium_out_id\": " << item.first_transmission_medium_out_id
+             << ", \"aod_theta_deg\": " << item.aod_theta_deg << ", \"aod_phi_deg\": " << item.aod_phi_deg
+             << ", \"aoa_theta_deg\": " << item.aoa_theta_deg << ", \"aoa_phi_deg\": " << item.aoa_phi_deg
              << ", \"source_tag\": \"" << item.source_tag << "\""
              << ", \"tx_antenna_id\": \"" << item.tx_antenna_id << "\""
              << ", \"tx_antenna_source_type\": \"" << item.tx_antenna_source_type << "\""
@@ -117,6 +121,14 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
     }
     json << "  ]\n}\n";
 
+    // v7 H16: CSV 标准转义 — 含逗号/引号的字段双引号包裹, 内部引号加倍
+    auto csvEscape = [](const std::string& s) -> std::string {
+        if (s.find_first_of(",\"\n") == std::string::npos) return s;
+        std::string out = "\"";
+        for (char c : s) { if (c == '\"') out += "\"\""; else out += c; }
+        out += "\""; return out;
+    };
+
     std::ostringstream csv;
     csv << "path_id,delay_s,phase_rad,power_linear,free_space_loss_db,polarization_magnitude,is_los,contains_transmission,transmission_semantic_consumed,first_transmission_medium_in_id,first_transmission_medium_out_id,source_tag,tx_antenna_id,tx_antenna_source_type,rx_antenna_id,rx_antenna_source_type,source_path_signature,node_count\n";
     for (const EMPathResult& item : context.precise_result->path_results.results)
@@ -139,11 +151,11 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
             << (item.transmission_semantic_consumed ? "true" : "false") << ","
             << item.first_transmission_medium_in_id << ","
             << item.first_transmission_medium_out_id << ","
-            << item.source_tag << ","
-            << item.tx_antenna_id << ","
-            << item.tx_antenna_source_type << ","
-            << item.rx_antenna_id << ","
-            << item.rx_antenna_source_type << ","
+            << csvEscape(item.source_tag) << ","
+            << csvEscape(item.tx_antenna_id) << ","
+            << csvEscape(item.tx_antenna_source_type) << ","
+            << csvEscape(item.rx_antenna_id) << ","
+            << csvEscape(item.rx_antenna_source_type) << ","
             << item.source_path_signature << "," << nodeCount << "\n";
     }
 

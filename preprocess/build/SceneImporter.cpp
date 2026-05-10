@@ -38,12 +38,6 @@ SceneBatch2BuildResult BuildSceneForBatch2(const AppConfig& config)
 
     result.scene = importResult.scene;
 
-    // C4-B: Coordinate transform (Blender Z-up -> algorithm Y-up)
-    if (config.scene_import.coordinate_transform == "blender_z_up_to_y_up") {
-        for (auto& v : result.scene.vertices) { double t = v.y; v.y = v.z; v.z = t; }
-        for (auto& n : result.scene.normals) { double t = n.y; n.y = n.z; n.z = t; }
-    }
-
     const MaterialRuleLoadResult ruleLoadResult = LoadSceneMaterialRules(config.scene_import.scene_material_map_file);
     for (const RtError& error : ruleLoadResult.errors)
     {

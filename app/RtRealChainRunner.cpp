@@ -169,7 +169,6 @@ A1RealChainRunResult RunA1RealChain(
     const MaterialDatabase* materialDb)
 {
     A1RealChainRunResult runResult;
-    (void)materialDb;
     // 守卫: SearchEngine必须产出非空的真实路径集
     if (!searchResult.succeeded || searchResult.path_set.paths.empty())
     {

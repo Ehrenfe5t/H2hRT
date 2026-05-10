@@ -81,10 +81,9 @@ std::string BuildPreprocessConfigSignature(const AppConfig& config)
     std::ostringstream stream;
     stream << config.scene_preprocess.enable_wedge_build << "|"
            << config.scene_preprocess.enable_scene_cache << "|"
-           << "0|1|1|1|1.0|10.0|170.0|"  // v6: hardcoded defaults
-
+           << config.scene_import.coordinate_transform << "|"   // v7 H7: 坐标变换变更触发缓存失效
            << config.scene_preprocess.bvh_leaf_size << "|"
-           << "16"; // v6: hardcoded
+           << "v7";
     return stream.str();
 }
 
@@ -180,7 +179,7 @@ bool IsCacheMetaCompatible(const SceneCacheMeta& expected, const std::string& js
 
 void WriteString(std::ofstream& output, const std::string& value)
 {
-    const std::size_t size = value.size();
+    const uint64_t size = static_cast<uint64_t>(value.size());
     output.write(reinterpret_cast<const char*>(&size), sizeof(size));
     if (size > 0U)
     {
@@ -190,7 +189,7 @@ void WriteString(std::ofstream& output, const std::string& value)
 
 bool ReadString(std::ifstream& input, std::string& value)
 {
-    std::size_t size = 0U;
+    uint64_t size = 0U;
     input.read(reinterpret_cast<char*>(&size), sizeof(size));
     if (!input.good())
     {
@@ -218,7 +217,7 @@ void WriteVector(std::ofstream& output, const std::vector<T>& values)
 template <typename T>
 bool ReadVector(std::ifstream& input, std::vector<T>& values)
 {
-    std::size_t size = 0U;
+    uint64_t size = 0U;
     input.read(reinterpret_cast<char*>(&size), sizeof(size));
     if (!input.good())
     {

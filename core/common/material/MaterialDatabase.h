@@ -2,6 +2,8 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <mutex>
 #include <map>
 #include <vector>
 #include <fstream>
@@ -57,7 +59,19 @@ public:
     MaterialProps QueryByName(const std::string& name, double freqHz) const
     {
         auto itN = byName_.find(name);
-        if (itN == byName_.end()) return MaterialProps{};
+        if (itN == byName_.end()) {
+            // v7 H12: 材质未找到时输出警告 (每材质名仅告警一次)
+            static std::unordered_set<std::string> warned;
+            static std::mutex warnMutex;
+            {
+                std::lock_guard<std::mutex> lock(warnMutex);
+                if (warned.insert(name).second) {
+                    std::fprintf(stderr, "[MaterialDB] WARNING: material '%s' not found, using vacuum (ε_r=1.0)\n",
+                                 name.c_str());
+                }
+            }
+            return MaterialProps{};
+        }
         return Interpolate(itN->second, freqHz);
     }
 
@@ -66,6 +80,15 @@ public:
         auto it = byId_.find(id);
         if (it == byId_.end()) return MaterialProps{};
         return Interpolate(it->second, freqHz);
+    }
+
+    // v7 H13: 统一复介电常数查询 ε_c = ε_r - j·σ/(ω·ε₀)
+    // 返回 (real, imag) 对, 供所有 Apply*Interaction 复用, 消除重复 CalcEpsC
+    std::pair<double, double> QueryComplexPermittivity(const std::string& name, double freqHz, double freqOmega) const
+    {
+        MaterialProps p = QueryByName(name, freqHz);
+        double imag = (freqOmega > 0.0) ? p.sigma / (freqOmega * 8.8541878128e-12) : 0.0; // ω·ε₀
+        return {p.epsilon_r, -imag};  // e^{-jωt} 时谐约定: ℑ(ε_c) = -σ/(ω·ε₀)
     }
 
     bool empty() const { return byName_.empty(); }
@@ -82,14 +105,17 @@ private:
         if (it == data.end()) return data.rbegin()->second;
         auto prev = std::prev(it);
         double f0 = prev->first, f1 = it->first;
-        double t = (freq - f0) / (f1 - f0);
+        // v7 H11: ITU-R P.2040 幂律模型 — 对数-对数插值 (ε_r=a·f^b, σ=c·f^d)
+        // lg(ε_r) = lg(ε0)+(lg(f)-lg(f0))/(lg(f1)-lg(f0))*(lg(ε1)-lg(ε0))
+        double logF0=std::log10(f0), logF1=std::log10(f1), logF=std::log10(freq);
+        double frac=(logF-logF0)/(logF1-logF0);
         const auto& p0 = prev->second;
         const auto& p1 = it->second;
         MaterialProps r;
         r.name = p0.name;
-        r.epsilon_r = p0.epsilon_r + t * (p1.epsilon_r - p0.epsilon_r);
-        r.sigma = p0.sigma + t * (p1.sigma - p0.sigma);
-        r.mu_r = p0.mu_r + t * (p1.mu_r - p0.mu_r);
+        r.epsilon_r = std::pow(10.0, std::log10(std::max(1.0,p0.epsilon_r)) + frac*(std::log10(std::max(1.0,p1.epsilon_r))-std::log10(std::max(1.0,p0.epsilon_r))));
+        r.sigma     = std::pow(10.0, std::log10(std::max(1e-15,p0.sigma)) + frac*(std::log10(std::max(1e-15,p1.sigma))-std::log10(std::max(1e-15,p0.sigma))));
+        r.mu_r = p0.mu_r + frac * (p1.mu_r - p0.mu_r); // μ_r 通常为常数1.0
         return r;
     }
 };

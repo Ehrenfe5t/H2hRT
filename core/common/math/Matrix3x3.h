@@ -13,7 +13,8 @@
 namespace rt {
 
 /// <summary>
-/// 3x3 矩阵，列主序存储，默认初始化为单位矩阵。
+/// 3x3 矩阵，行主序存储（每行3元素连续），默认初始化为单位矩阵。
+/// Multiply() 正确: result.x = m[0]*v.x + m[1]*v.y + m[2]*v.z
 /// </summary>
 struct Matrix3x3 {
     double m[9] = {
@@ -40,7 +41,7 @@ struct Matrix3x3 {
         m[6] = col0.z; m[7] = col1.z; m[8] = col2.z;
     }
 
-    /// <summary>(row, col) 索引访问元素（列主序）。</summary>
+    /// <summary>(row, col) 索引访问元素（行主序，row*3+col）。</summary>
     double operator()(int row, int col) const { return m[row * 3 + col]; }
     /// <summary>(row, col) 可写访问。</summary>
     double& operator()(int row, int col) { return m[row * 3 + col]; }

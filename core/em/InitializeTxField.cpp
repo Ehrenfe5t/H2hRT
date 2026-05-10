@@ -69,7 +69,8 @@ bool InitializeTxField(const EMSolverInput& input, FieldAccumulator& field)
     field.polarization_vector = txAnt.polarization_vector;
     field.polarization_imag = MakeVec3(0.0, 0.0, 0.0);
 
-    // Medium attenuation accumulators start at zero (no lossy medium yet)
+    // Start in free space: refractive index = 1.0, zero medium attenuation
+    field.current_refractive_index = 1.0;
     field.media_attenuation_np = 0.0;
     field.current_attenuation_np_per_m = 0.0;
 

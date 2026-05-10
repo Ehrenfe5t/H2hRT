@@ -69,7 +69,8 @@ AntennaResponse EvaluateAntennaResponse(const AntennaModel& model, const Vec3& p
     response.effective_polarization = model.polarization_vector;
     // v6 C1: 极化对齐由EM链TE/TM投影处理, 天线模型仅提供方向增益
     response.polarization_alignment = 1.0;
-    response.gain_db = 10.0 * std::log10(std::max(1.0, response.gain_linear));
+    // v7 C9修复: 防止log10(0)但允许负dB值 (真实天线旁瓣可达-30dBi)
+    response.gain_db = 10.0 * std::log10(std::max(1e-15, response.gain_linear));
     return response;
 }
 

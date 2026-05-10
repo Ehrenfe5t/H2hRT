@@ -8,6 +8,7 @@
 
 #include "AntennaFactory.h"
 #include "../common/math/Vec3.h"
+#include <fstream>
 
 namespace rt {
 
@@ -20,15 +21,20 @@ namespace rt {
 /// <returns>初始化完成的发射天线模型，若配置了 pattern 文件则已加载方向图。</returns>
 AntennaModel BuildTxAntennaModel(const AppConfig& config, const Point3& position, const std::string& antennaId)
 {
-    // v5 D6-A: 默认垂直极化 (Y-up场景中Y=垂直), 替代原来的+X
-    // 垂直极化确保与水平面内的绕射边缘坐标系有非零投影
+    // v7 H14: 极化配置优先级 — polarization_file > 默认垂直极化(Y-up)
     Vec3 pol = MakeVec3(0.0, 1.0, 0.0);
+    if (!config.antenna.polarization_file.empty()) {
+        std::ifstream pf(config.antenna.polarization_file);
+        double px, py, pz;
+        if (pf >> px >> py >> pz) { pol = Normalize(MakeVec3(px, py, pz)); }
+    }
     AntennaModel m = BuildIdealAntennaModel(antennaId, config.antenna.source_type, true, config.em_solver.frequency_hz, position, pol);
     // B9: 若配置了方向图文件则加载
     if (!config.antenna.pattern_file.empty()) {
         m.pattern_file = config.antenna.pattern_file;
         m.pattern.LoadCsv(config.antenna.pattern_file);
     }
+    m.polarization_file = config.antenna.polarization_file;
     return m;
 }
 
@@ -41,13 +47,19 @@ AntennaModel BuildTxAntennaModel(const AppConfig& config, const Point3& position
 /// <returns>初始化完成的接收天线模型，若配置了 pattern 文件则已加载方向图。</returns>
 AntennaModel BuildRxAntennaModel(const AppConfig& config, const Point3& position, const std::string& antennaId)
 {
-    // v5 D6-A: 默认垂直极化
+    // v7 H14: 极化配置优先级 — polarization_file > 默认垂直极化(Y-up)
     Vec3 pol = MakeVec3(0.0, 1.0, 0.0);
+    if (!config.antenna.polarization_file.empty()) {
+        std::ifstream pf(config.antenna.polarization_file);
+        double px, py, pz;
+        if (pf >> px >> py >> pz) { pol = Normalize(MakeVec3(px, py, pz)); }
+    }
     AntennaModel m = BuildIdealAntennaModel(antennaId, config.antenna.source_type, false, config.em_solver.frequency_hz, position, pol);
     if (!config.antenna.pattern_file.empty()) {
         m.pattern_file = config.antenna.pattern_file;
         m.pattern.LoadCsv(config.antenna.pattern_file);
     }
+    m.polarization_file = config.antenna.polarization_file;
     return m;
 }
 

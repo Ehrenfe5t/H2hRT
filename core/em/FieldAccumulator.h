@@ -31,6 +31,7 @@ struct FieldAccumulator {
     int current_medium_id = -1;          ///< ID of the medium the ray is currently traveling in (-1 = free space).
     int last_transmission_medium_in_id = -1;   ///< Medium ID on the incident side of the last transmission.
     int last_transmission_medium_out_id = -1;  ///< Medium ID on the transmitted side of the last transmission.
+    double current_refractive_index = 1.0; ///< v7 H2: 当前介质折射率 n=Re(√ε_c), 自由空间=1.0.
     double current_attenuation_np_per_m = 0.0; ///< Attenuation constant (Np/m) of the current medium (0 = lossless).
     double media_attenuation_np = 0.0;   ///< Cumulative exponential attenuation in nepers = sum(alpha_i * d_i).
     bool transmission_semantic_consumed = false; ///< Whether a transmission interaction has already been applied on this path.

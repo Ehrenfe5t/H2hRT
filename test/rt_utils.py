@@ -489,6 +489,171 @@ def get_path_output_files(run_id: Optional[str] = None) -> Tuple[Path, Path, Pat
     return d / "precise_paths.json", d / "precise_paths.csv", d / "path_manifest.json"
 
 # =============================================================================
+# 信道计算工具 (对标 Sionna RT channel_params / cir / pdp / angles)
+# =============================================================================
+
+C0 = 299792458.0  # 真空光速 [m/s]
+
+def safe_db(x, floor_db=-200.0):
+    """安全 dB 转换，避免 log10(0)。"""
+    return np.maximum(10.0 * np.log10(np.maximum(np.abs(x), 1e-30)), floor_db)
+
+
+def load_precise_paths(path_json: Optional[Path] = None) -> List[Dict]:
+    """读取 precise 路径 JSON (precise_paths.json)。"""
+    if path_json is None:
+        path_json = REPO_ROOT / "output" / "a1_real_chain" / "paths" / "precise_paths.json"
+    if not path_json.exists():
+        return []
+    with path_json.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("paths", []) if isinstance(data, dict) else data
+
+
+def load_coverage_records(sbr_json: Optional[Path] = None) -> Tuple[List[Dict], Dict]:
+    """读取 SBR 覆盖结果 (sbr_coverage.json)。
+    返回: (records, metadata)
+    records 每项: {x, y, z, power_dBm, power_linear, ray_hit_count, rx_index}
+    """
+    if sbr_json is None:
+        sbr_json = REPO_ROOT / "output" / "a1_real_chain" / "coverage" / "sbr_coverage.json"
+    if not sbr_json.exists():
+        return [], {}
+    with sbr_json.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    records = data.get("records", [])
+    meta = {k: v for k, v in data.items() if k != "records"}
+    return records, meta
+
+
+def compute_cir(paths: List[Dict]) -> Dict:
+    """从路径列表计算 CIR (复振幅 + 时延)。
+    返回: {taus_ns, amplitudes, powers_linear}
+    """
+    valid = [p for p in paths if p.get("power_linear", 0) > 1e-20]
+    if not valid:
+        return {"taus_ns": np.array([]), "amplitudes": np.array([], dtype=complex),
+                "powers_linear": np.array([])}
+    taus = np.array([p["delay_s"] for p in valid])
+    amps = np.array([complex(p.get("amplitude_real", math.sqrt(p["power_linear"])),
+                             p.get("amplitude_imag", 0)) for p in valid])
+    pwrs = np.array([p["power_linear"] for p in valid])
+    order = np.argsort(taus)
+    return {"taus_ns": taus[order] * 1e9, "amplitudes": amps[order],
+            "powers_linear": pwrs[order]}
+
+
+def compute_pdp(paths: List[Dict]) -> Dict:
+    """PDP: 功率-时延对。返回 {taus_ns, power_dB, power_linear}。"""
+    cir = compute_cir(paths)
+    pwr_dB = safe_db(cir["powers_linear"])
+    return {"taus_ns": cir["taus_ns"], "power_dB": pwr_dB,
+            "power_linear": cir["powers_linear"]}
+
+
+def compute_aod_aoa(paths: List[Dict]) -> Dict:
+    """从路径几何节点提取 AoD/AoA。
+    返回: {aod_theta_deg, aod_phi_deg, aoa_theta_deg, aoa_phi_deg, powers_norm}
+    """
+    valid = [p for p in paths if p.get("power_linear", 0) > 1e-20]
+    aod_theta, aod_phi, aoa_theta, aoa_phi, powers = [], [], [], [], []
+    for p in valid:
+        nodes = p.get("geometry_nodes", [])
+        if len(nodes) < 2:
+            continue
+        tx, n1 = nodes[0], nodes[1]
+        dx, dy, dz = n1["x"] - tx["x"], n1["y"] - tx["y"], n1["z"] - tx["z"]
+        r = math.sqrt(dx * dx + dy * dy + dz * dz)
+        if r < 1e-9:
+            continue
+        aod_theta.append(math.degrees(math.acos(max(-1.0, min(1.0, dz / r)))))
+        aod_phi.append(math.degrees(math.atan2(dy, dx)))
+        powers.append(p["power_linear"])
+        rx, n_last = nodes[-1], nodes[-2]
+        dx2, dy2, dz2 = rx["x"] - n_last["x"], rx["y"] - n_last["y"], rx["z"] - n_last["z"]
+        r2 = math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2)
+        if r2 < 1e-9:
+            continue
+        aoa_theta.append(math.degrees(math.acos(max(-1.0, min(1.0, dz2 / r2)))))
+        aoa_phi.append(math.degrees(math.atan2(dy2, dx2)))
+    n_a = len(aod_theta)
+    if n_a == 0:
+        return {"aod_theta_deg": np.array([]), "aod_phi_deg": np.array([]),
+                "aoa_theta_deg": np.array([]), "aoa_phi_deg": np.array([]),
+                "powers_norm": np.array([])}
+    pwr_arr = np.array(powers[:n_a])
+    p_norm = pwr_arr / np.max(pwr_arr) if np.max(pwr_arr) > 0 else pwr_arr
+    return {"aod_theta_deg": np.array(aod_theta), "aod_phi_deg": np.array(aod_phi),
+            "aoa_theta_deg": np.array(aoa_theta), "aoa_phi_deg": np.array(aoa_phi),
+            "powers_norm": p_norm, "powers_linear": pwr_arr}
+
+
+def compute_channel_params(paths: List[Dict]) -> Dict:
+    """对标 Sionna channel_params: path_loss, rms_ds, k_factor 等。"""
+    valid = [p for p in paths if p.get("power_linear", 0) > 1e-20]
+    if not valid:
+        return {"num_paths": 0, "path_loss_dB": float("inf"), "rms_ds_ns": 0.0,
+                "mean_delay_ns": 0.0, "k_factor_dB": 0.0, "total_power_dBm": -200}
+    pwrs = np.array([p["power_linear"] for p in valid])
+    taus = np.array([p["delay_s"] for p in valid])
+    total = np.sum(pwrs)
+    mean_tau = np.sum(pwrs * taus) / total if total > 0 else 0.0
+    rms_ds = math.sqrt(np.sum(pwrs * (taus - mean_tau) ** 2) / total) if total > 0 else 0.0
+    path_loss = -10.0 * math.log10(total) if total > 0 else float("inf")
+    los = [p for p in valid if p.get("is_los")]
+    los_pwr = sum(p["power_linear"] for p in los) if los else 1e-30
+    nlos_pwr = total - los_pwr
+    k_db = (10.0 * math.log10(max(los_pwr, 1e-30) / max(nlos_pwr, 1e-30))
+            if nlos_pwr > 0 else 40.0)
+    return {
+        "num_paths": len(valid),
+        "path_loss_dB": path_loss,
+        "rms_ds_ns": rms_ds * 1e9,
+        "mean_delay_ns": mean_tau * 1e9,
+        "max_excess_delay_ns": (np.max(taus) - np.min(taus)) * 1e9,
+        "k_factor_dB": min(k_db, 40.0),
+        "total_power_dBm": 10.0 * math.log10(total) + 30.0 if total > 0 else -200.0,
+        "los_power_dBm": (10.0 * math.log10(los_pwr) + 30.0) if los else -200.0,
+    }
+
+
+def compute_cdf(values: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """经验 CDF。返回 (sorted_values, cdf)。"""
+    s = np.sort(values)
+    return s, np.arange(1, len(s) + 1) / len(s)
+
+
+# =============================================================================
+# Sionna 风格 matplotlib 默认参数
+# =============================================================================
+
+def set_sionna_style():
+    """应用对标 Sionna RT 的 matplotlib 样式。"""
+    plt = None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as _plt
+        plt = _plt
+        plt.rcParams.update({
+            "font.family": "sans-serif",
+            "font.sans-serif": ["DejaVu Sans", "Arial", "Helvetica"],
+            "font.size": 11,
+            "axes.labelsize": 12,
+            "axes.titlesize": 13,
+            "axes.grid": True,
+            "grid.alpha": 0.3,
+            "figure.dpi": 150,
+            "savefig.dpi": 150,
+            "savefig.bbox": "tight",
+            "lines.linewidth": 1.5,
+        })
+    except ImportError:
+        pass
+    return plt
+
+
+# =============================================================================
 # 主入口：启动可视化工具
 # =============================================================================
 if __name__ == "__main__":

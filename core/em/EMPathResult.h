@@ -45,6 +45,11 @@ struct EMPathResult {
     int first_transmission_medium_out_id = -1;   ///< Medium ID on the transmitted side of the first transmission.
     int last_transmission_medium_in_id = -1;     ///< Medium ID on the incident side of the last transmission.
     int last_transmission_medium_out_id = -1;    ///< Medium ID on the transmitted side of the last transmission.
+    // v7 H10: 离开角AoD和到达角AoA
+    double aod_theta_deg = 0.0;          ///< Angle of Departure zenith [deg], 0=zenith(up), 90=horizon.
+    double aod_phi_deg = 0.0;            ///< Angle of Departure azimuth [deg], 0=+X, 90=+Y.
+    double aoa_theta_deg = 0.0;          ///< Angle of Arrival zenith [deg].
+    double aoa_phi_deg = 0.0;            ///< Angle of Arrival azimuth [deg].
 };
 
 /// <summary>

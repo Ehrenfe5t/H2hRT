@@ -72,7 +72,8 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     Complex A_TM_trans = tTM * A_TM_inc;
 
     double power_trans = A_TE_trans.NormSq() + A_TM_trans.NormSq();
-    Complex amp_trans = A_TE_trans + A_TM_trans;
+    // v7 C5修复: TE/TM正交分量不做标量加法，复振幅由Jones矢量编码
+    double ampMag = std::sqrt(std::max(0.0, power_trans));
 
     double tx = A_TE_trans.re * eTE.x + A_TM_trans.re * eTM.x;
     double ty = A_TE_trans.re * eTE.y + A_TM_trans.re * eTM.y;
@@ -81,16 +82,15 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     double iy = A_TE_trans.im * eTE.y + A_TM_trans.im * eTM.y;
     double iz = A_TE_trans.im * eTE.z + A_TM_trans.im * eTM.z;
 
-    field.amplitude_real = amp_trans.re;
-    field.amplitude_imag = amp_trans.im;
+    field.amplitude_real = ampMag;
+    field.amplitude_imag = 0.0;
     field.power_linear = power_trans;
-    double polLen = std::sqrt(tx*tx + ty*ty + tz*tz);
-    if (polLen < 1e-12) {
-        field.polarization_vector = field.polarization_vector; // 保持入射极化方向
-    } else {
-        field.polarization_vector = Normalize(MakeVec3(tx, ty, tz));
+    double fullPolLen = std::sqrt(tx*tx + ty*ty + tz*tz + ix*ix + iy*iy + iz*iz);
+    if (fullPolLen > 1e-12) {
+        double pInv = 1.0 / fullPolLen;
+        field.polarization_vector = MakeVec3(tx * pInv, ty * pInv, tz * pInv);
+        field.polarization_imag    = MakeVec3(ix * pInv, iy * pInv, iz * pInv);
     }
-    field.polarization_imag = MakeVec3(ix, iy, iz);
 
     field.current_medium_id = node.medium_out_id;
     field.last_transmission_medium_in_id = node.medium_in_id;
@@ -98,9 +98,11 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     field.transmission_semantic_consumed = true;
 
     double alpha = (field.frequency_hz > 0.0)
-        ? (6.28318530717958647693 * field.frequency_hz / kC0) * std::sqrt(std::max(0.0, -epsC.im))
+        ? (6.28318530717958647693 * field.frequency_hz / kC0) * std::fabs(Sqrt(epsC).im) // v7 H1: α=k₀·Im(√ε_c), 替代良导体近似
         : 0.0;
     field.current_attenuation_np_per_m = alpha;
+    // v7 H2: 透射后介质折射率, 用于后续自由空间段相位和时延修正
+    field.current_refractive_index = std::max(1.0, Sqrt(epsC).re);
 
     return true;
 }

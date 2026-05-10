@@ -20,13 +20,11 @@ bool ApplyFreeSpaceSegment(FieldAccumulator& field, double segmentLengthM)
     if (!field.valid || segmentLengthM <= 0.0 || field.wavelength_m <= 0.0)
         return false;
 
-    // Accumulate geometric length and time delay: delay = distance / c0
+    // Accumulate geometric length. Time delay and phase use the medium's refractive index.
     field.total_length_m += segmentLengthM;
-    field.delay_s += segmentLengthM / kC0;
-
-    // Phase accumulation from propagation: delta_phi = -k * d = -2*pi * d / lambda
-    // (negative sign by convention: e^{-j k d})
-    field.phase_rad -= 6.28318530717958647693 * segmentLengthM / field.wavelength_m;
+    double nEff = field.current_refractive_index;
+    field.delay_s += segmentLengthM * nEff / kC0;       // v7 H2: τ = d·n/c₀
+    field.phase_rad -= 6.28318530717958647693 * segmentLengthM * nEff / field.wavelength_m; // v7 H2: Δφ = -k₀·n·d
 
     // FSPL (Free-Space Path Loss) formula: L = (lambda / (4*pi*d))^2
     // is applied ONCE at FinalizeAtReceiver, NOT per-segment, to avoid compounding errors.
