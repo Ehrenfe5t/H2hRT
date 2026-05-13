@@ -148,10 +148,11 @@ PathState BuildInitialState(const PathSearchContext& context)
     state.remaining_transmissions = context.config->path_search.max_transmission_count;
     state.remaining_diffractions = context.config->path_search.max_diffraction_count;
     state.remaining_scatterings = context.config->path_search.max_scattering_count;
-    state.allow_reflection = context.config->path_search.enable_reflection;
-    state.allow_transmission = context.config->path_search.enable_transmission;
-    state.allow_diffraction = context.config->path_search.enable_diffraction;
-    state.allow_scattering = context.config->path_search.enable_scattering;
+    // v7.5: max_*_count=0等价关闭
+    state.allow_reflection = (state.remaining_reflections > 0);
+    state.allow_transmission = (state.remaining_transmissions > 0);
+    state.allow_diffraction = (state.remaining_diffractions > 0);
+    state.allow_scattering = (state.remaining_scatterings > 0);
     state.mixed_path_enabled = false;
     state.mechanism_switch_count = 0;
     state.consecutive_same_interaction_count = 0;

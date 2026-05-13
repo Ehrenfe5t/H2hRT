@@ -18,16 +18,15 @@
     "material_database_file": "demo/ItuMaterial.csv",
     "material_mapping_file": "configs/scenes/scene_material_map_sionna.json"
   },
-  "antenna": { "source_type": "Ideal" },
+  "antenna": {
+    "source_type": "Ideal"
+  },
   "path_search": {
     "max_path_depth": 3,
     "max_reflection_count": 3,
     "max_transmission_count": 0,
     "max_diffraction_count": 0,
     "enable_los": true,
-    "enable_reflection": true,
-    "enable_transmission": false,
-    "enable_diffraction": false,
     "tx_x": 0.5,
     "tx_y": 1.0,
     "tx_z": 1.0,

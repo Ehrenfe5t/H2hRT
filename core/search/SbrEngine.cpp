@@ -186,8 +186,8 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const auto& cfg=context.config->sbr;
     const int N=cfg.ray_count, maxDepth=cfg.max_ray_depth;
     const int maxRefl=cfg.max_reflection_count;
-    const int maxTrans=cfg.enable_transmission?cfg.max_transmission_count:0;
-    const int maxDiff=cfg.enable_diffraction?cfg.max_diffraction_count:0;
+    const int maxTrans=cfg.max_transmission_count; // v7.5: count=0即关闭
+    const int maxDiff=cfg.max_diffraction_count;
     const double pwrTh=std::pow(10.0, cfg.ray_power_threshold_dB/10.0), sphereR=cfg.rx_sphere_radius_m;
     const int NRx=static_cast<int>(context.rx_grid.size());
     const double txPowerMW=std::pow(10.0, context.tx_power_dBm/10.0);
@@ -223,8 +223,8 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const int nTh=1;
 #endif
     oss<<"SbrEngine: rays="<<N<<" rxCount="<<NRx<<" sphereR="<<sphereR
-       <<"m threads="<<nTh<<" trans="<<(cfg.enable_transmission?"on":"off")
-       <<" diff="<<(cfg.enable_diffraction?"on":"off");
+       <<"m threads="<<nTh<<" trans="<<(maxTrans>0?"on":"off")
+       <<" diff="<<(maxDiff>0?"on":"off");
     result.trace_lines.push_back(oss.str());
 
     std::vector<std::vector<double>> tp(nTh,std::vector<double>(NRx,0.0));
@@ -281,7 +281,7 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             const Face& face=context.scene->faces[hit.face_id];
 
             // ── 衍射 (每步全量检测) ──
-            if (cfg.enable_diffraction && cd<maxDiff && face.reflection_enabled
+            if (maxDiff>0 && cd<maxDiff && face.reflection_enabled
                 && curPwr>pwrTh10 && !context.scene->wedges.empty()) {
                 auto nw=FindNearbyWedges(hit.position,context.scene,wedgeMD,wedgeMS,ri+stepIdx);
                 for (int wid:nw) {
@@ -322,7 +322,7 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             }
 
             // ── 透射 (Monte Carlo: 概率选择+物理功率衰减, 不分裂) ──
-            if (cfg.enable_transmission && face.transmission_enabled && ct<maxTrans && hasMat
+            if (maxTrans>0 && face.transmission_enabled && ct<maxTrans && hasMat
                 && face.dual_side_material_resolved) {
                 double r=RandDouble(rng);
                 if (r>=refPwr) { // 透射 (概率=1-|Γ|²)

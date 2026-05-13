@@ -245,10 +245,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "max_diffraction_count", config.path_search.max_diffraction_count);
         ReadOptionalNumber(body, "max_scattering_count", config.path_search.max_scattering_count);
         ReadOptionalBool(body, "enable_los", config.path_search.enable_los);
-        ReadOptionalBool(body, "enable_reflection", config.path_search.enable_reflection);
-        ReadOptionalBool(body, "enable_transmission", config.path_search.enable_transmission);
-        ReadOptionalBool(body, "enable_diffraction", config.path_search.enable_diffraction);
-        ReadOptionalBool(body, "enable_scattering", config.path_search.enable_scattering);
+        // v7.5: enable_reflection/transmission/diffraction/scattering removed → max_*_count=0
         ReadOptionalNumber(body, "max_consecutive_same_interaction", config.path_search.max_consecutive_same_interaction);
         // v6: max_candidate_face_hits/wedges, enable_mixed_path, keep_angle_metadata, pruning_strategy, dedup_strategy removed
         ReadOptionalNumber(body, "tx_x", config.path_search.tx_x);
@@ -267,8 +264,7 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalNumber(body, "max_reflection_count", config.sbr.max_reflection_count);
         ReadOptionalNumber(body, "max_transmission_count", config.sbr.max_transmission_count);
         ReadOptionalNumber(body, "max_diffraction_count", config.sbr.max_diffraction_count);
-        ReadOptionalBool(body, "enable_transmission", config.sbr.enable_transmission);
-        ReadOptionalBool(body, "enable_diffraction", config.sbr.enable_diffraction);
+        // v7.5: enable_transmission/diffraction removed → max_*_count=0
         ReadOptionalNumber(body, "ray_power_threshold_dB", config.sbr.ray_power_threshold_dB);
         ReadOptionalNumber(body, "rx_sphere_radius_m", config.sbr.rx_sphere_radius_m);
         ReadOptionalBool(body, "auto_grid_bounds", config.sbr.auto_grid_bounds);
@@ -433,10 +429,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"max_diffraction_count\": " << config.path_search.max_diffraction_count << ",\n";
     stream << "    \"max_scattering_count\": " << config.path_search.max_scattering_count << ",\n";
     stream << "    \"enable_los\": " << (config.path_search.enable_los ? "true" : "false") << ",\n";
-    stream << "    \"enable_reflection\": " << (config.path_search.enable_reflection ? "true" : "false") << ",\n";
-    stream << "    \"enable_transmission\": " << (config.path_search.enable_transmission ? "true" : "false") << ",\n";
-    stream << "    \"enable_diffraction\": " << (config.path_search.enable_diffraction ? "true" : "false") << ",\n";
-    stream << "    \"enable_scattering\": " << (config.path_search.enable_scattering ? "true" : "false") << ",\n";
+    // v7.5: enable_* removed → max_*_count controls
     stream << "    \"max_consecutive_same_interaction\": " << config.path_search.max_consecutive_same_interaction << ",\n";
     stream << "    \"tx_x\": " << config.path_search.tx_x << ",\n";
     stream << "    \"tx_y\": " << config.path_search.tx_y << ",\n";
@@ -453,8 +446,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "    \"max_reflection_count\": " << config.sbr.max_reflection_count << ",\n";
     stream << "    \"max_transmission_count\": " << config.sbr.max_transmission_count << ",\n";
     stream << "    \"max_diffraction_count\": " << config.sbr.max_diffraction_count << ",\n";
-    stream << "    \"enable_transmission\": " << (config.sbr.enable_transmission ? "true" : "false") << ",\n";
-    stream << "    \"enable_diffraction\": " << (config.sbr.enable_diffraction ? "true" : "false") << ",\n";
+    // v7.5: enable_* removed → max_*_count controls
     stream << "    \"ray_power_threshold_dB\": " << config.sbr.ray_power_threshold_dB << ",\n";
     stream << "    \"rx_sphere_radius_m\": " << config.sbr.rx_sphere_radius_m << ",\n";
     stream << "    \"auto_grid_bounds\": " << (config.sbr.auto_grid_bounds ? "true" : "false") << ",\n";

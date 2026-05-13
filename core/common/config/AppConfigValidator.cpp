@@ -27,21 +27,13 @@ ConfigValidationResult ValidateAppConfig(const AppConfig& config)
     if (config.path_search.max_diffraction_count < 0)
         fail("path_search.max_diffraction_count must be >= 0");
 
-    // 交互开关与计数一致性: 计数=0等价于开关关闭
-    if (!config.path_search.enable_transmission && config.path_search.max_transmission_count > 0)
-        fail("path_search.enable_transmission=false but max_transmission_count>0");
-    if (!config.path_search.enable_diffraction && config.path_search.max_diffraction_count > 0)
-        fail("path_search.enable_diffraction=false but max_diffraction_count>0");
+    // v7.5: max_*_count=0即关闭, enable_*已移除
 
     // SBR
     if (config.sbr.enabled) {
         if (config.sbr.ray_count <= 0) fail("sbr.ray_count must be > 0");
         if (config.sbr.max_ray_depth < 1) fail("sbr.max_ray_depth must be >= 1");
         if (config.sbr.rx_sphere_radius_m <= 0.0) fail("sbr.rx_sphere_radius_m must be > 0");
-        if (config.sbr.enable_transmission && config.sbr.max_transmission_count < 1)
-            fail("sbr: enable_transmission but max_transmission_count=0");
-        if (config.sbr.enable_diffraction && config.sbr.max_diffraction_count < 1)
-            fail("sbr: enable_diffraction but max_diffraction_count=0");
     }
 
     // 容差

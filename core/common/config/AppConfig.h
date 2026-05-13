@@ -81,11 +81,8 @@ struct PathSearchConfig {
     int max_diffraction_count = 0;
     int max_scattering_count = 0;
     // v6: max_candidate_face_hits, max_candidate_wedges removed (unused)
+    // v7.5: enable_*开关移除, 统一用max_*_count=0控制 (LOS除外)
     bool enable_los = true;
-    bool enable_reflection = true;
-    bool enable_transmission = false;
-    bool enable_diffraction = false;
-    bool enable_scattering = false;
     int max_consecutive_same_interaction = 5;
     // v6: enable_mixed_path, keep_angle_metadata, pruning_strategy, dedup_strategy removed
     double tx_x = 1.0;   // v6: was debug_tx_x
@@ -104,10 +101,9 @@ struct SbrConfig {
     int ray_count = 10000;
     int max_ray_depth = 6;
     int max_reflection_count = 6;
+    // v7.5: SBR enable_*移除, 统一max_*_count=0控制
     int max_transmission_count = 0;
     int max_diffraction_count = 0;
-    bool enable_transmission = false;
-    bool enable_diffraction = false;
     double ray_power_threshold_dB = -60.0;  // v6: was linear, now dB relative to Tx
     double rx_sphere_radius_m = 0.3;
     bool auto_grid_bounds = true;
