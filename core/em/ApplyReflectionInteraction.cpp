@@ -37,18 +37,17 @@ Complex FresnelTM(double cosI, const Complex& epsC) {
 bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input)
 {
     if (!field.valid || !node.valid) return false;
-    if (!input.material_db || input.material_db->empty()) return false;
     if (!input.scene || node.face_id < 0 || node.face_id >= static_cast<int>(input.scene->faces.size())) return false;
 
     const Face& face = input.scene->faces[node.face_id];
     Vec3 kOut = Normalize(node.direction);
     Vec3 n = Normalize(node.surface_normal);
     Vec3 kInc = Reflect(kOut, n); // v7.4 B10: 从出射恢复入射方向, eTM需用kInc
-    // 反射使用面元表面实体材质, 非介质侧材质
-    std::string matName = face.surface_material_name;
-    if (matName.empty()) return false; // v7.4 B12: 无名材质→拒绝, 不回退Concrete
-    double cosI = std::fabs(Dot(kOut, n));  // cosθ_i = |Dot(k,n)|, 入射=出射
-    MaterialProps props = input.material_db->QueryByName(matName, field.frequency_hz);
+    // v7.4 几何-EM解耦: 材质不可用→真空(ε_r=1,|Γ|=0), EM自然淘汰而非return false
+    double cosI = std::fabs(Dot(kOut, n));
+    MaterialProps props; // 默认真空
+    if (input.material_db && !input.material_db->empty() && !face.surface_material_name.empty())
+        props = input.material_db->QueryByName(face.surface_material_name, field.frequency_hz);
     Complex epsC = CalcEpsC(props.epsilon_r, props.sigma, field.frequency_hz);
     if (cosI < 1e-9) cosI = 1e-9;
 
@@ -68,7 +67,12 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     Complex A_TE_ref = gammaTE * A_TE_inc;
     Complex A_TM_ref = gammaTM * A_TM_inc;
 
-    double power_ref = A_TE_ref.NormSq() + A_TM_ref.NormSq();
+    // v7.4 B11: 交互相位累加到 phase_rad (能量加权平均)
+    double teW=A_TE_ref.NormSq(), tmW=A_TM_ref.NormSq(), totalW=teW+tmW;
+    if (totalW > 1e-30) field.phase_rad += std::atan2(
+        A_TE_ref.im*teW + A_TM_ref.im*tmW, A_TE_ref.re*teW + A_TM_ref.re*tmW);
+
+    double power_ref = totalW;
     // v7 C5修复: TE/TM正交分量不做标量加法，复振幅由Jones矢量编码
     // amplitude存储|E|，Jones矢量(实部+虚部)存储归一化复方向
     double ampMag = std::sqrt(std::max(0.0, power_ref));

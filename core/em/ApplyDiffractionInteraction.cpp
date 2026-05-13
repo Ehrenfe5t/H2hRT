@@ -193,6 +193,11 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
     Complex eH(Dot(field.polarization_vector, eHard_dir), Dot(field.polarization_imag, eHard_dir));
     Complex eDS = Dsoft * eS, eDH = Dhard * eH;
 
+    // v7.4 B22: 绕射交互相位累加
+    double sw=eDS.NormSq(), hw=eDH.NormSq(), totW=sw+hw;
+    if (totW > 1e-30) field.phase_rad += std::atan2(
+        eDS.im*sw + eDH.im*hw, eDS.re*sw + eDH.re*hw);
+
     // v7 C5修复: soft/hard正交分量不做标量加法
     double ampIn = std::sqrt(field.amplitude_real * field.amplitude_real +
                              field.amplitude_imag * field.amplitude_imag);

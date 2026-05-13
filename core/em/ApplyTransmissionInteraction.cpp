@@ -42,16 +42,18 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     if (!node.transmission_semantic_complete) return false;
     if (node.medium_in_id < 0 || node.medium_out_id < 0) return false;
     if (node.medium_in_id == node.medium_out_id) return false;
-    if (!input.material_db || input.material_db->empty()) return false;
     if (!input.scene || node.face_id < 0 || node.face_id >= static_cast<int>(input.scene->faces.size())) return false;
 
     const Face& face = input.scene->faces[node.face_id];
     Vec3 n = Normalize(node.surface_normal);
     Vec3 kInc = (Length(node.incident_direction) > 0.0)
         ? Normalize(node.incident_direction) : MakeVec3(-node.direction.x,-node.direction.y,-node.direction.z);
-    std::string matName = (node.entered_from_front_side) ? face.back_material_name : face.front_material_name;
-    if (matName.empty()) matName = "Concrete";
-    MaterialProps txProps = input.material_db->QueryByName(matName, field.frequency_hz);
+    // v7.4 几何-EM解耦: 材质不可用→真空, Fresnel自然衰减, EM淘汰而非return false
+    MaterialProps txProps; // 默认真空
+    if (input.material_db && !input.material_db->empty()) {
+        std::string matName = (node.entered_from_front_side) ? face.back_material_name : face.front_material_name;
+        if (!matName.empty()) txProps = input.material_db->QueryByName(matName, field.frequency_hz);
+    }
 
     Complex epsC = CalcEpsC(txProps.epsilon_r, txProps.sigma, field.frequency_hz);
     double cosI = std::fabs(Dot(kInc, n));
@@ -72,7 +74,12 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     Complex A_TE_trans = tTE * A_TE_inc;
     Complex A_TM_trans = tTM * A_TM_inc;
 
-    double power_trans = A_TE_trans.NormSq() + A_TM_trans.NormSq();
+    // v7.4 B16: 交互相位累加
+    double teW=A_TE_trans.NormSq(), tmW=A_TM_trans.NormSq(), totalW=teW+tmW;
+    if (totalW > 1e-30) field.phase_rad += std::atan2(
+        A_TE_trans.im*teW + A_TM_trans.im*tmW, A_TE_trans.re*teW + A_TM_trans.re*tmW);
+
+    double power_trans = totalW;
     // v7 C5修复: TE/TM正交分量不做标量加法，复振幅由Jones矢量编码
     double ampMag = std::sqrt(std::max(0.0, power_trans));
 
