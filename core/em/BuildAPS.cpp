@@ -26,11 +26,9 @@ APSResult BuildAPS(const EMPathResultSet& pathResults)
             continue;
         }
         APSEntry entry;
-        // Placeholder angle metric: currently uses the x-component of the
-        // polarization vector as a proxy for direction-of-arrival.
-        // TODO: replace with proper AoA/AoD computation from path geometry.
-        entry.angle_metric = item.polarization_vector.x;
-        entry.power_linear = item.power_linear; // received linear power at this angle
+        // v7.4 B32: 使用真实 AoA zenith 角度 (已在 EMPathResult 中存储)
+        entry.angle_metric = item.aoa_theta_deg;
+        entry.power_linear = item.power_linear;
         result.entries.push_back(entry);
     }
     return result;

@@ -128,7 +128,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
     std::vector<ReflectionCandidateState> acceptedStates;
 
     // B2-A: BVH spatial filter instead of iterating all faces
-    const double margin = Length(Subtract(context.rx_point, state.current_point)) * 0.6;  // SAH-adjusted from 0.3
+    const double margin = Length(Subtract(context.rx_point, state.current_point)) * 0.8; // v7.4 A5
     const AABB region = ComputeExtendedRegion(state.current_point, context.rx_point, margin);
 
     std::vector<int> candidateFaceIds;

@@ -126,11 +126,11 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
                 else { n1 = std::sqrt(std::max(1.0, p2.epsilon_r)); n2 = std::sqrt(std::max(1.0, p1.epsilon_r)); }
             }
             txDir = SnellRefract(incidentDir, hit.normal, n1, n2);
-            if (Length(txDir) <= 0.0) txDir = SafeNormalize(Subtract(context.rx_point, hit.position)); // v6 C4
+            if (Length(txDir) <= 0.0) continue; // v7.4 A7: TIR→拒绝候选, 不回退Rx方向
         }
         else
         {
-            txDir = SafeNormalize(Subtract(context.rx_point, hit.position)); // v6 C4
+            continue; // v7.4 A7: 无材质DB→拒绝, 不产生物理无效路径
         }
 
         PathState nextState = state;
@@ -181,6 +181,7 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         node.transmission_semantic_complete = mediumInfo.dual_side_semantic_complete;
         node.point = hit.position;
         node.direction = nextState.current_direction;
+        node.incident_direction = incidentDir; // v7.4 B15: 供EM层Fresnel计算恢复入射角
         node.surface_normal = hit.normal;
         node.segment_length_from_previous = hit.distance;
         node.valid = true;

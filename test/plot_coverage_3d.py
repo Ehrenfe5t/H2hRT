@@ -359,7 +359,7 @@ if __name__ == "__main__":
         if os.path.exists(alt): OBJ = alt
     if not os.path.exists(SBR):
         alt = os.path.join(os.path.dirname(__file__), "..",
-                          "output/meeting-cov-hires/coverage/sbr_coverage.json")
+                          "output/history/sbr_coverage-v7.2-all.json")
         if os.path.exists(alt): SBR = alt
     for p in [OBJ, SBR]:
         if not os.path.exists(p):

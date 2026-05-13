@@ -133,14 +133,20 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMPSupport>true</OpenMPSupport>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
        <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProfileGuidedDatabase>$(OutDir)$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
   </ItemDefinitionGroup>
-
+  <!-- v7.3 PGO: 两步编译.
+       Step1: msbuild /p:Configuration=Release /p:Platform=x64
+              运行 training: RT.exe configs/app/meeting_coverage_hires.json
+       Step2: msbuild /p:Configuration=Release /p:Platform=x64 /p:UsePGOTrain=done
+              需要手动将 <Profile>true</Profile> 加入 ClCompile -->
   <ItemGroup>
     <ClCompile Include="app\RtRealChainRunner.cpp" />
     <ClCompile Include="app\main.cpp" />

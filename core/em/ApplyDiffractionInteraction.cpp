@@ -48,6 +48,8 @@ Complex FresnelTransitionNumerical(double x)
 {
     if (x < 0.0) x = 0.0;
     if (x < 1e-8) return Complex(0.0, 0.0);
+    // v7.4 B19: x>10时数值积分欠采样, 切换到渐近展开 F(x)≈1+j/(2x)
+    if (x > 10.0) return Complex(1.0, 0.5/x);
     double sqrtX = std::sqrt(x);
     Complex tail = FresnelIntegralTailNumerical(sqrtX);
     // F(x) = 2*j*sqrt(x)*exp(j*x) * tail

@@ -32,8 +32,9 @@ CIRResult BuildCIR(const EMPathResultSet& pathResults, const EMSolveProfile& pro
         // Create a CIR tap: delay, complex amplitude, power
         CIRTap tap;
         tap.delay_s = item.delay_s;
-        tap.amplitude_real = item.amplitude_real;
-        tap.amplitude_imag = item.amplitude_imag;
+        // v7.4 B31: 复振幅包含传播相位 phase_rad
+        tap.amplitude_real = item.amplitude_real * std::cos(item.phase_rad);
+        tap.amplitude_imag = item.amplitude_real * std::sin(item.phase_rad);
         tap.power_linear = item.power_linear;
         // Record contributing path ID for traceability
         tap.contributing_path_ids.push_back(item.path_id);

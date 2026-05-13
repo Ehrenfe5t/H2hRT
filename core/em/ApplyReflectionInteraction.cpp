@@ -41,12 +41,13 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     if (!input.scene || node.face_id < 0 || node.face_id >= static_cast<int>(input.scene->faces.size())) return false;
 
     const Face& face = input.scene->faces[node.face_id];
-    Vec3 kInc = Normalize(node.direction);
+    Vec3 kOut = Normalize(node.direction);
     Vec3 n = Normalize(node.surface_normal);
+    Vec3 kInc = Reflect(kOut, n); // v7.4 B10: 从出射恢复入射方向, eTM需用kInc
     // 反射使用面元表面实体材质, 非介质侧材质
     std::string matName = face.surface_material_name;
-    if (matName.empty()) matName = "Concrete";
-    double cosI = std::fabs(Dot(kInc, n));
+    if (matName.empty()) return false; // v7.4 B12: 无名材质→拒绝, 不回退Concrete
+    double cosI = std::fabs(Dot(kOut, n));  // cosθ_i = |Dot(k,n)|, 入射=出射
     MaterialProps props = input.material_db->QueryByName(matName, field.frequency_hz);
     Complex epsC = CalcEpsC(props.epsilon_r, props.sigma, field.frequency_hz);
     if (cosI < 1e-9) cosI = 1e-9;

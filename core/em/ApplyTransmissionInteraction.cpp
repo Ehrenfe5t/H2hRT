@@ -46,8 +46,9 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     if (!input.scene || node.face_id < 0 || node.face_id >= static_cast<int>(input.scene->faces.size())) return false;
 
     const Face& face = input.scene->faces[node.face_id];
-    Vec3 kInc = Normalize(node.direction);
     Vec3 n = Normalize(node.surface_normal);
+    Vec3 kInc = (Length(node.incident_direction) > 0.0)
+        ? Normalize(node.incident_direction) : MakeVec3(-node.direction.x,-node.direction.y,-node.direction.z);
     std::string matName = (node.entered_from_front_side) ? face.back_material_name : face.front_material_name;
     if (matName.empty()) matName = "Concrete";
     MaterialProps txProps = input.material_db->QueryByName(matName, field.frequency_hz);

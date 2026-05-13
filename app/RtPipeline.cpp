@@ -168,7 +168,7 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     }
     logger.Log(LogLevel::Info, "App", "批次3: 拓扑、诊断与加速结构完成。");
 
-    const SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(loadResult.config, batch3Result.scene);
+    SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(loadResult.config, batch3Result.scene);
     for (const RtError& error : batch4Result.errors) logger.LogError("模块2", error);
     if (!batch4Result.succeeded) {
         logger.Log(LogLevel::Fatal, "App", "批次4: 查询门面与场景缓存构建失败。");
@@ -181,6 +181,18 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     if (!loadResult.config.material.material_database_file.empty()) {
         matDb.LoadFromCsv(loadResult.config.material.material_database_file);
         logger.Log(LogLevel::Info, "App", "材质数据库已加载: " + loadResult.config.material.material_database_file);
+    }
+
+    // v7.3: 预查所有面元电参数 (后续SBR热路径O(1)读取)
+    if (!matDb.empty()) {
+        const double fq = loadResult.config.em_solver.frequency_hz;
+        for (Face& face : batch4Result.scene.faces) {
+            if (!face.surface_material_name.empty()) {
+                MaterialProps sp = matDb.QueryByName(face.surface_material_name, fq);
+                face.surface_eps_r = sp.epsilon_r;
+                face.surface_sigma = sp.sigma;
+            }
+        }
     }
 
     // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---

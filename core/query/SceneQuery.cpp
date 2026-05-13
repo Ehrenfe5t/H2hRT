@@ -12,6 +12,10 @@
 #include <algorithm>
 #include <cmath>
 
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
+
 namespace rt {
 
 namespace {
@@ -205,6 +209,130 @@ void CollectFaceHitsRecursive(
     CollectFaceHitsRecursive(scene, bvh, node.right_child, ray, context, eps, hits);
 }
 
+#ifdef __AVX2__
+// v7.3: AVX2向量化 Möller-Trumbore — 4面一批, 同一条射线广播到4通道
+inline void IntersectRayTriangle4_AVX2(
+    const Ray& ray, const Point3* v0, const Point3* v1, const Point3* v2,
+    double eps, bool* outHit, double* outDist)
+{
+    __m256d rdx=_mm256_set1_pd(ray.direction.x), rdy=_mm256_set1_pd(ray.direction.y), rdz=_mm256_set1_pd(ray.direction.z);
+    __m256d rox=_mm256_set1_pd(ray.origin.x), roy=_mm256_set1_pd(ray.origin.y), roz=_mm256_set1_pd(ray.origin.z);
+    __m256d veps=_mm256_set1_pd(eps);
+
+    double v0x[4],v0y[4],v0z[4],v1x[4],v1y[4],v1z[4],v2x[4],v2y[4],v2z[4];
+    for(int k=0;k<4;++k){v0x[k]=v0[k].x;v0y[k]=v0[k].y;v0z[k]=v0[k].z;
+                          v1x[k]=v1[k].x;v1y[k]=v1[k].y;v1z[k]=v1[k].z;
+                          v2x[k]=v2[k].x;v2y[k]=v2[k].y;v2z[k]=v2[k].z;}
+    __m256d e1x=_mm256_sub_pd(_mm256_loadu_pd(v1x),_mm256_loadu_pd(v0x));
+    __m256d e1y=_mm256_sub_pd(_mm256_loadu_pd(v1y),_mm256_loadu_pd(v0y));
+    __m256d e1z=_mm256_sub_pd(_mm256_loadu_pd(v1z),_mm256_loadu_pd(v0z));
+    __m256d e2x=_mm256_sub_pd(_mm256_loadu_pd(v2x),_mm256_loadu_pd(v0x));
+    __m256d e2y=_mm256_sub_pd(_mm256_loadu_pd(v2y),_mm256_loadu_pd(v0y));
+    __m256d e2z=_mm256_sub_pd(_mm256_loadu_pd(v2z),_mm256_loadu_pd(v0z));
+
+    __m256d px=_mm256_fmsub_pd(rdy,e2z,_mm256_mul_pd(rdz,e2y));
+    __m256d py=_mm256_fmsub_pd(rdz,e2x,_mm256_mul_pd(rdx,e2z));
+    __m256d pz=_mm256_fmsub_pd(rdx,e2y,_mm256_mul_pd(rdy,e2x));
+    __m256d det=_mm256_add_pd(_mm256_add_pd(_mm256_mul_pd(e1x,px),_mm256_mul_pd(e1y,py)),_mm256_mul_pd(e1z,pz));
+
+    __m256d absDet=_mm256_andnot_pd(_mm256_set1_pd(-0.0),det);
+    __m256d maskV=_mm256_cmp_pd(absDet,veps,_CMP_GT_OQ);
+    if(_mm256_movemask_pd(maskV)==0){for(int k=0;k<4;++k)outHit[k]=false;return;}
+
+    __m256d invDet=_mm256_div_pd(_mm256_set1_pd(1.0),_mm256_blendv_pd(_mm256_set1_pd(1.0),det,maskV));
+    __m256d tvx=_mm256_sub_pd(rox,_mm256_loadu_pd(v0x));
+    __m256d tvy=_mm256_sub_pd(roy,_mm256_loadu_pd(v0y));
+    __m256d tvz=_mm256_sub_pd(roz,_mm256_loadu_pd(v0z));
+    __m256d u=_mm256_mul_pd(_mm256_add_pd(_mm256_add_pd(_mm256_mul_pd(tvx,px),_mm256_mul_pd(tvy,py)),_mm256_mul_pd(tvz,pz)),invDet);
+    maskV=_mm256_and_pd(maskV,_mm256_and_pd(_mm256_cmp_pd(u,_mm256_setzero_pd(),_CMP_GE_OQ),_mm256_cmp_pd(u,_mm256_set1_pd(1.0),_CMP_LE_OQ)));
+    if(_mm256_movemask_pd(maskV)==0){for(int k=0;k<4;++k)outHit[k]=false;return;}
+
+    __m256d qx=_mm256_fmsub_pd(tvy,e1z,_mm256_mul_pd(tvz,e1y));
+    __m256d qy=_mm256_fmsub_pd(tvz,e1x,_mm256_mul_pd(tvx,e1z));
+    __m256d qz=_mm256_fmsub_pd(tvx,e1y,_mm256_mul_pd(tvy,e1x));
+    __m256d v=_mm256_mul_pd(_mm256_add_pd(_mm256_add_pd(_mm256_mul_pd(rdx,qx),_mm256_mul_pd(rdy,qy)),_mm256_mul_pd(rdz,qz)),invDet);
+    maskV=_mm256_and_pd(maskV,_mm256_and_pd(_mm256_cmp_pd(v,_mm256_setzero_pd(),_CMP_GE_OQ),_mm256_cmp_pd(_mm256_add_pd(u,v),_mm256_set1_pd(1.0),_CMP_LE_OQ)));
+    if(_mm256_movemask_pd(maskV)==0){for(int k=0;k<4;++k)outHit[k]=false;return;}
+
+    __m256d t=_mm256_mul_pd(_mm256_add_pd(_mm256_add_pd(_mm256_mul_pd(e2x,qx),_mm256_mul_pd(e2y,qy)),_mm256_mul_pd(e2z,qz)),invDet);
+    maskV=_mm256_and_pd(maskV,_mm256_cmp_pd(t,veps,_CMP_GT_OQ));
+    alignas(32) double tArr[4]; _mm256_store_pd(tArr,t);
+    int m=_mm256_movemask_pd(maskV);
+    for(int k=0;k<4;++k){outHit[k]=(m>>k)&1; if(outHit[k])outDist[k]=tArr[k];}
+}
+#endif
+
+// v7.3 SBR专用: 近远遍历+提前终止 (不改变仿真结果, 仅加速)
+bool CollectClosestFaceHit(
+    const Scene& scene, const FaceBVH& bvh, int nodeIndex,
+    const Ray& ray, const FaceQueryContext& context, double eps,
+    FaceHit& closest, double& closestDist)
+{
+    if(nodeIndex<0||nodeIndex>=static_cast<int>(bvh.nodes.size())) return false;
+    const FaceBVHNode& node=bvh.nodes[nodeIndex];
+    double tMin=0,tMax=0;
+    if(!IntersectRayAABB(ray,node.bounds,tMin,tMax)) return false;
+    if(tMin>=closestDist) return false;
+    if(node.is_leaf){
+        bool found=false;
+        int nPrim=node.primitive_count, si=node.start_index;
+        const auto tryFace=[&](int faceId, double dist){
+            if(dist>=closestDist) return;
+            const Face& face=scene.faces[faceId];
+            if(!AcceptFace(scene,face,dist,context)) return;
+            closest.hit=true; closest.face_id=face.face_id; closest.object_id=face.object_id;
+            closest.distance=dist; closest.position=Add(ray.origin,Scale(ray.direction,dist));
+            closest.normal=face.normal; closestDist=dist; found=true;
+        };
+#ifdef __AVX2__
+        int batchEnd=si+(nPrim&~3);
+        for(int i=si; i<batchEnd; i+=4){
+            Point3 v0[4],v1[4],v2[4]; int fIds[4]; bool ok[4]={}; double d[4];
+            for(int k=0;k<4;++k){d[k]=1e100; int fi=i+k;
+                if(fi<(int)bvh.primitive_face_ids.size()){fIds[k]=bvh.primitive_face_ids[fi];
+                    if(fIds[k]>=0&&fIds[k]<(int)scene.faces.size()){
+                        const Face& f=scene.faces[fIds[k]];
+                        v0[k]=scene.vertices[f.vertex_index0];v1[k]=scene.vertices[f.vertex_index1];v2[k]=scene.vertices[f.vertex_index2];
+                    }else fIds[k]=-1;
+                }else fIds[k]=-1;
+            }
+            IntersectRayTriangle4_AVX2(ray,v0,v1,v2,eps,ok,d);
+            for(int k=0;k<4;++k) if(ok[k]&&fIds[k]>=0) tryFace(fIds[k],d[k]);
+        }
+#else
+        int batchEnd=si;
+#endif
+        for(int i=batchEnd; i<si+nPrim; ++i){
+            if(i<0||i>=(int)bvh.primitive_face_ids.size()) continue;
+            int faceId=bvh.primitive_face_ids[i];
+            if(faceId<0||faceId>=(int)scene.faces.size()) continue;
+            const Face& face=scene.faces[faceId];
+            double dist=0;
+            if(!IntersectRayTriangle(ray,scene.vertices[face.vertex_index0],scene.vertices[face.vertex_index1],scene.vertices[face.vertex_index2],eps,dist)) continue;
+            tryFace(faceId,dist);
+        }
+        return found;
+    }
+    double tMinL=0,tMaxL=0,tMinR=0,tMaxR=0;
+    bool hL=IntersectRayAABB(ray,bvh.nodes[node.left_child].bounds,tMinL,tMaxL);
+    bool hR=IntersectRayAABB(ray,bvh.nodes[node.right_child].bounds,tMinR,tMaxR);
+    bool found=false;
+    if(hL&&hR){
+#if defined(__AVX2__) && !defined(_DEBUG)
+        _mm_prefetch((const char*)&bvh.nodes[node.right_child], _MM_HINT_T0);
+#endif
+        if(tMinL<=tMinR){
+            found|=CollectClosestFaceHit(scene,bvh,node.left_child,ray,context,eps,closest,closestDist);
+            found|=CollectClosestFaceHit(scene,bvh,node.right_child,ray,context,eps,closest,closestDist);
+        }else{
+            found|=CollectClosestFaceHit(scene,bvh,node.right_child,ray,context,eps,closest,closestDist);
+            found|=CollectClosestFaceHit(scene,bvh,node.left_child,ray,context,eps,closest,closestDist);
+        }
+    }else if(hL){found=CollectClosestFaceHit(scene,bvh,node.left_child,ray,context,eps,closest,closestDist);
+    }else if(hR){found=CollectClosestFaceHit(scene,bvh,node.right_child,ray,context,eps,closest,closestDist);}
+    return found;
+}
+
 } // namespace
 
 /// <summary>
@@ -243,6 +371,15 @@ FaceHit SceneQuery::QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& 
             closest = hit;
         }
     }
+    return closest;
+}
+
+FaceHit SceneQuery::QueryClosestFaceHitFast(const Ray& ray, const FaceQueryContext& context) const
+{
+    if(!scene_.acceleration.face_acceleration.face_bvh.valid) return FaceHit{};
+    FaceHit closest; double closestDist=1e100;
+    CollectClosestFaceHit(scene_,scene_.acceleration.face_acceleration.face_bvh,0,
+                          ray,context,config_.numeric_tolerance.eps_intersection,closest,closestDist);
     return closest;
 }
 

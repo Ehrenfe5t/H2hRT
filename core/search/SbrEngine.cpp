@@ -114,12 +114,12 @@ struct RxHashGrid {
     }
 };
 
-// ── Vector math ──
-Vec3 ReflectDir(const Vec3& inc, const Vec3& n) {
+// ── Vector math (v7.3: force-inline 热路径) ──
+__forceinline Vec3 ReflectDir(const Vec3& inc, const Vec3& n) {
     double d=Dot(inc,n);
     return MakeVec3(inc.x-2.0*d*n.x, inc.y-2.0*d*n.y, inc.z-2.0*d*n.z);
 }
-Vec3 RefractDir(const Vec3& inc, const Vec3& n, double cosI, double n2) {
+__forceinline Vec3 RefractDir(const Vec3& inc, const Vec3& n, double cosI, double n2) {
     double sin2t=(1.0-cosI*cosI)/(n2*n2);
     if (sin2t>=1.0) return ReflectDir(inc,n);
     double cosT=std::sqrt(1.0-sin2t), idn=-cosI;
@@ -194,12 +194,27 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const double normFactor=1.0/static_cast<double>(N);
     const double wedgeMD=cfg.wedge_max_distance_m;
     const int wedgeMS=cfg.wedge_max_candidates;
+    const double pwrTh10=pwrTh*10.0;                     // 绕射功率阈值 (循环外预计算)
+    const double originIgnoreDist=context.config->numeric_tolerance.self_hit_ignore_distance; // 循环外预计算
 
     RxHashGrid rxGrid; rxGrid.Build(context.rx_grid,sphereR);
     result.rx_records.resize(NRx);
     for (int i=0;i<NRx;++i){result.rx_records[i].rx_position=context.rx_grid[i];result.rx_records[i].rx_index=i;}
     result.total_rays=N;
     auto rayDirs=GenerateFibonacciRays(N);
+
+    // v7.3 W2: 射线按球面Morton码排序 → 方向相近的射线连续处理 → BVH缓存友好
+    std::vector<int> rayOrder(N);
+    for(int i=0;i<N;++i) rayOrder[i]=i;
+    // Morton: 将单位向量(x,y,z)∈[-1,1]量化为10bit → 交织为30bit码
+    auto morton3D=[&](const Vec3& d)->uint32_t{
+        auto q=[&](float v){return (uint32_t)((v+1.0f)*511.5f)&0x3FF;}; // 0..1023
+        uint32_t x=q((float)d.x), y=q((float)d.y), z=q((float)d.z);
+        auto spread=[&](uint32_t v){v=(v|(v<<16))&0x030000FF;v=(v|(v<<8))&0x0300F00F;v=(v|(v<<4))&0x030C30C3;v=(v|(v<<2))&0x09249249;return v;};
+        return spread(x)|(spread(y)<<1)|(spread(z)<<2);
+    };
+    std::sort(rayOrder.begin(),rayOrder.end(),[&](int a,int b){return morton3D(rayDirs[a])<morton3D(rayDirs[b]);});
+    // 注: normFactor=1/N均匀, 射线权重不随方向变化, 排序无需权重补偿
 
     std::ostringstream oss;
 #ifdef _OPENMP
@@ -217,6 +232,7 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
 
     const auto* matDb=context.material_db;
     const double freqHz=context.config->em_solver.frequency_hz;
+    const bool hasMatGlobal = (matDb && !matDb->empty());  // v7.3: 循环外提
 
     std::atomic<int> rayDone{0};
     const int reportStep = std::max(1, N / 20); // 每5%报告一次
@@ -237,12 +253,13 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             { std::fprintf(stderr, "\r  SBR rays: %.0f%% (%d/%d)", 100.0*done/N, done, N); std::fflush(stderr); }
         }
         auto& myP=tp[tid]; auto& myH=th[tid];
-        uint32_t rng=static_cast<uint32_t>(ri*2654435761u+1); // 每射线独立种子
+        int rIdx=rayOrder[ri]; // v7.3 W2: 按Morton排序后的射线索引
+        uint32_t rng=static_cast<uint32_t>(rIdx*2654435761u+1);
 
         Point3 curPt=context.tx_point;
-        Vec3 curDir=rayDirs[ri];
+        Vec3 curDir=rayDirs[rIdx];
         double curPwr=1.0;
-        int cr=0, ct=0, cd=0, stepIdx=0;
+        int cr=0, ct=0, cd=0, stepIdx=0, noNewHit=0;
         std::vector<int> hitList;
 
         while (cr+ct+cd<=maxDepth && curPwr>pwrTh)
@@ -250,19 +267,22 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             stepIdx++;
             Ray ray; ray.origin=curPt; ray.direction=curDir;
             FaceQueryContext fqc;
-            fqc.origin_ignore_distance=context.config->numeric_tolerance.self_hit_ignore_distance;
-            FaceHit hit=context.scene_query->QueryClosestFaceHit(ray,fqc);
+            fqc.origin_ignore_distance=originIgnoreDist;
+            FaceHit hit=context.scene_query->QueryClosestFaceHitFast(ray,fqc);
 
             Point3 segEnd=hit.hit?hit.position:Add(curPt,Scale(curDir,1e6));
             std::vector<int> sHits; rxGrid.CheckSegment(curPt,segEnd,sHits);
-            for (int rxi:sHits){bool dup=false;for(int h:hitList){if(h==rxi){dup=true;break;}}if(!dup){hitList.push_back(rxi);myP[rxi]+=curPwr*normFactor;myH[rxi]++;}}
+            int newHits=0;
+            for (int rxi:sHits){bool dup=false;for(int h:hitList){if(h==rxi){dup=true;break;}}if(!dup){hitList.push_back(rxi);myP[rxi]+=curPwr*normFactor;myH[rxi]++;newHits++;}}
+            // v7.3 S1: 连续2步无新Rx命中 → 自适应终止
+            if (newHits==0) { noNewHit++; if (noNewHit>=2) break; } else noNewHit=0;
 
             if (!hit.hit) break;
             const Face& face=context.scene->faces[hit.face_id];
 
-            // ── 衍射 (降频:仅奇数步, 或stepIdx%2==1) ──
+            // ── 衍射 (每步全量检测) ──
             if (cfg.enable_diffraction && cd<maxDiff && face.reflection_enabled
-                && curPwr>pwrTh*10.0 && (stepIdx&1) && !context.scene->wedges.empty()) {
+                && curPwr>pwrTh10 && !context.scene->wedges.empty()) {
                 auto nw=FindNearbyWedges(hit.position,context.scene,wedgeMD,wedgeMS,ri+stepIdx);
                 for (int wid:nw) {
                     const Wedge& w=context.scene->wedges[wid];
@@ -272,7 +292,8 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
                     double s1=Length(Subtract(w.center_point,hit.position)); if(s1<0.1)s1=0.1;
                     double sB0=std::sqrt(1.0-cB0*cB0); if(sB0<0.05)sB0=0.05;
                     double nW=(360.0-w.wedge_angle_deg)/180.0; if(nW<0.5)nW=0.5;
-                    double bF=0.02*(1.0/(nW*nW))*(1.0/(sB0*sB0));
+                    double k=6.28318530717958647693*freqHz/kC0;
+                    double bF=8.0/k*(1.0/(nW*nW))*(1.0/(sB0*sB0)); // v7.3 A3: UTD频率相关绕射系数
                     for (int d=0;d<4;++d){double phi=(d*0.5+0.25)*kPi;
                         Vec3 crossTerm = Cross(eD, pB);
                         Vec3 dd=MakeVec3(
@@ -280,50 +301,40 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
                             std::sin(b0)*std::cos(phi)*pB.y+std::cos(b0)*eD.y+std::sin(b0)*std::sin(phi)*crossTerm.y,
                             std::sin(b0)*std::cos(phi)*pB.z+std::cos(b0)*eD.z+std::sin(b0)*std::sin(phi)*crossTerm.z);
                         Ray dr; dr.origin=w.center_point; dr.direction=dd;
-                        FaceHit dh=context.scene_query->QueryClosestFaceHit(dr,fqc);
+                        FaceHit dh=context.scene_query->QueryClosestFaceHitFast(dr,fqc);
                         Point3 dEnd=dh.hit?dh.position:Add(w.center_point,Scale(dd,10.0));
                         std::vector<int> dH; rxGrid.CheckSegment(w.center_point,dEnd,dH);
                         for (int drxi:dH){bool dup=false;for(int h:hitList){if(h==drxi){dup=true;break;}}
                             if(!dup){hitList.push_back(drxi);
                                 double s2=Length(Subtract(context.rx_grid[drxi],w.center_point));if(s2<0.1)s2=0.1;
-                                myP[drxi]+=curPwr*bF*(1.0/(s1*s2*(s1+s2)))/0.5*normFactor;myH[drxi]++;}}
+                                myP[drxi]+=curPwr*bF*(1.0/(s1*s2*(s1+s2)))*normFactor;myH[drxi]++;}}
                     }
                 }
             }
 
-            // ── 材质 ──
-            double cosI=std::fabs(Dot(curDir,hit.normal)); if(cosI<0.01)cosI=0.01;
+            // ── 材质 (v7.3: 循环外提hasMatGlobal + const ref) ──
+            double cosI=std::fabs(Dot(curDir,hit.normal)); if(cosI<1e-4)cosI=1e-4;
             double refPwr=0.3; double transEpsR=1.0; int matHash=0; bool hasMat=false;
-            if (matDb&&!matDb->empty()) {
-                std::string mn=face.surface_material_name; if(mn.empty())mn="Concrete";
-                MaterialProps mp=matDb->QueryByName(mn,freqHz);
-                matHash=static_cast<int>(mp.epsilon_r*100)+static_cast<int>(mp.sigma*1000);
-                refPwr=FresnelPowerReflectionCached(cosI,mp.epsilon_r,mp.sigma,freqHz,matHash);
-                transEpsR=mp.epsilon_r; hasMat=true;
+            if (hasMatGlobal) {
+                matHash=static_cast<int>(face.surface_eps_r*100)+static_cast<int>(face.surface_sigma*1000);
+                refPwr=FresnelPowerReflectionCached(cosI,face.surface_eps_r,face.surface_sigma,freqHz,matHash);
+                transEpsR=face.surface_eps_r; hasMat=true;
             }
 
-            // ── 透射 (Monte Carlo: 重要性采样, 不分裂) ──
-            // v7 H3: 概率p=|Γ|²选反射, 1-p选透射. 重要性权重=P_fraction/p=1 → 不额外缩放功率
-            bool useMC = cfg.enable_transmission && face.transmission_enabled && ct<maxTrans
-                      && hasMat && face.dual_side_material_resolved;
-            if (useMC) {
+            // ── 透射 (Monte Carlo: 概率选择+物理功率衰减, 不分裂) ──
+            if (cfg.enable_transmission && face.transmission_enabled && ct<maxTrans && hasMat
+                && face.dual_side_material_resolved) {
                 double r=RandDouble(rng);
-                if (r>=refPwr) { // 透射 (概率=1-|Γ|², 重要性权重恒为1)
+                if (r>=refPwr) { // 透射 (概率=1-|Γ|²)
                     double n2=std::sqrt(std::max(1.0,transEpsR));
                     curDir=RefractDir(curDir,hit.normal,cosI,n2);
                     curPt=Add(hit.position,Scale(curDir,0.01));
-                    ct++; continue;
+                    curPwr*=(1.0-refPwr); ct++; continue; // 物理透射衰减
                 }
-                // 反射 (概率=|Γ|², 重要性权重恒为1) — 走下面反射分支, 不额外缩放功率
-                if (face.reflection_enabled && cr<maxRefl) {
-                    curDir=ReflectDir(curDir,hit.normal);
-                    curPt=Add(hit.position,Scale(curDir,0.01));
-                    cr++; continue;
-                }
-                break;
+                // 反射 (概率=|Γ|²) — 走下面反射分支 (curPwr*=refPwr)
             }
 
-            // ── 反射 (确定性, 非MC) ──
+            // ── 反射 ──
             if (face.reflection_enabled && cr<maxRefl) {
                 curDir=ReflectDir(curDir,hit.normal);
                 curPt=Add(hit.position,Scale(curDir,0.01));

@@ -74,6 +74,9 @@ struct Face {
     std::string back_material_name;
     int back_material_id = -1;
     int back_medium_id = -1;
+    // v7.3: 材质预索引 — 场景加载时填充, SBR热路径O(1)读取
+    double surface_eps_r = 1.0;
+    double surface_sigma = 0.0;
     std::string normal_rule_tag;
 
     bool dual_side_material_resolved = false;

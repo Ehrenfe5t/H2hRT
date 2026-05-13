@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OBJ = ROOT / "demo" / "meeting.obj"
 DEFAULT_CFG = ROOT / "configs" / "app" / "meeting_v3.json"
 DEFAULT_MAT = ROOT / "configs" / "scenes" / "scene_material_map.json"
-DEFAULT_PTH = ROOT / "output" / "a1_real_chain" / "paths" / "precise_paths.json"
+DEFAULT_PTH = ROOT / "output" / "meeting-cov-hires" / "paths" / "precise_paths.json"
 
 # ─── 样式常量 ─────────────────────────────────────────
 TX_CLR, RX_CLR, PATH_CLR, MESH_CLR = "#ff5a5f", "#2d9cdb", "#ff9900", "#c7ccd6"

@@ -105,6 +105,9 @@ public:
     /// <returns>最近有效面元命中结果。</returns>
     FaceHit QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& context) const;
 
+    /// <summary>[v7.3 SBR] 近远遍历+提前终止, 比全量快~30%, precise不可用。</summary>
+    FaceHit QueryClosestFaceHitFast(const Ray& ray, const FaceQueryContext& context) const;
+
     /// <summary>
     /// 查询射线正向全部面元命中。
     /// </summary>
