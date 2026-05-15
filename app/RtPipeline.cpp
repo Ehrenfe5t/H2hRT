@@ -25,6 +25,7 @@
 #include "../preprocess/build/SceneTopologyBuilder.h"
 #include "../preprocess/build/SceneQueryBuilder.h"
 #include "../preprocess/accel/SceneVisibilityBuilder.h"  // v8: PVS precompute
+#include "../core/search/RxSeedSampler.h"                // v8: seed Rx selection
 
 #include <sstream>
 
@@ -205,6 +206,41 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                << " pairs, AngularGrid=" << batch4Result.scene.visibility.angular_grid.CellCount()
                << " cells, time=" << batch4Result.scene.visibility.build_time_seconds << "s";
         logger.Log(LogLevel::Info, "S0", pvsLog.str());
+    }
+
+    // v8 Phase 2: SBR粗扫 + Rx种子采样 (收集活跃面元集)
+    SbrCoarseResult coarseResult;
+    if (loadResult.config.pipeline.enable_stage1_coarse_sbr && batch4Result.scene.query) {
+        SbrEngine sbrEngine;
+        SbrCoarseContext coarseCtx;
+        coarseCtx.config = &loadResult.config;
+        coarseCtx.scene = &batch4Result.scene;
+        coarseCtx.scene_query = batch4Result.scene.query.get();
+        coarseCtx.tx_point = MakeVec3(loadResult.config.path_search.tx_x,
+                                       loadResult.config.path_search.tx_y,
+                                       loadResult.config.path_search.tx_z);
+        coarseCtx.rx_grid = {}; // 从path_search单Rx创建
+        coarseCtx.rx_grid.push_back(MakeVec3(loadResult.config.path_search.rx_x,
+                                              loadResult.config.path_search.rx_y,
+                                              loadResult.config.path_search.rx_z));
+        coarseCtx.coarse_ray_count = 50000;
+        coarseCtx.coarse_max_depth = 3;
+        coarseCtx.coarse_rx_sphere_radius = 2.0;
+        coarseCtx.expand_pvs = batch4Result.scene.visibility.face_pvs.valid;
+        coarseResult = sbrEngine.RunCoarsePass(coarseCtx);
+        for (auto& line : coarseResult.trace_lines)
+            logger.Log(LogLevel::Info, "S1", line);
+
+        // RxSeedSampler
+        RxSeedSamplerConfig seedCfg;
+        seedCfg.target_seed_count = loadResult.config.pipeline.seed_rx_count;
+        seedCfg.uniform_stride_m = loadResult.config.pipeline.seed_spatial_stride;
+        auto seeds = RxSeedSampler::Sample(coarseCtx.rx_grid, coarseResult.rx_active_mask,
+                                            coarseResult.rx_active_faces, seedCfg);
+        std::ostringstream seedLog;
+        seedLog << "种子Rx: " << seeds.seed_count << " seeds, avg "
+                << seeds.avg_rx_per_seed << " Rx/seed, max " << seeds.max_rx_per_seed;
+        logger.Log(LogLevel::Info, "S1", seedLog.str());
     }
 
     // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---

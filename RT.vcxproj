@@ -184,6 +184,7 @@
     <ClCompile Include="core\search\TransmissionExpander.cpp" />
     <ClCompile Include="core\search\StateSignatureBuilder.cpp" />
     <ClCompile Include="core\search\PathSignatureBuilder.cpp" />
+    <ClCompile Include="core\search\RxSeedSampler.cpp" />
     <ClCompile Include="core\em\PreparePathForEM.cpp" />
     <ClCompile Include="core\em\InitializeTxField.cpp" />
     <ClCompile Include="core\em\ApplyFreeSpaceSegment.cpp" />

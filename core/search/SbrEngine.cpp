@@ -365,4 +365,141 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     return result;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  v8 Phase 2: RunCoarsePass — 面元可见性收集 (非功率累加)
+// ═══════════════════════════════════════════════════════════════════
+SbrCoarseResult SbrEngine::RunCoarsePass(const SbrCoarseContext& context) const
+{
+    SbrCoarseResult result;
+    if (!context.scene || !context.scene_query) {
+        result.trace_lines.push_back("SbrCoarsePass: context incomplete");
+        return result;
+    }
+
+    const int N = context.coarse_ray_count;
+    const int maxDepth = context.coarse_max_depth;
+    const double sphereR = context.coarse_rx_sphere_radius;
+    const int NRx = static_cast<int>(context.rx_grid.size());
+    const double originIgnoreDist = context.config
+        ? context.config->numeric_tolerance.self_hit_ignore_distance : 1.0e-5;
+
+    // ── RxHashGrid (复用现有, 放大接收球) ──
+    RxHashGrid rxGrid;
+    rxGrid.Build(context.rx_grid, sphereR);
+
+    result.total_coarse_rays = N;
+    result.rx_active_mask.resize(NRx, false);
+    result.rx_active_faces.clear();
+    result.rx_active_wedges.clear();
+
+    auto rayDirs = GenerateFibonacciRays(N);
+
+    // PVS 引用 (若可用)
+    const auto* pvs = (context.expand_pvs && context.scene->visibility.face_pvs.valid)
+        ? &context.scene->visibility.face_pvs : nullptr;
+
+    // Morton 排序 (复用现有)
+    std::vector<int> rayOrder(N);
+    for (int i = 0; i < N; ++i) rayOrder[i] = i;
+    auto morton3D = [&](const Vec3& d) -> uint32_t {
+        auto q = [&](float v) { return (uint32_t)((v + 1.0f) * 511.5f) & 0x3FF; };
+        uint32_t x = q((float)d.x), y = q((float)d.y), z = q((float)d.z);
+        auto spread = [&](uint32_t v) {
+            v = (v | (v << 16)) & 0x030000FF; v = (v | (v << 8)) & 0x0300F00F;
+            v = (v | (v << 4)) & 0x030C30C3; v = (v | (v << 2)) & 0x09249249; return v;
+        };
+        return spread(x) | (spread(y) << 1) | (spread(z) << 2);
+    };
+    std::sort(rayOrder.begin(), rayOrder.end(),
+        [&](int a, int b) { return morton3D(rayDirs[a]) < morton3D(rayDirs[b]); });
+
+    std::ostringstream oss;
+    oss << "SbrCoarsePass: rays=" << N << " rxCount=" << NRx
+        << " sphereR=" << sphereR << "m maxDepth=" << maxDepth
+        << " PVS=" << (pvs ? "on" : "off");
+    result.trace_lines.push_back(oss.str());
+
+#pragma omp parallel for schedule(dynamic)
+    for (int ri = 0; ri < N; ++ri)
+    {
+        Point3 curPt = context.tx_point;
+        Vec3 curDir = rayDirs[rayOrder[ri]];
+        int depth = 0;
+        int ignoredFace = -1;
+
+        while (depth <= maxDepth)
+        {
+            Ray ray; ray.origin = curPt; ray.direction = curDir;
+            FaceQueryContext fqc;
+            fqc.ignored_face_id = ignoredFace;
+            fqc.origin_ignore_distance = originIgnoreDist;
+            FaceHit hit = context.scene_query->QueryClosestFaceHitFast(ray, fqc);
+
+            Point3 segEnd = hit.hit ? hit.position : Add(curPt, Scale(curDir, 1e6));
+
+            // ── Rx 命中: 收集面元可见性 ──
+            std::vector<int> sHits;
+            rxGrid.CheckSegment(curPt, segEnd, sHits);
+            for (int rxi : sHits)
+            {
+#pragma omp critical
+                {
+                    result.rx_active_mask[rxi] = true;
+                    auto& faces = result.rx_active_faces[rxi];
+                    auto& wedges = result.rx_active_wedges[rxi];
+
+                    if (hit.hit) {
+                        // 记录命中面元
+                        if (std::find(faces.begin(), faces.end(), hit.face_id) == faces.end())
+                            faces.push_back(hit.face_id);
+                        // PVS 扩展: 加入该面元的可见面元
+                        if (pvs && pvs->HasEntry(hit.face_id)) {
+                            for (int pvsFace : pvs->GetVisibleFaces(hit.face_id)) {
+                                if (std::find(faces.begin(), faces.end(), pvsFace) == faces.end())
+                                    faces.push_back(pvsFace);
+                            }
+                        }
+                    }
+
+                    // 近邻楔边收集
+                    if (!context.scene->wedges.empty() && hit.hit) {
+                        double wedgeMD = 5.0;
+                        int wedgeMS = 16;
+                        uint32_t seed = static_cast<uint32_t>(ri * 2654435761u + depth);
+                        auto nw = FindNearbyWedges(hit.position, context.scene, wedgeMD, wedgeMS, seed);
+                        for (int wid : nw) {
+                            if (std::find(wedges.begin(), wedges.end(), wid) == wedges.end())
+                                wedges.push_back(wid);
+                        }
+                    }
+                }
+            }
+
+            if (!hit.hit) break;
+            const Face& face = context.scene->faces[hit.face_id];
+
+            // 仅反射 (粗扫不处理透射/绕射)
+            if (face.reflection_enabled) {
+                curDir = ReflectDir(curDir, hit.normal);
+                curPt = Add(hit.position, Scale(curDir, 0.01));
+                ignoredFace = hit.face_id;
+                depth++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    // 统计活跃 Rx
+    for (bool active : result.rx_active_mask)
+        if (active) result.active_rx_count++;
+
+    result.succeeded = (result.active_rx_count > 0);
+    oss.str("");
+    oss << "SbrCoarsePass: activeRx=" << result.active_rx_count << "/" << NRx
+        << " (" << (100.0 * result.active_rx_count / std::max(1, NRx)) << "%)";
+    result.trace_lines.push_back(oss.str());
+    return result;
+}
+
 } // namespace rt

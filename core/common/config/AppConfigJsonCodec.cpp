@@ -331,6 +331,8 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "enable_pvs", config.pipeline.enable_pvs);
         ReadOptionalBool(body, "enable_edge_adjacency", config.pipeline.enable_edge_adjacency);
         ReadOptionalBool(body, "enable_angular_grid", config.pipeline.enable_angular_grid);
+        ReadOptionalBool(body, "enable_stage0_precompute", config.pipeline.enable_stage0_precompute);
+        ReadOptionalBool(body, "enable_stage1_coarse_sbr", config.pipeline.enable_stage1_coarse_sbr);
         ReadOptionalBool(body, "enable_legacy_sbr_power", config.pipeline.enable_legacy_sbr_power);
         ReadOptionalNumber(body, "seed_rx_count", config.pipeline.seed_rx_count);
         ReadOptionalNumber(body, "bidirectional_split_depth", config.pipeline.bidirectional_split_depth);
