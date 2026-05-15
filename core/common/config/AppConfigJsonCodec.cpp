@@ -333,10 +333,15 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalBool(body, "enable_angular_grid", config.pipeline.enable_angular_grid);
         ReadOptionalBool(body, "enable_stage0_precompute", config.pipeline.enable_stage0_precompute);
         ReadOptionalBool(body, "enable_stage1_coarse_sbr", config.pipeline.enable_stage1_coarse_sbr);
+        ReadOptionalBool(body, "enable_stage2_constrained_search", config.pipeline.enable_stage2_constrained_search);
+        ReadOptionalBool(body, "enable_stage3_path_reuse", config.pipeline.enable_stage3_path_reuse);
         ReadOptionalBool(body, "enable_legacy_sbr_power", config.pipeline.enable_legacy_sbr_power);
         ReadOptionalNumber(body, "seed_rx_count", config.pipeline.seed_rx_count);
+        ReadOptionalNumber(body, "seed_spatial_stride", config.pipeline.seed_spatial_stride);
         ReadOptionalNumber(body, "bidirectional_split_depth", config.pipeline.bidirectional_split_depth);
         ReadOptionalNumber(body, "max_paths_per_rx", config.pipeline.max_paths_per_rx);
+        ReadOptionalNumber(body, "reuse_max_distance", config.pipeline.reuse_max_distance);
+        ReadOptionalBool(body, "reuse_verify_last_hop", config.pipeline.reuse_verify_last_hop);
     }
 
     // v8: acceleration config

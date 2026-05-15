@@ -25,6 +25,7 @@
 #include "../preprocess/build/SceneTopologyBuilder.h"
 #include "../preprocess/build/SceneQueryBuilder.h"
 #include "../preprocess/accel/SceneVisibilityBuilder.h"  // v8: PVS precompute
+#include "../core/search/PathReuseEngine.h"              // v8: path reuse
 #include "../core/search/RxSeedSampler.h"                // v8: seed Rx selection
 
 #include <sstream>
@@ -246,7 +247,71 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---
     const PathSearchContext batch5SearchContext = BuildBatch5SearchContext(loadResult.config, batch4Result.scene, &matDb);
     SearchEngine searchEngine;
-    const SearchEngineResult batch5Result = searchEngine.Run(batch5SearchContext);
+    SearchEngineResult batch5Result;
+
+    // v8 Phase 5: 约束搜索 — 仅在多Rx coverage模式下启用 (单Rx用全量搜索)
+    // 约束搜索需要足够的粗扫覆盖 (>90% 面元), 典型配置: 200K rays × depth 5
+    if (coarseResult.succeeded) {
+        std::ostringstream dbgLog;
+        dbgLog << "活跃面元集: " << coarseResult.rx_active_faces.size() << " Rx entries";
+        for (auto& kv : coarseResult.rx_active_faces)
+            dbgLog << " [Rx" << kv.first << "=" << kv.second.size() << " faces]";
+        logger.Log(LogLevel::Info, "S1", dbgLog.str());
+    }
+    bool usedConstrainedSearch = false;
+    // 仅多Rx场景启用约束搜索 (单Rx precise模式使用全量搜索保证路径完整性)
+    bool isMultiRx = coarseResult.succeeded && (coarseResult.rx_active_mask.size() > 10);
+    if (isMultiRx && loadResult.config.pipeline.enable_stage2_constrained_search
+        && coarseResult.succeeded && !coarseResult.rx_active_faces.empty())
+    {
+        // 获取当前Rx的活跃面元/楔边
+        int rxIdx = 0;  // 单Rx precise模式
+        ConstrainedSearchConfig csc;
+        auto itFaces = coarseResult.rx_active_faces.find(rxIdx);
+        auto itWedges = coarseResult.rx_active_wedges.find(rxIdx);
+        if (itFaces != coarseResult.rx_active_faces.end() && !itFaces->second.empty()) {
+            csc.candidate_faces = &itFaces->second;
+            logger.Log(LogLevel::Info, "S2", "约束搜索: candidate_faces="
+                + std::to_string(itFaces->second.size()) + " faces");
+        }
+        if (itWedges != coarseResult.rx_active_wedges.end() && !itWedges->second.empty()) {
+            csc.candidate_wedges = &itWedges->second;
+            logger.Log(LogLevel::Info, "S2", "约束搜索: candidate_wedges="
+                + std::to_string(itWedges->second.size()) + " wedges");
+        }
+        batch5Result = searchEngine.Run(batch5SearchContext, csc);
+        usedConstrainedSearch = true;
+    }
+    else
+    {
+        batch5Result = searchEngine.Run(batch5SearchContext);  // full search
+    }
+
+    // ── Phase 4: 路径复用验证 (有种子Rx时) ──
+    if (loadResult.config.pipeline.enable_stage3_path_reuse
+        && usedConstrainedSearch && batch5Result.succeeded
+        && !batch5Result.path_set.paths.empty())
+    {
+        Point3 refRx = MakeVec3(loadResult.config.path_search.rx_x,
+                                 loadResult.config.path_search.rx_y,
+                                 loadResult.config.path_search.rx_z);
+        Point3 neighborRx = MakeVec3(refRx.x + 0.5, refRx.y, refRx.z);  // 50cm offset
+        PathReuseConfig reuseCfg;
+        reuseCfg.max_reuse_distance_m = loadResult.config.pipeline.reuse_max_distance;
+        reuseCfg.verify_last_hop = loadResult.config.pipeline.reuse_verify_last_hop;
+        PathReuseResult reuseResult = PathReuseEngine::ReusePaths(
+            refRx, batch5Result.path_set.paths, neighborRx,
+            *batch4Result.scene.query, loadResult.config, reuseCfg);
+        std::ostringstream reuseLog;
+        reuseLog << "路径复用: " << reuseResult.reused_count << " reused, "
+                 << reuseResult.rejected_visibility << " rejected (visibility), "
+                 << reuseResult.rejected_distance << " rejected (distance)";
+        logger.Log(LogLevel::Info, "S3", reuseLog.str());
+    }
+
+    if (usedConstrainedSearch) {
+        logger.Log(LogLevel::Info, "S2", "约束搜索完成: " + std::to_string(batch5Result.path_set.paths.size()) + " paths");
+    }
 
     if (!batch5Result.succeeded || batch5Result.path_set.paths.empty()) {
         logger.Log(LogLevel::Fatal, "App", "搜索器未能建立基本LOS闭环。");
