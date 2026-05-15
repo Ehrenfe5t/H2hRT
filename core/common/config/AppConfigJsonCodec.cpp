@@ -235,6 +235,13 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalString(body, "source_type", config.antenna.source_type);
         ReadOptionalString(body, "pattern_file", config.antenna.pattern_file);
         ReadOptionalString(body, "polarization_file", config.antenna.polarization_file);
+        // v8: 天线姿态
+        ReadOptionalNumber(body, "forward_x", config.antenna.forward_x);
+        ReadOptionalNumber(body, "forward_y", config.antenna.forward_y);
+        ReadOptionalNumber(body, "forward_z", config.antenna.forward_z);
+        ReadOptionalNumber(body, "up_x", config.antenna.up_x);
+        ReadOptionalNumber(body, "up_y", config.antenna.up_y);
+        ReadOptionalNumber(body, "up_z", config.antenna.up_z);
     }
 
     if (ExtractObjectBody(text, "path_search", body))
@@ -419,7 +426,13 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config)
     stream << "  \"antenna\": {\n";
     stream << "    \"source_type\": \"" << EscapeJsonString(config.antenna.source_type) << "\",\n";
     stream << "    \"pattern_file\": \"" << EscapeJsonString(config.antenna.pattern_file) << "\",\n";
-    stream << "    \"polarization_file\": \"" << EscapeJsonString(config.antenna.polarization_file) << "\"\n";
+    stream << "    \"polarization_file\": \"" << EscapeJsonString(config.antenna.polarization_file) << "\",\n";
+    stream << "    \"forward_x\": " << config.antenna.forward_x << ",";
+    stream << " \"forward_y\": " << config.antenna.forward_y << ",";
+    stream << " \"forward_z\": " << config.antenna.forward_z << ",\n";
+    stream << "    \"up_x\": " << config.antenna.up_x << ",";
+    stream << " \"up_y\": " << config.antenna.up_y << ",";
+    stream << " \"up_z\": " << config.antenna.up_z << "\n";
     stream << "  },\n";
 
     stream << "  \"path_search\": {\n";

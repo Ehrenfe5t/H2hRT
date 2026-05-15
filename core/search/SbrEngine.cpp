@@ -235,7 +235,7 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const bool hasMatGlobal = (matDb && !matDb->empty());  // v7.3: 循环外提
 
     std::atomic<int> rayDone{0};
-    const int reportStep = std::max(1, N / 20); // 每5%报告一次
+    const int reportStep = std::max(1, N / 100); // 每5%报告一次
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(nTh)

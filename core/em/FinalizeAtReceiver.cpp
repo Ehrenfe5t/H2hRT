@@ -35,7 +35,7 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     // 介质衰减: exp(-Σ α_i·d_i), α_i=各段介质衰减常数(Np/m)
     double mediaLoss = std::exp(-field.media_attenuation_np);
 
-    // Rx天线增益(若方向图已加载)
+    // v8: Rx天线增益 (天线姿态 + 局部球坐标查询)
     double rxGainLin = 1.0;
     if (input.config) {
         const Point3 rxPos = !path.nodes.empty() ? path.nodes.back().point : Point3{};
@@ -43,9 +43,11 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
         if (rxAnt.pattern.loaded && path.nodes.size() >= 2) {
             Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-1].point,
                                               path.nodes[path.nodes.size()-2].point));
-            double thetaD, phiD;
-            CartesianToSpherical(incDir, thetaD, phiD);
-            thetaD *= 180.0 / kPi; phiD *= 180.0 / kPi;
+            double thetaRad, phiRad;
+            WorldToAntennaSpherical(incDir, rxAnt.forward, rxAnt.right, rxAnt.up,
+                                    thetaRad, phiRad);
+            double thetaD = thetaRad * 180.0 / kPi;
+            double phiD   = phiRad   * 180.0 / kPi;
             double gainDBi = rxAnt.pattern.QueryGainDBi(thetaD, phiD);
             rxGainLin = std::pow(10.0, gainDBi / 10.0);
         }

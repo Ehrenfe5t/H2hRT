@@ -26,9 +26,9 @@ pv.set_plot_theme("document")
 
 # ─── 路径常量 ─────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OBJ = ROOT / "demo" / "meeting.obj"
-DEFAULT_CFG = ROOT / "configs" / "app" / "meeting_v3.json"
-DEFAULT_MAT = ROOT / "configs" / "scenes" / "scene_material_map.json"
+DEFAULT_OBJ = ROOT / "demo/412" / "412-6k.obj"
+DEFAULT_CFG = ROOT / "configs" / "app" / "meeting_412.json"
+DEFAULT_MAT = ROOT / "configs" / "scenes" / "scene_material_map-412.json"
 DEFAULT_PTH = ROOT / "output" / "meeting-cov-hires" / "paths" / "precise_paths.json"
 
 # ─── 样式常量 ─────────────────────────────────────────

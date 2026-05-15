@@ -133,11 +133,9 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
     // ex = 0-face内垂直于边缘的方向: Cross(n0face, ez)
     Vec3 ex = Normalize(Cross(n0face, ez));
     if (Length(ex) < 1e-9) {
-        // 退化保护: n0face∥ez (不可能在合法楔面上发生, 但做安全兜底)
-        double po = Dot(kOut, ez);
-        ex = MakeVec3(kOut.x - po*ez.x, kOut.y - po*ez.y, kOut.z - po*ez.z);
-        double le = Length(ex); if (le < 1e-9) return false;
-        ex = Scale(ex, 1.0/le);
+        // 退化保护: n0face∥ez, 用任意与ez不共线的方向构造ex
+        if (std::fabs(ez.x) < 0.9) ex = Normalize(Cross(ez, MakeVec3(1.0, 0.0, 0.0)));
+        else                     ex = Normalize(Cross(ez, MakeVec3(0.0, 1.0, 0.0)));
     }
     Vec3 ey = Normalize(Cross(ez, ex));
     if (Length(ey) < 1e-9) return false;
@@ -187,7 +185,10 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
     // 射线固定坐标系 (与phi/phi'角度的边缘固定坐标系独立)
     // D_soft→ê_φ (垂直于衍射面), D_hard→ê_β (在衍射面内, 垂直于kOut)
     Vec3 eSoft_dir = Normalize(Cross(kOut, ez));          // ⟂衍射面
-    if (Length(eSoft_dir) < 1e-9) eSoft_dir = MakeVec3(1.0, 0.0, 0.0);
+    if (Length(eSoft_dir) < 1e-9) {
+        if (std::fabs(kOut.x) < 0.9) eSoft_dir = Normalize(Cross(kOut, MakeVec3(1.0, 0.0, 0.0)));
+        else                       eSoft_dir = Normalize(Cross(kOut, MakeVec3(0.0, 1.0, 0.0)));
+    }
     Vec3 eHard_dir = Normalize(Cross(kOut, eSoft_dir));   // 在衍射面内, ⟂kOut
     Complex eS(Dot(field.polarization_vector, eSoft_dir), Dot(field.polarization_imag, eSoft_dir));
     Complex eH(Dot(field.polarization_vector, eHard_dir), Dot(field.polarization_imag, eHard_dir));

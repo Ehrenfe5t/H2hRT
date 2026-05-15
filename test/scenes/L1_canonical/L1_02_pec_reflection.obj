@@ -1,0 +1,11 @@
+# L1-2: Single PEC reflection wall — infinite-like large wall at x=2
+# Validates: |Gamma|^2=1 for both TE/TM, incident angle = reflection angle
+# Theory ref: Balanis Ch.5; Born & Wolf 1.5
+o wall
+v 2.0 -50.0 -50.0
+v 2.0 50.0 -50.0
+v 2.0 50.0 50.0
+v 2.0 -50.0 50.0
+vn -1.0 0.0 0.0
+f 1//1 2//1 3//1
+f 1//1 3//1 4//1

@@ -1,0 +1,9 @@
+{
+  "default_medium": "Vacuum",
+  "objects": [
+    { "rule_name": "wedge_face0", "object_name": "face0", "surface_material_name": "Metal",
+      "reflection_enabled": true, "transmission_enabled": false, "diffraction_candidate_enabled": true },
+    { "rule_name": "wedge_faceN", "object_name": "faceN", "surface_material_name": "Metal",
+      "reflection_enabled": true, "transmission_enabled": false, "diffraction_candidate_enabled": true }
+  ]
+}

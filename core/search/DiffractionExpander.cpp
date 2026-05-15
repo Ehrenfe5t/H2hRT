@@ -150,8 +150,10 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
             continue;
         }
 
-        // Visibility using exact diffraction point
+        // v8: 绕射可见性需忽略楔边的两个面 (否则楔面自身阻挡Tx↔绕射点和绕射点↔Rx)
         VisibilityQueryContext vc;
+        vc.ignored_face_id = cand.positive_face_id;
+        vc.ignored_face_id2 = cand.negative_face_id;
         if (!context.scene_query->IsVisible(state.current_point, dp, vc) ||
             !context.scene_query->IsVisible(dp, context.rx_point, vc))
         {

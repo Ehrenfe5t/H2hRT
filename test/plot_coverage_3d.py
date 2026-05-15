@@ -38,8 +38,8 @@ GROUP_BOX_STYLE = """
 
 MODULE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = MODULE_DIR.parent
-DEFAULT_OBJ = str(REPO_ROOT / "demo" / "meeting.obj")
-DEFAULT_SBR = str(REPO_ROOT / "output" / "a1_real_chain" / "coverage" / "sbr_coverage.json")
+DEFAULT_OBJ = str(REPO_ROOT / "demo/412" / "412-6k.obj")
+DEFAULT_SBR = str(REPO_ROOT / "output" / "412" / "coverage" / "sbr_coverage.json")
 
 
 def make_clip_box(bounds_dict, axis, threshold):
@@ -355,11 +355,11 @@ if __name__ == "__main__":
     SBR = args.sbr or DEFAULT_SBR
     # 回退搜索
     if not os.path.exists(OBJ):
-        alt = os.path.join(os.path.dirname(__file__), "..", "demo/meeting.obj")
+        alt = os.path.join(os.path.dirname(__file__), "..", "F:/RT/RTdemo/412/412-6k.obj")
         if os.path.exists(alt): OBJ = alt
     if not os.path.exists(SBR):
         alt = os.path.join(os.path.dirname(__file__), "..",
-                          "output/history/sbr_coverage-v7.2-all.json")
+                          "F:/RT/RT/output/412/coverage/sbr_coverage.json")
         if os.path.exists(alt): SBR = alt
     for p in [OBJ, SBR]:
         if not os.path.exists(p):

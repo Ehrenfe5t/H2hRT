@@ -60,7 +60,11 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
     if (cosI < 1e-9) cosI = 1e-9;
 
     Vec3 eTE = Normalize(Cross(kInc, n));
-    if (Length(eTE) < 1e-9) eTE = MakeVec3(1.0, 0.0, 0.0);
+    if (Length(eTE) < 1e-9) {
+        // 正常入射: Cross(kInc,n)退化, 用任意与kInc垂直的方向
+        if (std::fabs(kInc.x) < 0.9) eTE = Normalize(Cross(kInc, MakeVec3(1.0, 0.0, 0.0)));
+        else                       eTE = Normalize(Cross(kInc, MakeVec3(0.0, 1.0, 0.0)));
+    }
     Vec3 eTM = Normalize(Cross(eTE, kInc));
 
     Complex A_inc(field.amplitude_real, field.amplitude_imag);

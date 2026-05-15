@@ -1,0 +1,25 @@
+{
+  "default_medium": "Vacuum",
+  "objects": [
+    {
+      "rule_name": "wall_front",
+      "object_name": "wall_front",
+      "surface_material_name": "Concrete",
+      "front_material_name": "Concrete",
+      "back_material_name": "Vacuum",
+      "reflection_enabled": true,
+      "transmission_enabled": true,
+      "diffraction_candidate_enabled": false
+    },
+    {
+      "rule_name": "wall_back",
+      "object_name": "wall_back",
+      "surface_material_name": "Concrete",
+      "front_material_name": "Vacuum",
+      "back_material_name": "Concrete",
+      "reflection_enabled": true,
+      "transmission_enabled": true,
+      "diffraction_candidate_enabled": false
+    }
+  ]
+}

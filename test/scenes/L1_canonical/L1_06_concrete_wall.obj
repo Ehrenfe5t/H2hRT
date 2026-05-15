@@ -1,0 +1,21 @@
+# L1-6: Double-sided concrete wall — medium propagation + dual transmission
+# Front face at x=2, back face at x=2.3 (0.3m thick)
+# eps_r=5.24, sigma=0.05 S/m at 3.5GHz
+# Validates: medium attenuation alpha, effective refractive index, dual-transmission chain
+o wall_front
+v 2.0 -50.0 -50.0
+v 2.0 50.0 -50.0
+v 2.0 50.0 50.0
+v 2.0 -50.0 50.0
+vn -1.0 0.0 0.0
+f 1//1 2//1 3//1
+f 1//1 3//1 4//1
+
+o wall_back
+v 2.3 -50.0 -50.0
+v 2.3 50.0 -50.0
+v 2.3 50.0 50.0
+v 2.3 -50.0 50.0
+vn 1.0 0.0 0.0
+f 5//2 7//2 6//2
+f 6//2 7//2 8//2

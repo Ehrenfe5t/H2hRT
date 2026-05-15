@@ -139,6 +139,30 @@ numpy>=1.20     pyvista>=0.40    pyvistaqt>=0.2
 PyQt5>=5.15     matplotlib>=3.5   trimesh>=4.0
 ```
 
+## L1 解析解验证套件 (v8 新增)
+
+独立的6场景解析解自主验证闭环:
+
+```
+test/
+├── scenes/L1_canonical/   ← 6个手写 OBJ 规范场景
+├── configs/               ← 每场景独立 JSON 配置
+├── materials/L1_materials.csv  ← ITU-R P.2040 材质库
+├── expected/L1_expected.json   ← 理论期望值
+└── validate/
+    ├── run_L1_validation.py    ← 独立理论计算 (无需仿真输出)
+    └── validate_L1.py          ← 仿真输出对比验证
+```
+
+**用法**:
+```bash
+# 1. 验证理论计算 (独立, 无需仿真)
+python test/validate/run_L1_validation.py --verbose
+
+# 2. 运行各场景仿真后验证
+python test/validate/validate_L1.py test/output/
+```
+
 ## 输出目录约定
 
 ```

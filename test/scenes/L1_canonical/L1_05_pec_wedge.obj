@@ -1,0 +1,21 @@
+# L1-5: Single PEC wedge — UTD diffraction validation
+# 90-degree wedge: 0-face at x=2,y<0, n-face at x>2,y=0
+# Edge from (2,0,-50) to (2,0,50), wedge angle = 90 deg
+# Validates: Fermat path, Keller cone, UTD D1-D4 vs K&P (1974)
+o face0
+v 2.0 0.0 -50.0
+v 2.0 -50.0 -50.0
+v 2.0 -50.0 50.0
+v 2.0 0.0 50.0
+vn 0.0 1.0 0.0
+f 1//1 2//1 3//1
+f 1//1 3//1 4//1
+
+o faceN
+v 2.0 0.0 -50.0
+v 50.0 0.0 -50.0
+v 50.0 0.0 50.0
+v 2.0 0.0 50.0
+vn 0.0 -1.0 0.0
+f 5//2 7//2 6//2
+f 6//2 7//2 8//2

@@ -120,6 +120,10 @@ bool AcceptFace(const Scene& scene, const Face& face, double distance, const Fac
     {
         return false;
     }
+    if (face.face_id == context.ignored_face_id2)
+    {
+        return false;
+    }
     if (face.object_id == context.ignored_object_id)
     {
         return false;
@@ -480,6 +484,7 @@ bool SceneQuery::IsOccluded(const Point3& start, const Point3& end, const Visibi
 
     FaceQueryContext faceContext;
     faceContext.ignored_face_id = context.ignored_face_id;
+    faceContext.ignored_face_id2 = context.ignored_face_id2;
     faceContext.ignored_object_id = context.ignored_object_id;
     faceContext.ignore_origin_self_hit = true;
     faceContext.origin_ignore_distance = config_.numeric_tolerance.self_hit_ignore_distance;

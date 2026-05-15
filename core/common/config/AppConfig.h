@@ -64,11 +64,15 @@ struct MaterialConfig {
 
 /// <summary>
 /// 天线输入配置。
+/// v8: 新增天线姿态 (forward/up) 和逐角度极化方向图支持。
 /// </summary>
 struct AntennaConfig {
     std::string source_type = "Ideal";
-    std::string pattern_file;
-    std::string polarization_file;
+    std::string pattern_file;          // 增益方向图CSV
+    std::string polarization_file;     // v7: 固定极化向量; v8: 逐角度极化CSV (含PolTheta/PolPhi)
+    // v8: 天线姿态 — 世界坐标中的天线方向
+    double forward_x = 1.0, forward_y = 0.0, forward_z = 0.0;  // 天线主瓣指向 (boresight)
+    double up_x = 0.0, up_y = 0.0, up_z = 1.0;                // 天线"上"方向 (确定极化参考)
 };
 
 /// <summary>

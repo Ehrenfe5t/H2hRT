@@ -1,0 +1,9 @@
+# L1-1: Free space LOS — dummy tiny face far from Tx/Rx path
+# Validates: FSPL = 20*log10(4*pi*d/lambda), delay = d/c, AoA/AoD
+# Theory ref: Friis (1946)
+o dummy
+v 100.0 100.0 100.0
+v 100.1 100.0 100.0
+v 100.0 100.1 100.0
+vn 0.0 0.0 1.0
+f 1//1 2//1 3//1

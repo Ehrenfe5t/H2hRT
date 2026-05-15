@@ -28,6 +28,7 @@ struct Ray {
 /// </summary>
 struct FaceQueryContext {
     int ignored_face_id = -1;
+    int ignored_face_id2 = -1;  // v8: 绕射可见性检查的第二忽略面
     int ignored_object_id = -1;
     bool ignore_origin_self_hit = true;
     double origin_ignore_distance = 1.0e-6;
@@ -40,6 +41,7 @@ struct FaceQueryContext {
 /// </summary>
 struct VisibilityQueryContext {
     int ignored_face_id = -1;
+    int ignored_face_id2 = -1;  // v8: 绕射使用, 需同时忽略楔边的两个面
     int ignored_object_id = -1;
     bool ignore_origin_attached_face = true;
     bool ignore_target_attached_face = true;
