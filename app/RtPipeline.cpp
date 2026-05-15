@@ -24,6 +24,7 @@
 #include "../preprocess/build/SceneImporter.h"
 #include "../preprocess/build/SceneTopologyBuilder.h"
 #include "../preprocess/build/SceneQueryBuilder.h"
+#include "../preprocess/accel/SceneVisibilityBuilder.h"  // v8: PVS precompute
 
 #include <sstream>
 
@@ -193,6 +194,17 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                 face.surface_sigma = sp.sigma;
             }
         }
+    }
+
+    // v8 Phase 1: 场景可见性预计算 (PVS + Edge Adjacency + Angular Grid)
+    if (loadResult.config.pipeline.enable_stage0_precompute && batch4Result.scene.query) {
+        SceneVisibilityBuilder::BuildAll(batch4Result.scene, *batch4Result.scene.query, loadResult.config);
+        std::ostringstream pvsLog;
+        pvsLog << "预计算完成: PVS=" << batch4Result.scene.visibility.face_pvs.total_entries
+               << " entries, EdgeAdj=" << batch4Result.scene.visibility.edge_adjacency.total_edges
+               << " pairs, AngularGrid=" << batch4Result.scene.visibility.angular_grid.CellCount()
+               << " cells, time=" << batch4Result.scene.visibility.build_time_seconds << "s";
+        logger.Log(LogLevel::Info, "S0", pvsLog.str());
     }
 
     // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---

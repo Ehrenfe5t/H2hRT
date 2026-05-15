@@ -324,6 +324,28 @@ bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
         ReadOptionalString(body, "dataset_tag", config.experiment.dataset_tag);
     }
 
+    // v8: pipeline config
+    if (ExtractObjectBody(text, "pipeline", body))
+    {
+        ReadOptionalBool(body, "enable_stage0_precompute", config.pipeline.enable_stage0_precompute);
+        ReadOptionalBool(body, "enable_pvs", config.pipeline.enable_pvs);
+        ReadOptionalBool(body, "enable_edge_adjacency", config.pipeline.enable_edge_adjacency);
+        ReadOptionalBool(body, "enable_angular_grid", config.pipeline.enable_angular_grid);
+        ReadOptionalBool(body, "enable_legacy_sbr_power", config.pipeline.enable_legacy_sbr_power);
+        ReadOptionalNumber(body, "seed_rx_count", config.pipeline.seed_rx_count);
+        ReadOptionalNumber(body, "bidirectional_split_depth", config.pipeline.bidirectional_split_depth);
+        ReadOptionalNumber(body, "max_paths_per_rx", config.pipeline.max_paths_per_rx);
+    }
+
+    // v8: acceleration config
+    if (ExtractObjectBody(text, "acceleration", body))
+    {
+        ReadOptionalString(body, "backend", config.acceleration.backend);
+        ReadOptionalNumber(body, "gpu_device_id", config.acceleration.gpu_device_id);
+        ReadOptionalNumber(body, "gpu_batch_size", config.acceleration.gpu_batch_size);
+        ReadOptionalBool(body, "gpu_use_rt_core", config.acceleration.gpu_use_rt_core);
+    }
+
     if (ExtractObjectBody(text, "numeric_tolerance", body))
     {
         ReadOptionalNumber(body, "eps_length", config.numeric_tolerance.eps_length);

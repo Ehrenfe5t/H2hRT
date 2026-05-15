@@ -13,6 +13,7 @@
 #include "Face.h"
 #include "SceneMaterialBinding.h"
 #include "SceneMeta.h"
+#include "SceneVisibilityData.h"  // v8: PVS + Edge Adjacency + Angular Grid + Room Graph
 #include "Wedge.h"
 
 #include <string>
@@ -175,6 +176,8 @@ struct Scene {
     std::vector<Wedge> wedges;
     SceneDiagnostics diagnostics;
     SceneAcceleration acceleration;
+    // v8 Phase 1: 预计算可见性数据 (PVS + Edge Adjacency + Angular Grid + Room Graph)
+    SceneVisibilityData visibility;
     std::shared_ptr<SceneQuery> query;
 };
 

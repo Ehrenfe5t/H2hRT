@@ -169,6 +169,37 @@ struct ExperimentConfig {
 };
 
 /// <summary>
+/// v8: 管线阶段控制配置 — 控制混合加速管线的各阶段开关
+/// </summary>
+struct PipelineConfig {
+    bool enable_stage0_precompute = true;
+    bool enable_pvs = true;
+    bool enable_edge_adjacency = true;
+    bool enable_angular_grid = true;
+    bool enable_stage1_coarse_sbr = false;     // Phase 2实现
+    bool enable_stage2_constrained_search = false; // Phase 3实现
+    bool enable_stage3_path_reuse = false;     // Phase 4实现
+    bool enable_stage4_precise_em = true;
+    bool enable_legacy_sbr_power = true;
+    int seed_rx_count = 2000;
+    double seed_spatial_stride = 0.5;
+    int bidirectional_split_depth = 5;
+    int max_paths_per_rx = 256;
+    double reuse_max_distance = 2.0;
+    bool reuse_verify_last_hop = true;
+};
+
+/// <summary>
+/// v8: 加速器后端配置
+/// </summary>
+struct AccelerationConfig {
+    std::string backend = "CPU_FaceBVH";
+    int gpu_device_id = 0;
+    int gpu_batch_size = 1000000;
+    bool gpu_use_rt_core = true;
+};
+
+/// <summary>
 /// RT 系统统一顶层配置对象。
 /// </summary>
 /// <remarks>
@@ -187,6 +218,8 @@ struct AppConfig {
     OutputConfig output;
     ValidationConfig validation;
     ExperimentConfig experiment;
+    PipelineConfig pipeline;            // v8: 管线阶段控制
+    AccelerationConfig acceleration;    // v8: 加速器后端选择
     NumericToleranceConfig numeric_tolerance;
 };
 

@@ -169,6 +169,7 @@
     <ClCompile Include="preprocess\build\SceneDiagnostics.cpp" />
     <ClCompile Include="preprocess\build\SceneMaterialBinding.cpp" />
     <ClCompile Include="preprocess\accel\FaceBVHBuilder.cpp" />
+    <ClCompile Include="preprocess\accel\SceneVisibilityBuilder.cpp" />
     <ClCompile Include="preprocess\accel\WedgeAccelerationBuilder.cpp" />
     <ClCompile Include="preprocess\accel\SceneAcceleration.cpp" />
     <ClCompile Include="preprocess\cache\SceneCache.cpp" />
@@ -242,6 +243,7 @@
     <ClInclude Include="preprocess\build\SceneDiagnostics.h" />
     <ClInclude Include="preprocess\build\SceneMaterialBinding.h" />
     <ClInclude Include="preprocess\accel\FaceBVHBuilder.h" />
+    <ClInclude Include="preprocess\accel\SceneVisibilityBuilder.h" />
     <ClInclude Include="preprocess\accel\WedgeAccelerationBuilder.h" />
     <ClInclude Include="preprocess\accel\SceneAcceleration.h" />
     <ClInclude Include="preprocess\cache\SceneCache.h" />
