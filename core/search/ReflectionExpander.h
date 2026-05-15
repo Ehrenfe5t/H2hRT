@@ -25,9 +25,10 @@ struct ExpanderResult {
 /// <summary>
 /// 执行一次反射扩展。
 /// </summary>
-/// <param name="context">搜索上下文。</param>
-/// <param name="state">当前路径状态。</param>
-/// <returns>结构化反射扩展结果。</returns>
 ExpanderResult ExpandReflection(const PathSearchContext& context, const PathState& state);
+
+/// <summary>v8: 约束候选面元集 (PVS筛选), nullptr=全场景</summary>
+ExpanderResult ExpandReflection(const PathSearchContext& context, const PathState& state,
+                                const std::vector<int>* candidateFaces);
 
 } // namespace rt

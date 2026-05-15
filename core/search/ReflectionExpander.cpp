@@ -269,4 +269,97 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
     return result;
 }
 
+// ── v8: 约束候选面元集重载 ──
+ExpanderResult ExpandReflection(const PathSearchContext& context, const PathState& state,
+                                const std::vector<int>* candidateFaces)
+{
+    if (!candidateFaces || candidateFaces->empty())
+        return ExpandReflection(context, state);  // full search
+
+    ExpanderResult result;
+    if (!state.allow_reflection || state.remaining_reflections <= 0) {
+        result.failure_reasons.push_back(GeometryValidityReason::OutOfBudget);
+        return result;
+    }
+
+    struct ReflectionCandidateState { PathState state; double score = 0.0; };
+    std::vector<ReflectionCandidateState> acceptedStates;
+
+    const double margin = Length(Subtract(context.rx_point, state.current_point)) * 1.5;
+    const AABB region = ComputeExtendedRegion(state.current_point, context.rx_point, margin);
+
+    // BVH spatial filter
+    std::vector<int> bvhCandidates;
+    const FaceBVH& bvh = context.scene->acceleration.face_acceleration.face_bvh;
+    if (bvh.valid) CollectCandidateFaceIdsInRegion(*context.scene, 0, region, bvhCandidates);
+
+    // Intersect BVH candidates with constrained face set
+    std::vector<int> constrainedCandidates;
+    for (int fc : bvhCandidates) {
+        if (std::binary_search(candidateFaces->begin(), candidateFaces->end(), fc))
+            constrainedCandidates.push_back(fc);
+    }
+
+    const std::vector<Face>& facePool = context.scene->faces;
+    for (int faceIdx : (constrainedCandidates.empty() ? bvhCandidates : constrainedCandidates)) {
+        if (faceIdx < 0 || faceIdx >= static_cast<int>(facePool.size())) continue;
+        const Face& face = facePool[faceIdx];
+        if (!face.reflection_enabled || face.degenerate) continue;
+
+        const Point3 mirroredRx = MirrorPointAcrossPlane(context.rx_point, face.centroid, face.normal);
+        const Vec3 candidateDirection = Normalize(Subtract(mirroredRx, state.current_point));
+        if (Length(candidateDirection) <= context.config->numeric_tolerance.eps_length) continue;
+
+        Ray ray; ray.origin = state.current_point; ray.direction = candidateDirection;
+        FaceQueryContext queryContext;
+        queryContext.ignored_face_id = state.ignored_face_id;
+        queryContext.ignored_object_id = state.ignored_object_id;
+        queryContext.origin_ignore_distance = context.config->numeric_tolerance.self_hit_ignore_distance;
+        const FaceHit hit = context.scene_query->QueryClosestFaceHit(ray, queryContext);
+        const GeometryValidityResult cv = IsValidReflectionHitCandidate(hit, context);
+        if (!cv.valid || hit.face_id != face.face_id) { if (!cv.valid) result.failure_reasons.push_back(cv.reason); continue; }
+
+        VisibilityQueryContext vc; vc.ignored_face_id = hit.face_id;
+        if (!context.scene_query->IsVisible(state.current_point, hit.position, vc) ||
+            !context.scene_query->IsVisible(hit.position, context.rx_point, vc))
+        { result.failure_reasons.push_back(GeometryValidityReason::VisibilityBlocked); continue; }
+
+        const Vec3 incoming = SafeNormalize(Subtract(hit.position, state.current_point));
+        const Vec3 outgoing = SafeNormalize(Subtract(context.rx_point, hit.position));
+        if (std::fabs(Dot(incoming, hit.normal)) <= 1.0e-3 || std::fabs(Dot(outgoing, hit.normal)) <= 1.0e-3)
+        { result.failure_reasons.push_back(GeometryValidityReason::CandidateRejectedByControl); continue; }
+
+        PathState ns = state; /* ... same state building as original ... */
+        ns.current_point = hit.position;
+        ns.current_direction = SafeNormalize(Subtract(context.rx_point, hit.position));
+        ns.last_interaction_type = InteractionType::Reflection;
+        ns.last_interaction_object_id = hit.object_id; ns.last_hit_face_id = hit.face_id;
+        ns.last_interaction_normal = hit.normal; ns.accumulated_length += hit.distance;
+        ns.path_depth += 1; ns.interaction_count += 1;
+        ns.remaining_total_expansions -= 1; ns.remaining_reflections -= 1;
+        ns.ignored_face_id = hit.face_id; ns.has_reflection = true;
+        ns.mixed_path_enabled = (ns.has_reflection && ns.has_transmission) || (ns.has_reflection && ns.has_diffraction) || (ns.has_transmission && ns.has_diffraction);
+        ns.clipped_by_control_rules = false;
+        if (state.last_interaction_type != InteractionType::None && state.last_interaction_type != InteractionType::Tx && state.last_interaction_type != InteractionType::Reflection)
+            ns.mechanism_switch_count += 1;
+        ns.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Reflection) ? (state.consecutive_same_interaction_count + 1) : 0;
+        PathNode node; node.interaction_type = InteractionType::Reflection; node.object_id = hit.object_id;
+        node.face_id = hit.face_id; node.point = hit.position; node.direction = ns.current_direction;
+        node.surface_normal = hit.normal; node.segment_length_from_previous = hit.distance; node.valid = true;
+        ns.traversed_nodes.push_back(node);
+        ns.state_signature = BuildStateSignature(ns, *context.config); ns.valid = true;
+        const GeometryValidityResult ev = IsValidExpandedState(context, ns);
+        if (!ev.valid) { result.failure_reasons.push_back(ev.reason); continue; }
+        ReflectionCandidateState cs; cs.state = ns; cs.score = ComputeReflectionCandidateScore(state, hit, context.rx_point);
+        acceptedStates.push_back(cs);
+    }
+
+    std::sort(acceptedStates.begin(), acceptedStates.end(), [](auto& a, auto& b) { return a.score < b.score; });
+    const size_t keep = std::min(acceptedStates.size(), size_t(8));
+    for (size_t i = 0; i < keep; ++i) result.next_states.push_back(acceptedStates[i].state);
+    if (result.next_states.empty() && result.failure_reasons.empty())
+        result.failure_reasons.push_back(GeometryValidityReason::NoHit);
+    return result;
+}
+
 } // namespace rt

@@ -15,9 +15,10 @@ namespace rt {
 /// <summary>
 /// 执行一次透射扩展。
 /// </summary>
-/// <param name="context">搜索上下文。</param>
-/// <param name="state">当前路径状态。</param>
-/// <returns>结构化透射扩展结果。</returns>
 ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathState& state);
+
+/// <summary>v8: 约束候选面元集, nullptr=全场景</summary>
+ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathState& state,
+                                  const std::vector<int>* candidateFaces);
 
 } // namespace rt

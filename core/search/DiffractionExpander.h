@@ -15,9 +15,10 @@ namespace rt {
 /// <summary>
 /// 执行一次绕射扩展。
 /// </summary>
-/// <param name="context">搜索上下文。</param>
-/// <param name="state">当前路径状态。</param>
-/// <returns>结构化绕射扩展结果。</returns>
 ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathState& state);
+
+/// <summary>v8: 约束候选楔边集, nullptr=全场景</summary>
+ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathState& state,
+                                 const std::vector<int>* candidateWedges);
 
 } // namespace rt

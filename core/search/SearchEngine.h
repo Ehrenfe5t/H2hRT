@@ -41,6 +41,16 @@ struct SearchEngineResult {
 };
 
 /// <summary>
+/// v8: 约束搜索配置 — 将搜索空间限制在指定面元/楔边集内, 大幅降低组合爆炸
+/// </summary>
+struct ConstrainedSearchConfig {
+    const std::vector<int>* candidate_faces = nullptr;   // 面元约束集 (nullptr=全场景)
+    const std::vector<int>* candidate_wedges = nullptr;   // 楔边约束集 (nullptr=全场景)
+    int max_forward_depth = 5;                            // 双向搜索预留
+    bool enable_bidirectional = false;                    // 双向搜索预留 (Phase 3b)
+};
+
+/// <summary>
 /// 模块4几何寻径引擎骨架。
 /// </summary>
 class SearchEngine {
@@ -48,9 +58,11 @@ public:
     /// <summary>
     /// 根据上下文执行批次5范围内的几何搜索。
     /// </summary>
-    /// <param name="context">一次搜索所需的统一上下文。</param>
-    /// <returns>结构化搜索结果。</returns>
     SearchEngineResult Run(const PathSearchContext& context) const;
+
+    /// <summary>v8: 约束搜索 — 候选面元/楔边受限</summary>
+    SearchEngineResult Run(const PathSearchContext& context,
+                           const ConstrainedSearchConfig& constraints) const;
 };
 
 } // namespace rt

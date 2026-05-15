@@ -341,6 +341,117 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
     }
 
     result.succeeded = true;
+    // ... existing post-processing ...
+
+    auto findCount = [&result](GeometryValidityReason reason) -> int
+    {
+        const auto it = result.failure_reason_counts.find(static_cast<int>(reason));
+        return it == result.failure_reason_counts.end() ? 0 : it->second;
+    };
+    result.invalid_sequence_rejected_count = findCount(GeometryValidityReason::InvalidPathSequence) +
+                                             findCount(GeometryValidityReason::DuplicateInteractionLoop);
+    result.mixed_path_blocked_count = findCount(GeometryValidityReason::MixedPathNotAllowed);
+    return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  v8 Phase 3: 约束搜索 — 仅展开 candidate_faces/wedges 内的候选
+// ═══════════════════════════════════════════════════════════════════
+SearchEngineResult SearchEngine::Run(const PathSearchContext& context,
+                                      const ConstrainedSearchConfig& constraints) const
+{
+    // 无约束 → 回退到全量搜索
+    if (!constraints.candidate_faces && !constraints.candidate_wedges) {
+        return Run(context);
+    }
+
+    SearchEngineResult result;
+    if (context.config == nullptr || context.scene == nullptr || context.scene_query == nullptr)
+    {
+        result.trace_lines.push_back("SearchEngine aborted because search context is incomplete.");
+        return result;
+    }
+
+    std::priority_queue<ScoredState, std::vector<ScoredState>, CompareScoredState> queue;
+    std::unordered_set<uint64_t> stateSignatures;
+    std::unordered_set<uint64_t> pathSignatures;
+
+    PathState initialState = BuildInitialState(context);
+    initialState.state_signature = BuildStateSignature(initialState, *context.config);
+    stateSignatures.insert(initialState.state_signature);
+    queue.push({initialState, ComputeStatePriority(initialState, context.rx_point)});
+    result.generated_state_count = 1;
+    result.uses_real_scene_query = true;
+    result.trace_lines.push_back("Initial PathState constructed (constrained search).");
+
+    while (!queue.empty())
+    {
+        ScoredState scored = queue.top(); queue.pop();
+        PathState currentState = scored.state;
+
+        const GeometryValidityResult stateExpandable = IsSearchStateExpandable(currentState);
+        if (!stateExpandable.valid)
+        {
+            ++result.failure_reason_counts[static_cast<int>(stateExpandable.reason)];
+            if (stateExpandable.reason == GeometryValidityReason::CandidateRejectedByControl ||
+                stateExpandable.reason == GeometryValidityReason::DuplicateInteractionLoop)
+                ++result.control_rule_rejected_state_count;
+            continue;
+        }
+
+        if (context.config->path_search.enable_los)
+        {
+            GeometricPath path; std::string losTrace;
+            if (TryBuildLosPath(context, currentState, path, losTrace))
+            {
+                path.path_signature = BuildPathSignature(path, *context.config);
+                if (pathSignatures.insert(path.path_signature).second)
+                {
+                    path.path_id = static_cast<int>(result.path_set.paths.size());
+                    result.path_set.paths.push_back(path);
+                }
+                else { ++result.deduplicated_path_count; }
+            }
+        }
+
+        if (currentState.remaining_total_expansions <= 0) continue;
+
+        const int perExpanderKeepLimit = 8;
+        std::vector<PathState> acceptedCandidates;
+
+        // ── v8: 约束展开 ──
+        ExpanderResult reflResult = (constraints.candidate_faces)
+            ? ExpandReflection(context, currentState, constraints.candidate_faces)
+            : ExpandReflection(context, currentState);
+        AccumulateFailureReasons(result, reflResult);
+        AppendCandidates(acceptedCandidates, reflResult, result, perExpanderKeepLimit);
+
+        ExpanderResult transResult = (constraints.candidate_faces)
+            ? ExpandTransmission(context, currentState, constraints.candidate_faces)
+            : ExpandTransmission(context, currentState);
+        AccumulateFailureReasons(result, transResult);
+        AppendCandidates(acceptedCandidates, transResult, result, perExpanderKeepLimit);
+
+        ExpanderResult diffResult = (constraints.candidate_wedges)
+            ? ExpandDiffraction(context, currentState, constraints.candidate_wedges)
+            : ExpandDiffraction(context, currentState);
+        AccumulateFailureReasons(result, diffResult);
+        AppendCandidates(acceptedCandidates, diffResult, result, perExpanderKeepLimit);
+
+        SortAndTruncateCandidates(acceptedCandidates, 16, result);
+
+        for (const PathState& nextState : acceptedCandidates)
+        {
+            if (stateSignatures.insert(nextState.state_signature).second)
+            {
+                queue.push({nextState, ComputeStatePriority(nextState, context.rx_point)});
+                ++result.generated_state_count;
+            }
+            else { ++result.deduplicated_state_count; }
+        }
+    }
+
+    result.succeeded = true;
 
     auto findCount = [&result](GeometryValidityReason reason) -> int
     {

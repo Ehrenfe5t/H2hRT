@@ -213,4 +213,86 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
     return result;
 }
 
+// ── v8: 约束候选楔边集重载 ──
+ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathState& state,
+                                 const std::vector<int>* candidateWedges)
+{
+    if (!candidateWedges || candidateWedges->empty())
+        return ExpandDiffraction(context, state);
+
+    ExpanderResult result;
+    if (!state.allow_diffraction || state.remaining_diffractions <= 0) {
+        result.failure_reasons.push_back(GeometryValidityReason::OutOfBudget);
+        return result;
+    }
+
+    WedgeQueryContext wqc;
+    wqc.ignored_wedge_id = state.last_hit_wedge_id;
+    wqc.recent_face_id = state.last_hit_face_id;
+    wqc.recent_wedge_id = state.last_hit_wedge_id;
+    const std::vector<WedgeCandidate>& allCands = context.scene_query->QueryCandidateWedges(state.current_point, wqc);
+
+    struct DCand { PathState st; double sc; };
+    std::vector<DCand> accepted;
+
+    for (const WedgeCandidate& cand : allCands) {
+        // ── v8: 约束过滤 ──
+        if (!std::binary_search(candidateWedges->begin(), candidateWedges->end(), cand.wedge_id))
+            continue;
+
+        GeometryValidityResult cv = IsValidDiffractionCandidate(cand);
+        if (!cv.valid) { result.failure_reasons.push_back(cv.reason); continue; }
+
+        Point3 e1, e2;
+        if (!LookupEdgeEndpoints(*context.scene, cand.source_edge_id, e1, e2))
+        { result.failure_reasons.push_back(GeometryValidityReason::DegenerateWedge); continue; }
+        Vec3 edgeVec = Subtract(e2, e1);
+        if (Length(edgeVec) <= 0.0) { result.failure_reasons.push_back(GeometryValidityReason::DegenerateWedge); continue; }
+        Vec3 edgeDir = Normalize(edgeVec);
+
+        double tBest = GoldenSectionSearch(state.current_point, context.rx_point, e1, edgeVec);
+        tBest = Clamp(tBest, 0.0, 1.0);
+        Point3 dp = MakeVec3(e1.x + tBest*edgeVec.x, e1.y + tBest*edgeVec.y, e1.z + tBest*edgeVec.z);
+
+        if (!VerifyKellerCone(state.current_point, context.rx_point, dp, edgeDir))
+        { result.failure_reasons.push_back(GeometryValidityReason::CandidateRejectedByControl); continue; }
+
+        VisibilityQueryContext vc;
+        vc.ignored_face_id = cand.positive_face_id;
+        vc.ignored_face_id2 = cand.negative_face_id;
+        if (!context.scene_query->IsVisible(state.current_point, dp, vc) ||
+            !context.scene_query->IsVisible(dp, context.rx_point, vc))
+        { result.failure_reasons.push_back(GeometryValidityReason::VisibilityBlocked); continue; }
+
+        PathState ns = state; ns.current_point = dp;
+        ns.current_direction = SafeNormalize(Subtract(context.rx_point, dp));
+        ns.last_interaction_type = InteractionType::Diffraction;
+        ns.last_hit_wedge_id = cand.wedge_id;
+        double seg = Length(Subtract(dp, state.current_point));
+        ns.accumulated_length += seg; ns.path_depth += 1; ns.interaction_count += 1;
+        ns.remaining_total_expansions -= 1; ns.remaining_diffractions -= 1;
+        ns.has_diffraction = true; ns.mixed_path_enabled = false; ns.clipped_by_control_rules = false;
+        if (state.last_interaction_type != InteractionType::None && state.last_interaction_type != InteractionType::Tx && state.last_interaction_type != InteractionType::Diffraction)
+            ns.mechanism_switch_count += 1;
+        ns.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Diffraction) ? (state.consecutive_same_interaction_count + 1) : 0;
+        PathNode nd; nd.interaction_type = InteractionType::Diffraction;
+        nd.wedge_id = cand.wedge_id; nd.point = dp; nd.direction = ns.current_direction;
+        nd.incident_direction = Normalize(Subtract(dp, state.current_point));
+        nd.segment_length_from_previous = seg; nd.valid = true;
+        ns.traversed_nodes.push_back(nd);
+        ns.state_signature = BuildStateSignature(ns, *context.config); ns.valid = true;
+        GeometryValidityResult ev = IsValidExpandedState(context, ns);
+        if (!ev.valid) { result.failure_reasons.push_back(ev.reason); continue; }
+        DCand dc; dc.st = ns; dc.sc = Length(Subtract(dp, state.current_point)) + Length(Subtract(context.rx_point, dp));
+        accepted.push_back(dc);
+    }
+
+    std::sort(accepted.begin(), accepted.end(), [](auto& a, auto& b) { return a.sc < b.sc; });
+    const size_t keep = std::min(accepted.size(), size_t(8));
+    for (size_t i = 0; i < keep; ++i) result.next_states.push_back(accepted[i].st);
+    if (result.next_states.empty() && result.failure_reasons.empty())
+        result.failure_reasons.push_back(GeometryValidityReason::NoCandidate);
+    return result;
+}
+
 } // namespace rt
