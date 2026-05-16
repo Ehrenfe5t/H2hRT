@@ -2,6 +2,7 @@
 // v5 precision: Monte Carlo transmission + Fresnel caching + wedge throttling + power normalization
 
 #include "SbrEngine.h"
+#include "PathSignatureBuilder.h"
 #include "../common/math/Vec3.h"
 #include "../common/math/Complex.h"
 #include "../common/math/MathConstants.h"
@@ -13,6 +14,7 @@
 #include <omp.h>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace rt {
@@ -262,7 +264,9 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const bool hasMatGlobal = (matDb && !matDb->empty());  // v7.3: 循环外提
 
     std::atomic<int> rayDone{0};
-    const int reportStep = std::max(1, N / 100); // 每5%报告一次
+    const int reportStep = std::max(1, N / 100);
+    // v8: Per-Rx 线程级路径签名去重
+    std::vector<std::unordered_map<int, std::unordered_set<uint64_t>>> threadPerRxSeen(nTh);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(nTh)
@@ -306,7 +310,7 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             std::vector<int> sHits; rxGrid.CheckSegment(curPt,segEnd,sHits);
             int newHits=0;
             for (int rxi:sHits){bool dup=false;for(int h:hitList){if(h==rxi){dup=true;break;}}if(!dup){hitList.push_back(rxi);myP[rxi]+=curPwr*normFactor;myH[rxi]++;newHits++;
-                // v8: SBR路径记录 — 构建GeometricPath供Precise EM使用
+                // v8: SBR路径记录+去重 — 构建GeometricPath供Precise EM使用
                 if (context.store_paths) {
                     GeometricPath gp; gp.is_los=(cr+ct+cd==0);
                     gp.contains_transmission=(ct>0); gp.nodes=rayNodes;
@@ -318,8 +322,14 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
                     rxNode.valid=true; gp.nodes.push_back(rxNode);
                     gp.total_length+=rxNode.segment_length_from_previous;
                     gp.valid=true;
+                    gp.path_signature = BuildPathSignature(gp, *context.config);
 #pragma omp critical
-                    { result.rx_records[rxi].paths.push_back(gp); }
+                    {
+                        auto& seen = threadPerRxSeen[tid][rxi];
+                        if (seen.insert(gp.path_signature).second) {
+                            result.rx_records[rxi].paths.push_back(gp);
+                        }
+                    }
                 }
             }}
             // v7.3 S1: 连续2步无新Rx命中 → 自适应终止
