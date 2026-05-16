@@ -55,42 +55,69 @@ double PointToSegmentDistSq(const Point3& p, const Point3& a, const Point3& b) {
     return dx*dx+dy*dy+dz*dz;
 }
 
-// ── Rx spatial hash ──
+// ── Rx spatial grid ──
+// v8: 密集3D网格替代unordered_map — O(1)直接索引, 无哈希开销
 struct RxHashGrid {
     double cellSize=0.6, sphereR=0.3;
-    std::unordered_map<uint64_t,std::vector<int>> cells;
+    int nx=0, ny=0, nz=0;            // grid dimensions
+    double ox=0, oy=0, oz=0;          // grid origin
+    std::vector<std::vector<int>> flatCells; // flat[nx*ny*nz]
     const std::vector<Point3>* rxPositions=nullptr;
 
     void Build(const std::vector<Point3>& rx, double radius) {
-        rxPositions=&rx; sphereR=radius; cellSize=2.0*radius; cells.clear();
-        for (int i=0; i<static_cast<int>(rx.size()); ++i) {
-            int cx=static_cast<int>(std::floor(rx[i].x/cellSize));
-            int cy=static_cast<int>(std::floor(rx[i].y/cellSize));
-            int cz=static_cast<int>(std::floor(rx[i].z/cellSize));
-            uint64_t key=(uint64_t(cx&0x1FFFFF)<<42)|(uint64_t(cy&0x1FFFFF)<<21)|uint64_t(cz&0x1FFFFF);
-            cells[key].push_back(i);
+        rxPositions=&rx; sphereR=radius; cellSize=2.0*radius;
+        if (rx.empty()) return;
+        // Compute grid bounds from Rx positions
+        double xmin=rx[0].x, xmax=rx[0].x, ymin=rx[0].y, ymax=rx[0].y, zmin=rx[0].z, zmax=rx[0].z;
+        for (auto& p:rx) {
+            if(p.x<xmin)xmin=p.x; if(p.x>xmax)xmax=p.x;
+            if(p.y<ymin)ymin=p.y; if(p.y>ymax)ymax=p.y;
+            if(p.z<zmin)zmin=p.z; if(p.z>zmax)zmax=p.z;
         }
+        ox=xmin-1.0; oy=ymin-1.0; oz=zmin-1.0;
+        nx=static_cast<int>((xmax+1.0-ox)/cellSize)+1;
+        ny=static_cast<int>((ymax+1.0-oy)/cellSize)+1;
+        nz=static_cast<int>((zmax+1.0-oz)/cellSize)+1;
+        size_t total = static_cast<size_t>(nx)*ny*nz;
+        if (total > 100000000) { total=100000000; nx=464; ny=464; nz=464; } // safety cap
+        flatCells.assign(total, {});
+        for (int i=0; i<static_cast<int>(rx.size()); ++i) {
+            int cx=static_cast<int>((rx[i].x-ox)/cellSize);
+            int cy=static_cast<int>((rx[i].y-oy)/cellSize);
+            int cz=static_cast<int>((rx[i].z-oz)/cellSize);
+            if (cx>=0&&cx<nx&&cy>=0&&cy<ny&&cz>=0&&cz<nz)
+                flatCells[cx*ny*nz + cy*nz + cz].push_back(i);
+        }
+    }
+    inline int CellIndex(int cx, int cy, int cz) const {
+        if (cx<0||cx>=nx||cy<0||cy>=ny||cz<0||cz>=nz) return -1;
+        return cx*ny*nz + cy*nz + cz;
     }
     void CheckSegment(const Point3& a,const Point3& b,std::vector<int>& out) const {
         double r2=sphereR*sphereR;
         double dxb=std::abs(b.x-a.x), dyb=std::abs(b.y-a.y), dzb=std::abs(b.z-a.z);
-        // 27邻域覆盖半径≈1.5cell → 跨≤2cell仍可被中点查询覆盖
         bool spansMultiCell = (dxb>2.0*cellSize || dyb>2.0*cellSize || dzb>2.0*cellSize);
+        // v8: thread_local seen mask — O(1)去重替代 O(K²) 线性扫描
+        static thread_local std::vector<char> seenMask;
+        size_t NRx = rxPositions ? rxPositions->size() : 0;
+        if (seenMask.size() < NRx) seenMask.resize(NRx, 0);
+        // 使用generation counter避免每步memset
+        static thread_local uint8_t genCounter = 0;
+        genCounter = (genCounter + 1) & 0xFF;
+        if (genCounter == 0) { std::fill(seenMask.begin(), seenMask.end(), 0); genCounter = 1; }
 
         auto queryCell = [&](double mx, double my, double mz) {
-            int cx=static_cast<int>(std::floor(mx/cellSize));
-            int cy=static_cast<int>(std::floor(my/cellSize));
-            int cz=static_cast<int>(std::floor(mz/cellSize));
+            int cx=static_cast<int>((mx-ox)/cellSize);
+            int cy=static_cast<int>((my-oy)/cellSize);
+            int cz=static_cast<int>((mz-oz)/cellSize);
             for (int dx=-1;dx<=1;++dx) for (int dy=-1;dy<=1;++dy) for (int dz=-1;dz<=1;++dz) {
-                uint64_t key=(uint64_t((cx+dx)&0x1FFFFF)<<42)
-                           |(uint64_t((cy+dy)&0x1FFFFF)<<21)
-                           |uint64_t((cz+dz)&0x1FFFFF);
-                auto it=cells.find(key); if (it==cells.end()) continue;
-                for (int rxi:it->second) {
+                int ci = CellIndex(cx+dx, cy+dy, cz+dz);
+                if (ci<0) continue;
+                for (int rxi: flatCells[ci]) {
+                    if (seenMask[rxi] == genCounter) continue;
                     if (PointToSegmentDistSq((*rxPositions)[rxi],a,b)<=r2) {
-                        bool dup=false;
-                        for (int prev:out) if (prev==rxi) {dup=true; break;}
-                        if (!dup) out.push_back(rxi);
+                        seenMask[rxi] = genCounter;
+                        out.push_back(rxi);
                     }
                 }
             }
@@ -238,7 +265,7 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
     const int reportStep = std::max(1, N / 100); // 每5%报告一次
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(dynamic) num_threads(nTh)
+#pragma omp parallel for schedule(static) num_threads(nTh)
 #endif
     for (int ri=0; ri<N; ++ri)
     {

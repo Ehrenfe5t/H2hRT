@@ -2,7 +2,7 @@
   "app_runtime": {
     "mode": "debug",
     "log_level": "INFO",
-    "run_id": "412"
+    "run_id": "412_no_wedge"
   },
   "scene_import": {
     "source_file": "demo/412/412-6k.obj",
@@ -10,7 +10,7 @@
     "scene_material_map_file": "configs/scenes/scene_material_map-412.json"
   },
   "scene_preprocess": {
-    "enable_wedge_build": true,
+    "enable_wedge_build": false,
     "enable_scene_cache": false,
     "bvh_leaf_size": 16
   },
@@ -49,17 +49,17 @@
     "max_transmission_count": 2,
     "max_diffraction_count": 0,
     "ray_power_threshold_dB": -40,
-    "auto_grid_bounds": false,
+    "auto_grid_bounds": true,
     "rx_grid_min_x": 0.0,
-    "rx_grid_max_x": 6.5,
-    "rx_grid_min_y": 1.5,
-    "rx_grid_max_y": 1.5,
-    "rx_grid_min_z": -10.3,
+    "rx_grid_max_x": 20.0,
+    "rx_grid_min_y": 0.0,
+    "rx_grid_max_y": 3.0,
+    "rx_grid_min_z": -20.0,
     "rx_grid_max_z": 0.0,
     "rx_grid_step_x": 0.1,
     "rx_grid_step_y": 0.1,
     "rx_grid_step_z": 0.1,
-    "rx_sphere_radius_m": 0.1,
+    "rx_sphere_radius_m": 0.15,
     "tx_power_dBm": 10,
     "store_paths": false,
     "wedge_max_distance_m": 3.0,

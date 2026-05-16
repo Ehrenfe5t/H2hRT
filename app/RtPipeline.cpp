@@ -320,14 +320,21 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     logger.Log(LogLevel::Info, "App", "批次5~9: 搜索/扩展器/EM/汇总/导出 全部完成。");
 
     // --- A1 chain execution: the real production Search->EM->Export pipeline ---
-    const A1RealChainRunResult a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger, &matDb);
-    if (!a1Result.succeeded)
-    {
-        logger.Log(LogLevel::Fatal, "App", "A1真实生产链执行失败。");
-        return runResult;
-    }
+    const bool isCoverageOnly = loadResult.config.sbr.enabled
+        && loadResult.config.em_solver.solver_mode == "Coverage";
 
-    logger.Log(LogLevel::Info, "App", "A1真实生产链闭环完成。");
+    A1RealChainRunResult a1Result;
+    if (!isCoverageOnly) {
+        a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger, &matDb);
+        if (!a1Result.succeeded)
+        {
+            logger.Log(LogLevel::Fatal, "App", "A1真实生产链执行失败。");
+            return runResult;
+        }
+        logger.Log(LogLevel::Info, "App", "A1真实生产链闭环完成。");
+    } else {
+        logger.Log(LogLevel::Info, "App", "Coverage-only: 跳过precise IM搜索, 直接进入SBR");
+    }
 
     // SBR覆盖仿真(可选)
     if (loadResult.config.sbr.enabled) {
