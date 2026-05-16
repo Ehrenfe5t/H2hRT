@@ -8,6 +8,10 @@
 #include "RtPipeline.h"
 
 #include <fstream>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 #include "RtRealChainRunner.h"
 #include "../core/search/SbrEngine.h"
@@ -408,9 +412,12 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                << "/" << sbrCtx.rx_grid.size();
         logger.Log(LogLevel::Info, "SBR", sbrSum.str());
 
-        // 导出SBR覆盖结果JSON (v5 D3: 每Rx功率+路径+命中数)
+        // 导出SBR覆盖结果JSON
         std::string sbrOutDir = "output/" + loadResult.config.app_runtime.run_id + "/coverage";
         std::string sbrJsonPath = sbrOutDir + "/sbr_coverage.json";
+        // 确保输出目录存在
+        { std::string cur; for (char c : sbrOutDir) { cur+=c; if (c=='/') CreateDirectoryA(cur.c_str(), nullptr); }
+          CreateDirectoryA(sbrOutDir.c_str(), nullptr); }
         std::ofstream sbrFile(sbrJsonPath);
         if (sbrFile.is_open()) {
             sbrFile << "{\n";
@@ -419,6 +426,10 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
             sbrFile << "  \"rx_grid_count\": " << sbrCtx.rx_grid.size() << ",\n";
             sbrFile << "  \"tx_power_dBm\": " << loadResult.config.sbr.tx_power_dBm << ",\n";
             sbrFile << "  \"rx_sphere_radius_m\": " << loadResult.config.sbr.rx_sphere_radius_m << ",\n";
+            sbrFile << "  \"tx_position\": [" << sbrCtx.tx_point.x << ", " << sbrCtx.tx_point.y << ", " << sbrCtx.tx_point.z << "],\n";
+            if (!sbrCtx.rx_grid.empty()) {
+                sbrFile << "  \"rx_positions\": [[" << sbrCtx.rx_grid[0].x << ", " << sbrCtx.rx_grid[0].y << ", " << sbrCtx.rx_grid[0].z << "]],\n";
+            }
             sbrFile << "  \"records\": [\n";
             for (size_t i = 0; i < sbrResult.rx_records.size(); ++i) {
                 const auto& rec = sbrResult.rx_records[i];
