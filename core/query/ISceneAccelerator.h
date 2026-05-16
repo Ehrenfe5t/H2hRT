@@ -1,19 +1,12 @@
 // v8 Phase 1: 场景加速器抽象接口 — CPU (FaceBVH) 与 GPU (OptiX/VulkanRT) 的统一抽象
-// SceneQuery 通过此接口委托底层求交，上层寻径代码不感知加速器类型
-// GPU 后端在 Phase 4 实现
 #pragma once
 
 #include "../scene/Scene.h"
+#include "SceneQuery.h"  // for Ray, FaceHit, FaceQueryContext, VisibilityQueryContext
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace rt {
-
-struct Ray;
-struct FaceHit;
-struct FaceQueryContext;
-struct VisibilityQueryContext;
 
 /// <summary>
 /// 场景加速器抽象接口。

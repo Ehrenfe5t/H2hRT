@@ -10,7 +10,7 @@
     "scene_material_map_file": "configs/scenes/scene_material_map-412.json"
   },
   "scene_preprocess": {
-    "enable_wedge_build": true,
+    "enable_wedge_build": false,
     "enable_scene_cache": false,
     "bvh_leaf_size": 16
   },
@@ -43,7 +43,7 @@
   },
   "sbr": {
     "enabled": true,
-    "ray_count": 2000000,
+    "ray_count": 20000,
     "max_ray_depth": 8,
     "max_reflection_count": 4,
     "max_transmission_count": 2,
@@ -61,7 +61,7 @@
     "rx_grid_step_z": 0.1,
     "rx_sphere_radius_m": 0.1,
     "tx_power_dBm": 10,
-    "store_paths": false,
+    "store_paths": true,
     "wedge_max_distance_m": 3.0,
     "wedge_max_candidates": 8
   },
