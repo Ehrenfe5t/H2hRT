@@ -40,6 +40,9 @@ MODULE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = MODULE_DIR.parent
 DEFAULT_OBJ = str(REPO_ROOT / "demo/412" / "412-6k.obj")
 DEFAULT_SBR = str(REPO_ROOT / "output" / "412" / "coverage" / "sbr_coverage.json")
+# 412场景Rx都在Y=1.5平面, 默认切片轴改为Z更适合俯视
+DEFAULT_SLICE_AXIS = "Z"
+DEFAULT_SLICE_VAL = -5.0  # Z中间位置
 
 
 def make_clip_box(bounds_dict, axis, threshold):
