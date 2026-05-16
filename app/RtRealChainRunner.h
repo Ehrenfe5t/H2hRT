@@ -18,7 +18,15 @@
 #include "../core/scene/Scene.h"
 #include "../core/search/SearchEngine.h"
 
+namespace rt { struct GeometricPath; struct EMPathResult; struct EMSolverInput; }
+
 namespace rt {
+
+/// <summary>
+/// v8: 公开的单路径EM求解入口 — SBR路径可复用此函数获得精确复振幅+相位+极化
+/// </summary>
+bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
+                       EMPathResult& result, const MaterialDatabase* matDb);
 
 /// <summary>
 /// 单次 A1 真实生产链运行的完整结果。

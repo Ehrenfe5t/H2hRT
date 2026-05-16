@@ -27,6 +27,7 @@
 #include "../preprocess/accel/SceneVisibilityBuilder.h"  // v8: PVS precompute
 #include "../core/search/PathReuseEngine.h"              // v8: path reuse
 #include "../core/search/RxSeedSampler.h"                // v8: seed Rx selection
+#include <set>                                           // v8: PVS 2-hop expansion
 
 #include <sstream>
 
@@ -224,8 +225,8 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         coarseCtx.rx_grid.push_back(MakeVec3(loadResult.config.path_search.rx_x,
                                               loadResult.config.path_search.rx_y,
                                               loadResult.config.path_search.rx_z));
-        coarseCtx.coarse_ray_count = 50000;
-        coarseCtx.coarse_max_depth = 3;
+        coarseCtx.coarse_ray_count = 200000;
+        coarseCtx.coarse_max_depth = 5;
         coarseCtx.coarse_rx_sphere_radius = 2.0;
         coarseCtx.expand_pvs = batch4Result.scene.visibility.face_pvs.valid;
         coarseResult = sbrEngine.RunCoarsePass(coarseCtx);
@@ -249,23 +250,46 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     SearchEngine searchEngine;
     SearchEngineResult batch5Result;
 
-    // v8 Phase 5: 约束搜索 — 仅在多Rx coverage模式下启用 (单Rx用全量搜索)
-    // 约束搜索需要足够的粗扫覆盖 (>90% 面元), 典型配置: 200K rays × depth 5
-    if (coarseResult.succeeded) {
-        std::ostringstream dbgLog;
-        dbgLog << "活跃面元集: " << coarseResult.rx_active_faces.size() << " Rx entries";
-        for (auto& kv : coarseResult.rx_active_faces)
-            dbgLog << " [Rx" << kv.first << "=" << kv.second.size() << " faces]";
-        logger.Log(LogLevel::Info, "S1", dbgLog.str());
+    // v8 hybrid: AngularGrid方向查询 + 2-hop PVS扩展 → 全量约束搜索
+    if (coarseResult.succeeded && loadResult.config.pipeline.enable_stage2_constrained_search
+        && batch4Result.scene.visibility.face_pvs.valid
+        && batch4Result.scene.visibility.angular_grid.valid) {
+        const auto& pvs = batch4Result.scene.visibility.face_pvs;
+        const auto& ag = batch4Result.scene.visibility.angular_grid;
+
+        for (auto& kv : coarseResult.rx_active_faces) {
+            std::set<int> expanded;
+            // 从AngularGrid收集: 对Tx位置的各方向查询可见面元
+            Point3 txPt = MakeVec3(loadResult.config.path_search.tx_x,
+                                    loadResult.config.path_search.tx_y,
+                                    loadResult.config.path_search.tx_z);
+            const int nAzi=ag.n_azimuth, nZen=ag.n_zenith;
+            for (int azi=0; azi<nAzi; azi+=4) {    // 降采样加速
+                for (int zen=0; zen<nZen; zen+=2) {
+                    int ci = ag.CellIndex(azi, zen);
+                    if (ci>=0 && ci<static_cast<int>(ag.cells.size())) {
+                        for (int fid : ag.cells[ci]) expanded.insert(fid);
+                    }
+                }
+            }
+            // 2-hop PVS扩展
+            for (int hop=0; hop<2; ++hop) {
+                std::vector<int> cur(expanded.begin(), expanded.end());
+                for (int fid : cur) if (pvs.HasEntry(fid))
+                    for (int pf : pvs.GetVisibleFaces(fid)) expanded.insert(pf);
+            }
+            size_t sz0 = kv.second.size();
+            kv.second.assign(expanded.begin(), expanded.end());
+            std::sort(kv.second.begin(), kv.second.end());
+            logger.Log(LogLevel::Info, "S1", "Rx"+std::to_string(kv.first)+": "
+                +std::to_string(sz0)+"→"+std::to_string(kv.second.size())+" faces (AngularGrid+PVS2-hop)");
+        }
     }
     bool usedConstrainedSearch = false;
-    // 仅多Rx场景启用约束搜索 (单Rx precise模式使用全量搜索保证路径完整性)
-    bool isMultiRx = coarseResult.succeeded && (coarseResult.rx_active_mask.size() > 10);
-    if (isMultiRx && loadResult.config.pipeline.enable_stage2_constrained_search
+    if (loadResult.config.pipeline.enable_stage2_constrained_search
         && coarseResult.succeeded && !coarseResult.rx_active_faces.empty())
     {
-        // 获取当前Rx的活跃面元/楔边
-        int rxIdx = 0;  // 单Rx precise模式
+        int rxIdx = 0;
         ConstrainedSearchConfig csc;
         auto itFaces = coarseResult.rx_active_faces.find(rxIdx);
         auto itWedges = coarseResult.rx_active_wedges.find(rxIdx);
@@ -415,6 +439,32 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
             sbrFile << "}\n";
             sbrFile.close();
             logger.Log(LogLevel::Info, "SBR", "SBR coverage exported: " + sbrJsonPath);
+        }
+
+        // v8: SBR→Precise EM — 将SBR记录的几何路径送入精确电场求解器
+        if (sbrResult.succeeded && sbrCtx.store_paths && sbrResult.active_rx_count > 0) {
+            int totalPaths=0, validEM=0;
+            for (auto& rec : sbrResult.rx_records) {
+                if (rec.paths.empty()) continue;
+                totalPaths += static_cast<int>(rec.paths.size());
+                double complexSumRe=0.0, complexSumIm=0.0;
+                for (GeometricPath& gp : rec.paths) {
+                    if (!gp.valid) continue;
+                    EMPathResult em;
+                    if (SolveSinglePathEM(loadResult.config, batch4Result.scene, gp, em, &matDb)) {
+                        complexSumRe += em.amplitude_real;
+                        complexSumIm += em.amplitude_imag;
+                        validEM++;
+                    }
+                }
+                // 相干叠加功率覆盖原有标量功率
+                rec.total_power_linear = complexSumRe*complexSumRe + complexSumIm*complexSumIm;
+                rec.total_power_dBm = 10.0 * std::log10(std::max(1e-30, rec.total_power_linear * std::pow(10.0, loadResult.config.sbr.tx_power_dBm/10.0)));
+            }
+            std::ostringstream emLog;
+            emLog << "SBR→Precise EM: " << validEM << "/" << totalPaths
+                  << " paths solved, " << sbrResult.active_rx_count << " Rx coherent-summed";
+            logger.Log(LogLevel::Info, "SBR-EM", emLog.str());
         }
     }
 

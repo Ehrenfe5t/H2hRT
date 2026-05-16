@@ -40,8 +40,10 @@ namespace rt {
 
 namespace {
 
+} // namespace
+
 /// <summary>
-/// 对单条几何路径执行完整EM求解 (Tx天线 → 传播 → Rx天线)。
+/// v8: 公开的单路径EM求解 — 消费GeometricPath, 产出EMPathResult
 /// </summary>
 /// <param name="result">[out] 该路径的EM结果 (场、时延、功率等)。</param>
 /// <param name="materialDb">可选材质数据库, 供介电常数查询。</param>
@@ -108,6 +110,8 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
     result.source_tag = "search_engine_real_output";
     return result.valid;
 }
+
+namespace {
 
 /// <summary>
 /// 对搜索引擎的全部路径执行EM求解, 构建完整的EM路径结果集。

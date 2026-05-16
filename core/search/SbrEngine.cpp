@@ -288,6 +288,11 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
         double curPwr=1.0;
         int cr=0, ct=0, cd=0, stepIdx=0, noNewHit=0;
         std::vector<int> hitList;
+        // v8: 路径节点追踪 (SBR→Precise EM)
+        std::vector<PathNode> rayNodes;
+        PathNode txNode; txNode.interaction_type=InteractionType::Tx; txNode.point=curPt;
+        txNode.direction=curDir; txNode.valid=true;
+        rayNodes.push_back(txNode);
 
         while (cr+ct+cd<=maxDepth && curPwr>pwrTh)
         {
@@ -300,7 +305,23 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             Point3 segEnd=hit.hit?hit.position:Add(curPt,Scale(curDir,1e6));
             std::vector<int> sHits; rxGrid.CheckSegment(curPt,segEnd,sHits);
             int newHits=0;
-            for (int rxi:sHits){bool dup=false;for(int h:hitList){if(h==rxi){dup=true;break;}}if(!dup){hitList.push_back(rxi);myP[rxi]+=curPwr*normFactor;myH[rxi]++;newHits++;}}
+            for (int rxi:sHits){bool dup=false;for(int h:hitList){if(h==rxi){dup=true;break;}}if(!dup){hitList.push_back(rxi);myP[rxi]+=curPwr*normFactor;myH[rxi]++;newHits++;
+                // v8: SBR路径记录 — 构建GeometricPath供Precise EM使用
+                if (context.store_paths) {
+                    GeometricPath gp; gp.is_los=(cr+ct+cd==0);
+                    gp.contains_transmission=(ct>0); gp.nodes=rayNodes;
+                    gp.total_length=0; for(size_t ni=1;ni<rayNodes.size();++ni) gp.total_length+=rayNodes[ni].segment_length_from_previous;
+                    PathNode rxNode; rxNode.interaction_type=InteractionType::Rx;
+                    rxNode.point=context.rx_grid[rxi];
+                    rxNode.direction=curDir;
+                    rxNode.segment_length_from_previous=Length(Subtract(context.rx_grid[rxi],curPt));
+                    rxNode.valid=true; gp.nodes.push_back(rxNode);
+                    gp.total_length+=rxNode.segment_length_from_previous;
+                    gp.valid=true;
+#pragma omp critical
+                    { result.rx_records[rxi].paths.push_back(gp); }
+                }
+            }}
             // v7.3 S1: 连续2步无新Rx命中 → 自适应终止
             if (newHits==0) { noNewHit++; if (noNewHit>=2) break; } else noNewHit=0;
 
@@ -352,20 +373,34 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             if (maxTrans>0 && face.transmission_enabled && ct<maxTrans && hasMat
                 && face.dual_side_material_resolved) {
                 double r=RandDouble(rng);
+                Vec3 oldDir=curDir; Point3 oldPt=curPt; // save for PathNode
                 if (r>=refPwr) { // 透射 (概率=1-|Γ|²)
                     double n2=std::sqrt(std::max(1.0,transEpsR));
                     curDir=RefractDir(curDir,hit.normal,cosI,n2);
                     curPt=Add(hit.position,Scale(curDir,0.01));
-                    curPwr*=(1.0-refPwr); ct++; continue; // 物理透射衰减
+                    curPwr*=(1.0-refPwr); ct++;
+                    if(context.store_paths){PathNode pn;pn.interaction_type=InteractionType::Transmission;
+                        pn.face_id=hit.face_id;pn.point=hit.position;pn.direction=curDir;
+                        pn.incident_direction=oldDir;pn.surface_normal=hit.normal;
+                        pn.segment_length_from_previous=Length(Subtract(hit.position,oldPt));pn.valid=true;
+                        rayNodes.push_back(pn);}
+                    continue; // 物理透射衰减
                 }
                 // 反射 (概率=|Γ|²) — 走下面反射分支 (curPwr*=refPwr)
             }
 
             // ── 反射 ──
             if (face.reflection_enabled && cr<maxRefl) {
+                Vec3 oldDir=curDir; Point3 oldPt=curPt;
                 curDir=ReflectDir(curDir,hit.normal);
                 curPt=Add(hit.position,Scale(curDir,0.01));
-                curPwr*=refPwr; cr++; continue;
+                curPwr*=refPwr; cr++;
+                if(context.store_paths){PathNode pn;pn.interaction_type=InteractionType::Reflection;
+                    pn.face_id=hit.face_id;pn.point=hit.position;pn.direction=curDir;
+                    pn.incident_direction=oldDir;pn.surface_normal=hit.normal;
+                    pn.segment_length_from_previous=Length(Subtract(hit.position,oldPt));pn.valid=true;
+                    rayNodes.push_back(pn);}
+                continue;
             }
 
             break; // 非交互面终止
