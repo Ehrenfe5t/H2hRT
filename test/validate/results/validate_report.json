@@ -1,0 +1,76 @@
+{
+  "version": "v4",
+  "timestamp": "2026-05-09T09:01:27.048735",
+  "results": {
+    "L1": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "details": [
+        {
+          "id": "L1-1",
+          "name": "PEC垂直入射",
+          "passed": true,
+          "detail": "|Γ|=0.9998, φ=180.0°"
+        },
+        {
+          "id": "L1-2",
+          "name": "Concrete 45°",
+          "passed": true,
+          "detail": "|Γ_TE|=0.5120, |Γ_TM|=0.2622"
+        },
+        {
+          "id": "L1-3",
+          "name": "Glass 45°",
+          "passed": true,
+          "detail": "|Γ_TE|=0.5464, |Γ_TM|=0.2985"
+        },
+        {
+          "id": "L1-4",
+          "name": "Friis FSPL",
+          "passed": true,
+          "detail": "d=1m→40.1dB, d=10m→60.1dB"
+        },
+        {
+          "id": "L1-5",
+          "name": "Snell折射",
+          "passed": true,
+          "detail": "θ_t=16.3° (expected ~16.4°)"
+        }
+      ]
+    },
+    "L2": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "details": [
+        {
+          "id": "L2-1",
+          "name": "b1路径数≥300(基线)",
+          "passed": true,
+          "detail": "precise paths=362"
+        },
+        {
+          "id": "L2-2",
+          "name": "SBR可运行",
+          "passed": true,
+          "detail": "pipeline_ok=True"
+        }
+      ]
+    },
+    "L3": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "details": [
+        {
+          "id": "L3-1",
+          "name": "路径JSON存在",
+          "passed": false,
+          "detail": "file not found"
+        }
+      ]
+    }
+  },
+  "overall_passed": false
+}

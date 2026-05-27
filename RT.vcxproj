@@ -1,0 +1,361 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{18faa402-1ba6-429f-901c-7915ed9d92c3}</ProjectGuid>
+    <RootNamespace>RT</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <!-- v8 GPU: CUDA 12.6 build integration -->
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.props" Condition="exists('$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.props')" />
+  </ImportGroup>
+  <ImportGroup Label="Shared" >
+  </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    </ImportGroup>
+
+  <PropertyGroup Label="UserMacros" />
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)tools\include;$(CUDA_PATH)\include;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <OpenMPSupport>true</OpenMPSupport>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\lib\x64;F:\Windows Kits\10\Lib\10.0.22621.0\um\x64;F:\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)tools\include;$(CUDA_PATH)\include;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <OpenMPSupport>true</OpenMPSupport>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProfileGuidedDatabase>$(OutDir)$(TargetName).pgd</ProfileGuidedDatabase>
+      <AdditionalDependencies>cuda.lib;cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>cudart64_126.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <AdditionalLibraryDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\lib\x64;F:\Windows Kits\10\Lib\10.0.22621.0\um\x64;F:\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <!-- v8 GPU: CUDA 12.6 compilation settings (RTX 3060: compute_86,sm_86) -->
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <CodeGeneration>compute_86,sm_86</CodeGeneration>
+      <FastMath>true</FastMath>
+      <MaxRegCount>128</MaxRegCount>
+      <AdditionalOptions>-DNDEBUG -O3 -use_fast_math --expt-relaxed-constexpr --ptxas-options=-v %(AdditionalOptions)</AdditionalOptions>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <CodeGeneration>compute_86,sm_86</CodeGeneration>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>-G -D_DEBUG --expt-relaxed-constexpr %(AdditionalOptions)</AdditionalOptions>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <!-- v7.3 PGO: 两步编译.
+       Step1: msbuild /p:Configuration=Release /p:Platform=x64
+              运行 training: RT.exe configs/app/meeting_coverage_hires.json
+       Step2: msbuild /p:Configuration=Release /p:Platform=x64 /p:UsePGOTrain=done
+              需要手动将 <Profile>true</Profile> 加入 ClCompile -->
+  <ItemGroup>
+    <ClCompile Include="app\RtRealChainRunner.cpp" />
+    <ClCompile Include="app\main.cpp" />
+    <ClCompile Include="app\RtPipeline.cpp" />
+    <ClCompile Include="core\common\config\AppConfigJsonCodec.cpp" />
+    <ClCompile Include="core\common\config\AppConfigLoader.cpp" />
+    <ClCompile Include="core\common\config\ConfigSelfCheck.cpp" />
+    <ClCompile Include="core\common\config\AppConfigSnapshotWriter.cpp" />
+    <ClCompile Include="core\common\config\AppConfigValidator.cpp" />
+    <ClCompile Include="core\antenna\AntennaModel.cpp" />
+    <ClCompile Include="core\antenna\AntennaFactory.cpp" />
+    <!-- v6: AntennaResponse.cpp removed (empty stub) -->
+    <ClCompile Include="preprocess\binding\MaterialRuleLoader.cpp" />
+    <ClCompile Include="preprocess\binding\ResolveFaceDualSideMaterial.cpp" />
+    <ClCompile Include="preprocess\build\SceneImporter.cpp" />
+    <ClCompile Include="preprocess\build\SceneTopologyBuilder.cpp" />
+    <ClCompile Include="preprocess\build\SceneQueryBuilder.cpp" />
+    <ClCompile Include="preprocess\build\EdgeBuilder.cpp" />
+    <ClCompile Include="preprocess\build\WedgeBuilder.cpp" />
+    <ClCompile Include="preprocess\build\SceneDiagnostics.cpp" />
+    <ClCompile Include="preprocess\build\SceneMaterialBinding.cpp" />
+    <ClCompile Include="preprocess\accel\FaceBVHBuilder.cpp" />
+    <ClCompile Include="preprocess\accel\SceneVisibilityBuilder.cpp" />
+    <ClCompile Include="preprocess\accel\WedgeAccelerationBuilder.cpp" />
+    <ClCompile Include="preprocess\accel\SceneAcceleration.cpp" />
+    <ClCompile Include="preprocess\cache\SceneCache.cpp" />
+    <ClCompile Include="preprocess\import\OBJImporter.cpp" />
+    <ClCompile Include="core\query\CpuFaceBvhAccelerator.cpp" />
+    <ClCompile Include="core\query\ISceneAccelerator.cpp" />
+    <ClCompile Include="core\query\OptiXSceneAccelerator.cpp" />
+    <ClCompile Include="core\query\SbrGpuPipeline.cpp" />
+    <ClCompile Include="core\query\SceneQuery.cpp" />
+    <!-- v8 GPU: CUDA + OptiX accelerator backend -->
+    <CudaCompile Include="core\query\SbrGpuPipeline.cu">
+      <AdditionalOptions>-std=c++17 -I"$(ProjectDir)tools\include" -I"F:\Windows Kits\10\Include\10.0.22621.0\um" -I"F:\Windows Kits\10\Include\10.0.22621.0\ucrt" -I"F:\Windows Kits\10\Include\10.0.22621.0\shared" -I"F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include" %(AdditionalOptions)</AdditionalOptions>
+    </CudaCompile>
+    <CudaCompile Include="core\query\rxgrid_kernel.cu">
+      <AdditionalOptions>-std=c++17 -I"$(ProjectDir)tools\include" -I"F:\Windows Kits\10\Include\10.0.22621.0\um" -I"F:\Windows Kits\10\Include\10.0.22621.0\ucrt" -I"F:\Windows Kits\10\Include\10.0.22621.0\shared" -I"F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include" %(AdditionalOptions)</AdditionalOptions>
+    </CudaCompile>
+    <CudaCompile Include="core\query\OptiXSceneAccelerator.cu">
+      <AdditionalOptions>-std=c++17 -I"$(ProjectDir)tools\include" -I"F:\Windows Kits\10\Include\10.0.22621.0\um" -I"F:\Windows Kits\10\Include\10.0.22621.0\ucrt" -I"F:\Windows Kits\10\Include\10.0.22621.0\shared" -I"F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include" --expt-relaxed-constexpr %(AdditionalOptions)</AdditionalOptions>
+      <Include>$(ProjectDir);$(ProjectDir)tools\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\include;F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(Include)</Include>
+    </CudaCompile>
+    <ClCompile Include="core\search\DiffractionExpander.cpp" />
+    <ClCompile Include="core\search\GeometryValidity.cpp" />
+    <ClCompile Include="core\search\ReflectionExpander.cpp" />
+    <ClCompile Include="core\search\ResolveMediumTransition.cpp" />
+    <ClCompile Include="core\search\SearchEngine.cpp" />
+    <ClCompile Include="core\search\SbrEngine.cpp" />
+    <ClCompile Include="core\search\TransmissionExpander.cpp" />
+    <ClCompile Include="core\search\StateSignatureBuilder.cpp" />
+    <ClCompile Include="core\search\PathReuseEngine.cpp" />
+    <ClCompile Include="core\search\PathSignatureBuilder.cpp" />
+    <ClCompile Include="core\search\RxSeedSampler.cpp" />
+    <ClCompile Include="core\em\PreparePathForEM.cpp" />
+    <ClCompile Include="core\em\InitializeTxField.cpp" />
+    <ClCompile Include="core\em\ApplyFreeSpaceSegment.cpp" />
+    <ClCompile Include="core\em\ApplyReflectionInteraction.cpp" />
+    <ClCompile Include="core\em\ApplyTransmissionInteraction.cpp" />
+    <ClCompile Include="core\em\ApplyDiffractionInteraction.cpp" />
+    <ClCompile Include="core\em\FinalizeAtReceiver.cpp" />
+    <ClCompile Include="core\em\BuildCIR.cpp" />
+    <ClCompile Include="core\em\BuildPDP.cpp" />
+    <ClCompile Include="core\em\BuildAPS.cpp" />
+    <ClCompile Include="core\em\BuildChannelStatistics.cpp" />
+    <ClCompile Include="core\em\BuildCoverageResult.cpp" />
+    <ClCompile Include="core\em\BuildISACFeatureSet.cpp" />
+    <ClCompile Include="core\em\PreciseEMProfile.cpp" />
+    <ClCompile Include="core\em\CoverageEMProfile.cpp" />
+    <!-- v6: ExportBundle.cpp removed (empty stub) -->
+    <ClCompile Include="core\result\ResultExportUtils.cpp" />
+    <ClCompile Include="core\result\ExportPaths.cpp" />
+    <ClCompile Include="core\result\ExportChannel.cpp" />
+    <ClCompile Include="core\result\ExportCoverage.cpp" />
+    <ClCompile Include="core\result\ExportISAC.cpp" />
+    <ClCompile Include="core\result\ExportVisualization.cpp" />
+    <!-- v6: ValidationReport.cpp removed (empty stub) -->
+    <ClCompile Include="core\result\ValidationReportWriter.cpp" />
+    <!-- v6: RegressionReport.cpp removed (empty stub) -->
+    <ClCompile Include="core\result\RegressionReportWriter.cpp" />
+    <ClCompile Include="core\common\error\RtError.cpp" />
+    <ClCompile Include="core\common\log\Logger.cpp" />
+    <ClCompile Include="core\common\numeric\NumericToleranceConfig.cpp" />
+    <ClCompile Include="core\common\version\VersionInfo.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app\RtRealChainRunner.h" />
+    <ClInclude Include="app\RtPipeline.h" />
+    <ClInclude Include="core\common\config\AppConfig.h" />
+    <ClInclude Include="core\common\config\AppConfigJsonCodec.h" />
+    <ClInclude Include="core\common\config\AppConfigLoader.h" />
+    <ClInclude Include="core\common\config\ConfigSelfCheck.h" />
+    <ClInclude Include="core\common\config\AppConfigSnapshotWriter.h" />
+    <ClInclude Include="core\common\config\AppConfigValidator.h" />
+    <ClInclude Include="core\antenna\AntennaModel.h" />
+    <ClInclude Include="core\antenna\AntennaFactory.h" />
+    <ClInclude Include="core\antenna\AntennaResponse.h" />
+    <ClInclude Include="core\scene\Edge.h" />
+    <ClInclude Include="core\common\error\ErrorCode.h" />
+    <ClInclude Include="core\scene\Face.h" />
+    <ClInclude Include="core\common\error\RtError.h" />
+    <ClInclude Include="core\common\log\Logger.h" />
+    <ClInclude Include="core\common\numeric\NumericToleranceConfig.h" />
+    <ClInclude Include="preprocess\binding\MaterialRuleLoader.h" />
+    <ClInclude Include="preprocess\binding\ResolveFaceDualSideMaterial.h" />
+    <ClInclude Include="preprocess\build\SceneImporter.h" />
+    <ClInclude Include="preprocess\build\SceneTopologyBuilder.h" />
+    <ClInclude Include="preprocess\build\SceneQueryBuilder.h" />
+    <ClInclude Include="preprocess\build\EdgeBuilder.h" />
+    <ClInclude Include="preprocess\build\WedgeBuilder.h" />
+    <ClInclude Include="preprocess\build\SceneDiagnostics.h" />
+    <ClInclude Include="preprocess\build\SceneMaterialBinding.h" />
+    <ClInclude Include="preprocess\accel\FaceBVHBuilder.h" />
+    <ClInclude Include="preprocess\accel\SceneVisibilityBuilder.h" />
+    <ClInclude Include="preprocess\accel\WedgeAccelerationBuilder.h" />
+    <ClInclude Include="preprocess\accel\SceneAcceleration.h" />
+    <ClInclude Include="preprocess\cache\SceneCache.h" />
+    <ClInclude Include="preprocess\cache\SceneCacheMeta.h" />
+    <ClInclude Include="preprocess\cache\SceneCacheContent.h" />
+    <ClInclude Include="preprocess\import\OBJImporter.h" />
+    <ClInclude Include="core\query\ISceneAccelerator.h" />
+    <ClInclude Include="core\query\CpuFaceBvhAccelerator.h" />
+    <ClInclude Include="core\query\OptiXSceneAccelerator.h" />
+    <ClInclude Include="core\query\SbrGpuPipeline.h" />
+    <ClInclude Include="core\query\SceneQuery.h" />
+    <ClInclude Include="core\path\InteractionType.h" />
+    <ClInclude Include="core\path\PathNode.h" />
+    <ClInclude Include="core\path\GeometricPath.h" />
+    <ClInclude Include="core\path\PathState.h" />
+    <ClInclude Include="core\path\PathSearchContext.h" />
+    <ClInclude Include="core\search\DiffractionExpander.h" />
+    <ClInclude Include="core\search\GeometryValidity.h" />
+    <ClInclude Include="core\search\ReflectionExpander.h" />
+    <ClInclude Include="core\search\ResolveMediumTransition.h" />
+    <ClInclude Include="core\search\SearchEngine.h" />
+    <ClInclude Include="core\search\SbrEngine.h" />
+    <ClInclude Include="core\search\TransmissionExpander.h" />
+    <ClInclude Include="core\search\StateSignatureBuilder.h" />
+    <ClInclude Include="core\search\PathSignatureBuilder.h" />
+    <ClInclude Include="core\em\EMSolverInput.h" />
+    <ClInclude Include="core\em\FieldAccumulator.h" />
+    <ClInclude Include="core\em\EMPathResult.h" />
+    <ClInclude Include="core\em\PreparePathForEM.h" />
+    <ClInclude Include="core\em\InitializeTxField.h" />
+    <ClInclude Include="core\em\ApplyFreeSpaceSegment.h" />
+    <ClInclude Include="core\em\ApplyReflectionInteraction.h" />
+    <ClInclude Include="core\em\ApplyTransmissionInteraction.h" />
+    <ClInclude Include="core\em\ApplyDiffractionInteraction.h" />
+    <ClInclude Include="core\em\FinalizeAtReceiver.h" />
+    <ClInclude Include="core\em\EMProfile.h" />
+    <ClInclude Include="core\em\BuildCIR.h" />
+    <ClInclude Include="core\em\BuildPDP.h" />
+    <ClInclude Include="core\em\BuildAPS.h" />
+    <ClInclude Include="core\em\BuildChannelStatistics.h" />
+    <ClInclude Include="core\em\BuildCoverageResult.h" />
+    <ClInclude Include="core\em\BuildISACFeatureSet.h" />
+    <ClInclude Include="core\em\PreciseEMProfile.h" />
+    <ClInclude Include="core\em\CoverageEMProfile.h" />
+    <ClInclude Include="core\result\ExportBundle.h" />
+    <ClInclude Include="core\result\ValidationReport.h" />
+    <ClInclude Include="core\result\RegressionReport.h" />
+    <ClInclude Include="core\result\ResultExportContext.h" />
+    <ClInclude Include="core\result\ResultExportUtils.h" />
+    <ClInclude Include="core\result\ExportPaths.h" />
+    <ClInclude Include="core\result\ExportChannel.h" />
+    <ClInclude Include="core\result\ExportCoverage.h" />
+    <ClInclude Include="core\result\ExportISAC.h" />
+    <ClInclude Include="core\result\ExportVisualization.h" />
+    <ClInclude Include="core\result\ValidationReportWriter.h" />
+    <ClInclude Include="core\result\RegressionReportWriter.h" />
+    <ClInclude Include="core\scene\Scene.h" />
+    <ClInclude Include="core\scene\SceneMaterialBinding.h" />
+    <ClInclude Include="core\scene\SceneMeta.h" />
+    <ClInclude Include="core\common\version\VersionInfo.h" />
+    <ClInclude Include="core\scene\Wedge.h" />
+    <ClInclude Include="core\antenna\AntennaPattern.h" />
+    <ClInclude Include="core\common\material\MaterialDatabase.h" />
+    <ClInclude Include="core\common\math\Vec3.h" />
+    <ClInclude Include="core\common\math\Complex.h" />
+    <ClInclude Include="core\common\math\Matrix3x3.h" />
+    <ClInclude Include="core\common\math\MathConstants.h" />
+    <ClInclude Include="core\common\math\CoordinateFrame.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.targets" Condition="exists('$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.targets')" />
+  </ImportGroup>
+</Project>

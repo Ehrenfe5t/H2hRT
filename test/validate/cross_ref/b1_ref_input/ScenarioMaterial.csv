@@ -1,0 +1,10 @@
+id,name,TypeNumber,Frequency(Hz),relativePermittivity,conductivity,relativePermeability,magnetoconductivity,ColorIndex
+0,Vacuum (air),-999,3000000000,1.0,0.0,1.0,0.0,9
+1,Very dry ground,0,3000000000,3.0,0.00239,1.0,0.0,23
+2,Ceiling board,1,3000000000,1.48,0.00358,1.0,0.0,16
+3,Chipboard,2,3000000000,2.58,0.05112,1.0,0.0,18
+4,Concrete,3,3000000000,5.24,0.0795,1.0,0.0,20
+5,Marble,4,3000000000,7.07,0.0105,1.0,0.0,22
+6,Wood,5,3000000000,1.99,0.0099,1.0,0.0,24
+7,Plywood,6,3000000000,2.71,0.33,1.0,0.0,25
+8,Metal,7,3000000000,1.0,10000000.0,1.0,0.0,26

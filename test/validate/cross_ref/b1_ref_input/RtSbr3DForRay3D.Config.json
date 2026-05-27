@@ -1,0 +1,62 @@
+{
+    "commonParameterConfig": {
+        "airSubstanceType": -999,
+        "deduplicateRadius": 0.1,
+        "electricFieldCalculationMode": 1,
+        "energyOutputMode": 0,
+        "powerThreshold": -327.0,
+        "rebuildEdge": false
+    },
+    "dataInputCsvFileParameterConfig": {
+        "inputMaterialTableCsvFileName": "ScenarioMaterial.csv",
+        "inputScenarioCorner3DCsvFileName": "ScenarioAccelerateCorner3D.csv",
+        "inputScenarioPoint3DCsvFileName": "ScenarioAcceleratePoint3D.csv",
+        "inputScenarioTriangle3DCsvFileName": "ScenarioAccelerateTriangle3D.csv",
+        "inputTransmittingAntennaDatabaseJsonFileName": "TransmittingAntennaDatabase1.json"
+    },
+    "dataOutputParameterConfig": {
+        "outPutDirectoryPathName": "Output",
+        "outPutLogTxtFileName": "Log.txt",
+        "switchOfBigChannelParameterInfo": true,
+        "switchOfMultipleSignalSourceSuperposition": false,
+        "switchOfPathInfo": true,
+        "switchOfSmallChannelParameterInfo": true,
+        "switchOfStatisticChannelParameterInfo": false
+    },
+    "geometricSpaceAccelerateParameterConfig": {
+        "geometricSpaceAccelerateType": 1,
+        "lengthOfPixel": 1.97
+    },
+    "multithreadParameterConfig": {
+        "multithreadConfigSwitchOfMultithread": true,
+        "multithreadConfigThreadNum": 8,
+        "multithreadConfigThreadOneCpuCalNum": 50
+    },
+    "numericalMethodParameterConfig": {
+        "numericalMethodMaxLevelOfGuess": 6,
+        "numericalMethodNumbersOfGuess": 3
+    },
+    "rayEjectionParameterConfig": {
+        "ejectionsMaxTotalNumber": 7,
+        "ejectionsOfDiffractionMaxNumber": 0,
+        "ejectionsOfDiffuseScatteringMaxNumber": 0,
+        "ejectionsOfReflectionMaxNumber": 4,
+        "ejectionsOfTransmissionMaxNumber": 0,
+        "switchOfLos": true
+    },
+    "rtSbr3DForRay3DPrivateParameterConfig": {
+        "cylindricalTube": false,
+        "diffuseScatteringParameter": {
+            "diffuseScatteringAr": 2,
+            "diffuseScatteringCoefficient": 0.5,
+            "diffuseScatteringRayleighRange": 8.0
+        },
+        "gapDiffractionRad": 0.05,
+        "gapDiffuseScatteringAzimuth": 0.05,
+        "gapDiffuseScatteringPitchAngle": 0.05,
+        "radiusCorner": 0.03,
+        "radiusRx": 0.5,
+        "rayNumber": 500000,
+        "realWorldRefraction": true
+    }
+}

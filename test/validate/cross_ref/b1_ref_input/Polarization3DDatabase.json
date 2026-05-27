@@ -1,0 +1,20 @@
+{
+  "database": [
+    {
+      "multiLinearPolarization3D": [
+        {
+          "linearPolarization3DObject": {
+            "phi0": 0.0,
+            "vec": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 1.0
+            }
+          },
+          "weight": 1.0
+        }
+      ],
+      "polarization3DModelId": 1
+    }
+  ]
+}

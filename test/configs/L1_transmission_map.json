@@ -1,0 +1,13 @@
+{
+  "default_medium": "Vacuum",
+  "objects": [
+    {
+      "rule_name": "transmission_wall",
+      "object_name": "wall",
+      "surface_material_name": "Concrete",
+      "reflection_enabled": false,
+      "transmission_enabled": true,
+      "diffraction_candidate_enabled": false
+    }
+  ]
+}

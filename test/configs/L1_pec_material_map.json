@@ -1,0 +1,13 @@
+{
+  "default_medium": "Vacuum",
+  "objects": [
+    {
+      "rule_name": "pec_wall",
+      "object_name": "wall",
+      "surface_material_name": "Metal",
+      "reflection_enabled": true,
+      "transmission_enabled": false,
+      "diffraction_candidate_enabled": true
+    }
+  ]
+}

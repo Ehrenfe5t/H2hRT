@@ -1,0 +1,41 @@
+{
+  "app_runtime": { "mode": "debug", "log_level": "INFO", "run_id": "L1_04_transmission_gpu" },
+  "scene_import": {
+    "source_file": "test/scenes/L1_canonical/L1_03_dielectric_brewster.obj",
+    "source_format": "obj",
+    "scene_material_map_file": "test/configs/L1_transmission_map.json"
+  },
+  "scene_preprocess": { "enable_wedge_build": true, "enable_scene_cache": false, "bvh_leaf_size": 16 },
+  "material": { "material_database_file": "test/materials/L1_materials.csv" },
+  "antenna": { "source_type": "Ideal", "pattern_file": "", "polarization_file": "" },
+  "path_search": {
+    "max_path_depth": 3,
+    "max_reflection_count": 0,
+    "max_transmission_count": 1,
+    "max_diffraction_count": 0,
+    "max_scattering_count": 0,
+    "enable_los": true,
+    "max_consecutive_same_interaction": 5,
+    "tx_x": 0.0, "tx_y": 1.0, "tx_z": 1.5,
+    "rx_x": 2.8, "rx_y": 1.0, "rx_z": 1.5
+  },
+  "sbr": { "enabled": false },
+  "em_solver": { "frequency_hz": 2400000000.0, "solver_mode": "Precise" },
+  "output": { "export_paths": true, "export_cir": true, "export_pdp": true, "export_aps": true, "export_config_snapshot": true },
+  "validation": { "enable_basic_validation": true, "enable_reference_compare": false, "run_module1_self_check": false },
+  "experiment": { "experiment_tag": "L1_04", "dataset_tag": "canonical_transmission" ,
+  "acceleration": {
+    "backend": "GPU_OptiX",
+    "gpu_device_id": 0,
+    "gpu_batch_size": 1000000,
+    "gpu_use_rt_core": true
+  }
+}
+,
+  "acceleration": {
+    "backend": "GPU_OptiX",
+    "gpu_device_id": 0,
+    "gpu_batch_size": 1000000,
+    "gpu_use_rt_core": true
+  }
+}

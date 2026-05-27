@@ -1,0 +1,74 @@
+{
+  "description": "L1 analytical expected values for 6 canonical test scenes",
+  "date": "2026-05-14",
+  "references": {
+    "FSPL": "Friis (1946)",
+    "Fresnel": "Balanis Ch.5; Born & Wolf 1.5",
+    "UTD": "Kouyoumjian & Pathak (1974)",
+    "ITU_material": "ITU-R P.2040-1 (2015)"
+  },
+  "physical_constants": {
+    "c0_m_per_s": 299792458.0,
+    "eps0_F_per_m": 8.8541878128e-12
+  },
+  "scenes": {
+    "L1_01_free_space": {
+      "frequency_Hz": 2.4e9,
+      "wavelength_m": 0.12491352416666666,
+      "tx": [1.0, 1.0, 1.0],
+      "rx": [4.0, 1.0, 1.0],
+      "d_m": 3.0,
+      "fspl_dB": 49.589,
+      "delay_ns": 10.0069,
+      "expected_path_count": 1,
+      "aoa_theta_deg": 90.0,
+      "aoa_phi_deg": 0.0,
+      "aod_theta_deg": 90.0,
+      "aod_phi_deg": 0.0
+    },
+    "L1_02_pec_reflection": {
+      "frequency_Hz": 2.4e9,
+      "tx": [0.0, 1.0, 1.0],
+      "rx": [4.0, 1.5, 1.0],
+      "wall_x": 2.0,
+      "pec_Gamma_sq": 1.0,
+      "pec_TE_Gamma_sq": 1.0,
+      "pec_TM_Gamma_sq": 1.0,
+      "expected_reflection_angle_equals_incidence": true,
+      "min_path_count": 2
+    },
+    "L1_03_brewster": {
+      "frequency_Hz": 2.4e9,
+      "eps_r": 5.24,
+      "sigma": 0.0,
+      "brewster_angle_deg": 66.40,
+      "Gamma_TM_sq_at_Brewster": 0.0,
+      "Gamma_TE_sq_at_Brewster_gt_0": true
+    },
+    "L1_04_double_sided": {
+      "frequency_Hz": 3.5e9,
+      "eps_r": 5.24,
+      "sigma": 0.0,
+      "wall_thickness_m": 0.3,
+      "n_eff": 2.289,
+      "TE_power_conservation": 1.0,
+      "TM_power_conservation": 1.0
+    },
+    "L1_05_pec_wedge": {
+      "frequency_Hz": 3.5e9,
+      "wavelength_m": 0.085655,
+      "wedge_angle_deg": 90.0,
+      "UTD_n": 1.5,
+      "keller_cone_sin_beta0_near_1": true
+    },
+    "L1_06_concrete_wall": {
+      "frequency_Hz": 3.5e9,
+      "eps_r": 5.24,
+      "sigma_S_per_m": 0.05,
+      "wall_thickness_m": 0.3,
+      "n_eff": 2.289,
+      "alpha_Np_per_m": 0.153,
+      "attenuation_dB_normal_incidence": 0.398
+    }
+  }
+}
