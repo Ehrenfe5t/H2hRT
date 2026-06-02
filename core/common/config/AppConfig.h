@@ -113,6 +113,7 @@ struct PathSearchConfig {
     // v10 Iter5: SBR辅助候选池
     bool enable_sbr_auxiliary_pool = false;          // 启用SBR辅助候选池
     int sbr_auxiliary_ray_count = 5000;              // 辅助SBR射线数(默认5000)
+    bool enable_v10_precise_engine = false;           // 启用V2四阶段寻径 (默认关闭, 兼容V1)
     double tx_x = 1.0, tx_y = 1.0, tx_z = 1.0;
     double rx_x = 3.0, rx_y = 1.0, rx_z = 1.0;
     // v8: multi-Rx list (if non-empty, overrides single rx_x/y/z)
