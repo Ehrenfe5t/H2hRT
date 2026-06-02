@@ -114,6 +114,20 @@ bool SceneVisibilityBuilder::BuildPVS(Scene& scene, const SceneQuery& query, con
         pvs.total_entries += pvs.pvs_faces[i].size();
     }
 
+    // v10 Iter0: 构建反向PVS表 — O(total_entries), < 1ms
+    // reverse_pvs[j] = {i | face_i 能看到 face_j}
+    pvs.reverse_pvs.clear();
+    pvs.reverse_pvs.resize(N);
+    for (int i = 0; i < N; ++i) {
+        for (int j : pvs.pvs_faces[i]) {
+            pvs.reverse_pvs[j].push_back(i);
+        }
+    }
+    size_t revTotal = 0;
+    for (auto& v : pvs.reverse_pvs) revTotal += v.size();
+    // 正向和反向表应有相同条目总数
+    // (若不等, 说明 pvs_faces 有重复条目 — 不影响功能但值得记录)
+
     pvs.valid = true;
     return true;
 }

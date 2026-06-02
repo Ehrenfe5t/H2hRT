@@ -15,6 +15,9 @@ struct AABB;
 /// Kim et al., "Visibility Precomputation for Accelerated Ray Tracing in Indoor Radio Propagation", IEEE AWPL 2020
 struct FacePVS {
     std::vector<std::vector<int>> pvs_faces;  // pvs[i] = {face_j | face_j 从 face_i 半球可见}
+    // v10 Iter0: 反向PVS — reverse_pvs[j] = {face_i | face_i 能看到 face_j}
+    // 用于双向收缩: 正向扩张用 pvs_faces, 反向扩张用 reverse_pvs
+    std::vector<std::vector<int>> reverse_pvs;
     size_t total_entries = 0;
     int hemisphere_sample_count = 200;         // 每面元的半球探测射线数
     bool valid = false;
