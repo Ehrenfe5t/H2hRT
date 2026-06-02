@@ -37,6 +37,8 @@
     "max_scattering_count": 0,
     "max_consecutive_same_interaction": 5,
     "enable_los": true,
+    "enable_v10_precise_engine": true,
+    "enable_sbr_auxiliary_pool": true,
     "per_expander_keep_limit": 8,
     "per_state_keep_limit": 16,
     "exhaustive_debug_mode": false,

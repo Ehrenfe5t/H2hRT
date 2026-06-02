@@ -25,6 +25,7 @@
 #include "../core/common/material/MaterialDatabase.h"
 #include "../core/common/version/VersionInfo.h"
 #include "../core/search/SearchEngine.h"
+#include "../core/search/PathSearchEngineV2.h"          // v10: 四阶段混合寻径引擎
 #include "../core/path/PathSearchContext.h"
 #include "../preprocess/build/SceneImporter.h"
 #include "../preprocess/build/SceneTopologyBuilder.h"
@@ -339,8 +340,25 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 
     // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---
     const PathSearchContext batch5SearchContext = BuildBatch5SearchContext(loadResult.config, batch4Result.scene, &matDb);
-    SearchEngine searchEngine;
     SearchEngineResult batch5Result;
+    bool v2_used = false;
+    bool usedConstrainedSearch = false;  // hoisted for scope visibility
+
+    // v10: 四阶段混合寻径引擎 (PVS 主通道 + SBR 辅助)
+    if (PathSearchEngineV2::IsEnabled(loadResult.config)) {
+        PathSearchEngineV2 v2engine;
+        batch5Result = v2engine.Run(batch5SearchContext);
+        if (batch5Result.succeeded && !batch5Result.path_set.paths.empty()) {
+            logger.Log(LogLevel::Info, "V2", "四阶段引擎完成: " 
+                + std::to_string(batch5Result.path_set.paths.size()) + " paths");
+            v2_used = true;
+        } else {
+            logger.Log(LogLevel::Warn, "V2", "四阶段引擎返回空结果, fallback 到 V1");
+        }
+    }
+
+    if (!v2_used) {
+        SearchEngine searchEngine;
 
     // v8 hybrid: AngularGrid方向查询 + 2-hop PVS扩展 → 全量约束搜索
     if (coarseResult.succeeded && loadResult.config.pipeline.enable_stage2_constrained_search
@@ -377,7 +395,6 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                 +std::to_string(sz0)+"→"+std::to_string(kv.second.size())+" faces (AngularGrid+PVS2-hop)");
         }
     }
-    bool usedConstrainedSearch = false;
     if (loadResult.config.pipeline.enable_stage2_constrained_search
         && coarseResult.succeeded && !coarseResult.rx_active_faces.empty())
     {
@@ -402,6 +419,8 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     {
         batch5Result = searchEngine.Run(batch5SearchContext);  // full search
     }
+
+    } // end if (!v2_used)
 
     // ── Phase 4: 路径复用验证 (有种子Rx时) ──
     if (loadResult.config.pipeline.enable_stage3_path_reuse
@@ -449,12 +468,16 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
             return runResult;
         }
         logger.Log(LogLevel::Info, "App", "A1真实生产链闭环完成。");
+    } else if (!isCoverageOnly && v2_used && batch5Result.succeeded) {
+        a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger, &matDb);
+        if (a1Result.succeeded)
+            logger.Log(LogLevel::Info, "App", "V2 A1真实生产链闭环完成。");
     } else if (isCoverageOnly) {
         logger.Log(LogLevel::Info, "App", "Coverage-only: 跳过precise IM搜索, 直接进入SBR");
     }
 
-    // v8 multi-Rx: loop over rx_list, each runs SearchEngine + A1 chain independently
-    if (!isCoverageOnly && !loadResult.config.path_search.rx_list.empty()) {
+    // v8 multi-Rx: loop over rx_list (skip if V2 already handled them)
+    if (!v2_used && !isCoverageOnly && !loadResult.config.path_search.rx_list.empty()) {
         logger.Log(LogLevel::Info, "App", "多Rx批量Precise: " +
             std::to_string(loadResult.config.path_search.rx_list.size()) + " targets");
         for (const auto& rxTarget : loadResult.config.path_search.rx_list) {
@@ -466,8 +489,19 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
             PathSearchContext rxCtx = BuildBatch5SearchContext(loadResult.config, batch4Result.scene, &matDb);
             rxCtx.rx_point = MakeVec3(rxTarget.x, rxTarget.y, rxTarget.z);
 
-            SearchEngine rxEngine;
-            SearchEngineResult rxResult = rxEngine.Run(rxCtx);
+            SearchEngineResult rxResult;
+            bool rxV2Used = false;
+            if (PathSearchEngineV2::IsEnabled(loadResult.config)) {
+                PathSearchEngineV2 v2eng;
+                rxResult = v2eng.Run(rxCtx);
+                rxV2Used = rxResult.succeeded && !rxResult.path_set.paths.empty();
+                if (!rxV2Used)
+                    logger.Log(LogLevel::Warn, "V2", "Rx " + rxTarget.id + " V2 failed, fallback V1");
+            }
+            if (!rxV2Used) {
+                SearchEngine rxEngine;
+                rxResult = rxEngine.Run(rxCtx);
+            }
 
             if (!rxResult.succeeded || rxResult.path_set.paths.empty()) {
                 logger.Log(LogLevel::Error, "App", "Rx " + rxTarget.id + " search failed, skip");

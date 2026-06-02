@@ -81,6 +81,9 @@ public:
     // v8 Phase 2: 粗扫 — 收集 Rx 活跃面元/楔边
     SbrCoarseResult RunCoarsePass(const SbrCoarseContext& context) const;
 
+    // v10: 精确几何寻径 — 确定性射线分裂 (面元: R+T, 棱边: Keller锥)
+    SbrCoverageResult RunPrecise(const SbrContext& context) const;
+
 private:
     // v8 GPU wavefront: 按深度分波的批量射线处理
     SbrCoverageResult RunWavefront(const SbrContext& context) const;

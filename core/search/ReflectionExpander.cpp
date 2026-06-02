@@ -221,6 +221,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         node.point = hit.position;
         node.direction = nextState.current_direction;
         node.surface_normal = hit.normal;
+        node.incident_direction = Normalize(Subtract(hit.position, state.current_point));
         node.segment_length_from_previous = hit.distance;
         node.valid = true;
         nextState.traversed_nodes.push_back(node);
@@ -334,7 +335,8 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         ns.consecutive_same_interaction_count = (state.last_interaction_type == InteractionType::Reflection) ? (state.consecutive_same_interaction_count + 1) : 0;
         PathNode node; node.interaction_type = InteractionType::Reflection; node.object_id = hit.object_id;
         node.face_id = hit.face_id; node.point = hit.position; node.direction = ns.current_direction;
-        node.surface_normal = hit.normal; node.segment_length_from_previous = hit.distance; node.valid = true;
+        node.surface_normal = hit.normal; node.incident_direction = Normalize(Subtract(hit.position, state.current_point));
+        node.segment_length_from_previous = hit.distance; node.valid = true;
         ns.traversed_nodes.push_back(node);
         ns.state_signature = BuildStateSignature(ns, *context.config); ns.valid = true;
         const GeometryValidityResult ev = IsValidExpandedState(context, ns);

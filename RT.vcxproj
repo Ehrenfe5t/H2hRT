@@ -215,6 +215,7 @@
     <ClCompile Include="core\search\CascadeImageMethod.cpp" />
     <ClCompile Include="core\search\BidirectionalPVS.cpp" />
     <ClCompile Include="core\search\InteractionStateMachine.cpp" />
+    <ClCompile Include="core\search\FaceSequenceMapper.cpp" />
     <ClCompile Include="core\search\HybridPathSolver.cpp" />
     <ClCompile Include="core\search\SbrAuxiliaryPool.cpp" />
     <ClCompile Include="core\search\PathValidator.cpp" />

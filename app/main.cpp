@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     try
     {
         // 解析配置路径: 命令行参数优先, 否则回退到默认配置
-        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/meeting_412_v9_full.json";
+        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/meeting.json";
 
         // 启动完整管线 (配置→校验→批次→A1生产链→SBR覆盖)
         rt::RtPipeline pipeline;

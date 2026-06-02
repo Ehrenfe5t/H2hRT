@@ -1,9 +1,9 @@
 # v9 Validation Summary — all suite
 
-**Timestamp**: 2026-06-01T02:55:08.011682
+**Timestamp**: 2026-06-03T04:05:51.274794
 **Backend**: cpu
-**Results**: 34/34 passed, 0 failed, 0 skipped (0 critical)
-**Paper-ready**: YES
+**Results**: 33/34 passed, 0 failed, 1 skipped (1 critical)
+**Paper-ready**: NO
 **Real RT.exe cases**: 11  |  **Analytic cases**: 23
 
 ## Results
@@ -24,7 +24,7 @@
 | G-3 | RT | PASS | OK: paths=1 tx=1 |
 | G-4 | RT | PASS | OK: paths=1 |
 | G-5-prod | RT | PASS | OK: paths=2544 diff=2469 |
-| G-6 | RT | PASS | OK: paths=7538 diff=17810 |
+| G-6 | RT | SKIP* | config not found: output/G6/rx1/paths/precise_paths.json |
 | G-TK | RT | PASS | K1=1 <= K8=1 <= KX(exhaustive)=1 |
 | EM-1 | ANA | PASS | E+(-E)=0 |
 | EM-2 | ANA | PASS | R+T=1.0000 |
@@ -45,10 +45,11 @@
 | SBR-1 | RT | PASS | pwr=51.74uW paths=2 |
 
 ## Skipped Cases
-None.
+- **G-6** [BLOCKS thesis]: config not found: output/G6/rx1/paths/precise_paths.json
 
 ## Failed Cases
 None.
 
 ## Paper Experiment Readiness
-**PAPER_READY=true**: all critical suites pass with zero skipped.
+**PAPER_READY=false**. Reasons:
+  - G-6: config not found: output/G6/rx1/paths/precise_paths.json

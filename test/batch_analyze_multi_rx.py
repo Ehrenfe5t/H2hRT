@@ -98,12 +98,12 @@ def load_rx_data(output_root, run_id):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run_id", default="v9_full")
+    parser.add_argument("--run_id", default="meeting")
     parser.add_argument("--output_root", default="G:/RT/H2hRT-7.1-SBR-/output")
     parser.add_argument("--freq_hz", type=float, default=3.0e9)
-    parser.add_argument("--tx_x", type=float, default=2.38)
+    parser.add_argument("--tx_x", type=float, default=1.5)
     parser.add_argument("--tx_y", type=float, default=1.5)
-    parser.add_argument("--tx_z", type=float, default=-9.61)
+    parser.add_argument("--tx_z", type=float, default=-10.0)
     args = parser.parse_args()
 
     print(f"Batch Multi-Rx Channel Analysis")

@@ -25,9 +25,9 @@ def extract_number(label):
 def main():
     parser = argparse.ArgumentParser(
         description="Convert measurement Excel to Precise simulation rx_list JSON")
-    parser.add_argument("excel_path", nargs="?", default="G:/RT/H2hRT-7.1-SBR-/demo/412/Tx1 20dBm 3GHz .xlsx",
+    parser.add_argument("excel_path", nargs="?", default="G:/RT/H2hRT-7.1-SBR-/test/pos/meeting.xlsx",
                         help="Excel file (default: demo/412/Tx1 20dBm 3GHz .xlsx)")
-    parser.add_argument("--output", "-o", type=str, default="G:/RT/H2hRT-7.1-SBR-/demo/412/rx_tx1.json",
+    parser.add_argument("--output", "-o", type=str, default="G:/RT/H2hRT-7.1-SBR-/test/pos/meeting.json",
                         help="Output JSON (default: G:/RT/H2hRT-7.1-SBR-/configs/app/rx_tx1.json)")
     args = parser.parse_args()
 

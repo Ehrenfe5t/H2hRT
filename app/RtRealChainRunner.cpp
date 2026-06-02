@@ -64,24 +64,19 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
 
     // EM管线: 路径准备 → 初始化Tx场 → 沿路径遍历各交互节点
     if (!PreparePathForEM(input))
-    {
         return false;
-    }
 
     FieldAccumulator field;
     if (!InitializeTxField(input, field))
-    {
         return false;
-    }
 
     // 遍历每个路径段: 先施加自由空间衰减, 再处理交互类型
+    static int failLoop = 0;
     for (std::size_t i = 1; i < path.nodes.size(); ++i)
     {
         const PathNode& node = path.nodes[i];
         if (!ApplyFreeSpaceSegment(field, node.segment_length_from_previous))
-        {
             return false;
-        }
 
         if (node.interaction_type == InteractionType::Reflection)
         {

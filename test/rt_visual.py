@@ -26,10 +26,10 @@ pv.set_plot_theme("document")
 
 # ─── 路径常量 ─────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OBJ = ROOT / "demo/412" / "412-6k.obj"
-DEFAULT_CFG = ROOT / "configs" / "app" / "meeting_412.json"
-DEFAULT_MAT = ROOT / "configs" / "scenes" / "scene_material_map-412.json"
-DEFAULT_PTH = ROOT / "output" / "meeting-cov-hires" / "paths" / "precise_paths.json"
+DEFAULT_OBJ = ROOT / "demo" / "meeting.obj"
+DEFAULT_CFG = ROOT / "configs" / "app" / "meeting.json"  # 或 configs/app/1/meeting_412.json
+DEFAULT_MAT = ROOT / "configs" / "scenes" / "scene_material_map.json"
+DEFAULT_PTH = ROOT / "output" / "meeting" / "paths" / "precise_paths.json"
 
 # ─── 样式常量 ─────────────────────────────────────────
 TX_CLR, RX_CLR, PATH_CLR, MESH_CLR = "#ff5a5f", "#2d9cdb", "#ff9900", "#c7ccd6"
@@ -42,7 +42,15 @@ QGroupBox::title{subcontrol-origin:margin;left:10px;padding:0 4px}"""
 
 # ─── 工具函数 ────────────────────────────────────────
 def _load_json(p): return json.loads(Path(p).read_text(encoding="utf-8")) if Path(p).exists() else {}
-def _txrx(cfg): ps = cfg.get("path_search", {}); return ((ps.get("debug_tx_x", 1.), ps.get("debug_tx_y", 1.), ps.get("debug_tx_z", 1.)), (ps.get("debug_rx_x", 3.), ps.get("debug_rx_y", 1.), ps.get("debug_rx_z", 1.)))
+def _txrx(cfg):
+    ps = cfg.get("path_search", {})
+    tx = (ps.get("tx_x", ps.get("debug_tx_x", 1.)), ps.get("tx_y", ps.get("debug_tx_y", 1.)), ps.get("tx_z", ps.get("debug_tx_z", 1.)))
+    rx_list = ps.get("rx_list", [])
+    if rx_list:
+        rxs = [(r["x"], r["y"], r["z"]) for r in rx_list]
+    else:
+        rxs = [(ps.get("rx_x", ps.get("debug_rx_x", 3.)), ps.get("rx_y", ps.get("debug_rx_y", 1.)), ps.get("rx_z", ps.get("debug_rx_z", 1.)))]
+    return tx, rxs
 def _bounds(v): return {"X": (float(v[:, 0].min()), float(v[:, 0].max())), "Y": (float(v[:, 1].min()), float(v[:, 1].max())), "Z": (float(v[:, 2].min()), float(v[:, 2].max()))}
 def _radius(b): return max(b["X"][1]-b["X"][0], b["Y"][1]-b["Y"][0], b["Z"][1]-b["Z"][0]) * 0.018
 def _clip_box(b, ax, v):
@@ -58,7 +66,7 @@ class RTVisualizer(QMainWindow):
         super().__init__()
         self.obj_p, self.cfg_p, self.mat_p, self.pth_p = obj, cfg, mat, pth
         self.data_ok = False; self.verts = np.zeros((0, 3)); self.tris = np.zeros((0, 3), int)
-        self.paths = []; self.cfg = {}; self.mat_rules = {}; self.face_mat = {}
+        self.paths = []; self.cfg = {}; self.mat_rules = {}; self.face_mat = {}; self.all_rxs = []
         self.setWindowTitle(f"RT Visual — {obj.name}")
         self.resize(1800, 1050)
         self._ui()
@@ -125,9 +133,11 @@ class RTVisualizer(QMainWindow):
             self.verts = m.vertices.astype(float); self.tris = m.faces.astype(int)
             self.progress.setFormat("加载配置…"); QApplication.processEvents()
             self.cfg = _load_json(self.cfg_p) if self.cfg_p.exists() else {}
-            tx, rx = _txrx(self.cfg)
+            tx, rxs = _txrx(self.cfg)
             for s, v in zip(self.tx_s, tx): s.setValue(v)
-            for s, v in zip(self.rx_s, rx): s.setValue(v)
+            if rxs and len(rxs) > 0:
+                for s, v in zip(self.rx_s, rxs[0]): s.setValue(v)  # UI显示第一个Rx
+            self.all_rxs = rxs  # 保存全部Rx
             if self.mat_p and self.mat_p.exists():
                 self.progress.setFormat("加载材质…"); QApplication.processEvents()
                 raw = _load_json(self.mat_p)
@@ -158,11 +168,16 @@ class RTVisualizer(QMainWindow):
         show_e = len(self.tris) <= 3000
         self.plt.add_mesh(pd, color=MESH_CLR, opacity=0.85, show_edges=show_e,
                           edge_color="#888888", smooth_shading=True, name="scene")
-        # Tx/Rx
-        tx = tuple(s.value() for s in self.tx_s); rx = tuple(s.value() for s in self.rx_s)
+        # Tx/Rx — 多Rx支持
+        tx = tuple(s.value() for s in self.tx_s)
         self.plt.add_mesh(pv.Sphere(radius=r, center=tx), color=TX_CLR, name="tx")
-        self.plt.add_mesh(pv.Sphere(radius=r, center=rx), color=RX_CLR, name="rx")
-        self.plt.add_point_labels(np.array([tx, rx]), ["Tx", "Rx"], point_size=0, font_size=12, always_visible=True)
+        rx_labels = ["Tx"]
+        rx_pts = [tx]
+        for i, rx in enumerate(getattr(self, 'all_rxs', [])):
+            self.plt.add_mesh(pv.Sphere(radius=r*0.8, center=rx), color=RX_CLR, name=f"rx{i}")
+            rx_pts.append(rx)
+            rx_labels.append(f"Rx{i+1}")
+        self.plt.add_point_labels(np.array(rx_pts), rx_labels, point_size=0, font_size=12, always_visible=True)
         # paths — batch render, color-coded by interaction type
         if self.path_on.isChecked() and self.paths:
             groups = {3: [], 4: [], 5: [], 6: []}  # LOS / R / T / D

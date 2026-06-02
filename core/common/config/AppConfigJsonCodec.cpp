@@ -110,6 +110,8 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "allow_boundary_edge_diffraction", result.config.path_search.allow_boundary_edge_diffraction);
         ReadJsonField(o, "enable_lambertian_scattering", result.config.path_search.enable_lambertian_scattering);
         ReadJsonField(o, "scattering_coefficient", result.config.path_search.scattering_coefficient);
+        ReadJsonField(o, "enable_v10_precise_engine", result.config.path_search.enable_v10_precise_engine);
+        ReadJsonField(o, "enable_sbr_auxiliary_pool", result.config.path_search.enable_sbr_auxiliary_pool);
         ReadJsonField(o, "tx_x", result.config.path_search.tx_x);
         ReadJsonField(o, "tx_y", result.config.path_search.tx_y);
         ReadJsonField(o, "tx_z", result.config.path_search.tx_z);

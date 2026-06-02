@@ -1330,4 +1330,364 @@ SbrCoverageResult SbrEngine::RunMegakernel(const SbrContext& context) const
     return result;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// v10: RunPrecise — 确定性几何寻径 (面元: R+T分裂, 棱边: Keller锥)
+// 与 Run (蒙卡SBR) 共享 Rx 检测/功率衰减/Fresnel 基础设施
+// ═══════════════════════════════════════════════════════════════════
+
+SbrCoverageResult SbrEngine::RunPrecise(const SbrContext& context) const {
+    SbrCoverageResult result;
+    if (!context.config || !context.scene || !context.scene_query) return result;
+
+    const auto& cfg = context.config->sbr;
+    const auto& scfg = context.config->path_search;
+    int maxRefl = scfg.max_reflection_count;
+    int maxTrans = scfg.max_transmission_count;
+    int maxDiff = scfg.max_diffraction_count;
+    int maxDepth = scfg.max_path_depth;
+    int N_rays = cfg.ray_count;
+    double freqHz = context.config->em_solver.frequency_hz;
+    double rxSphereM = std::max(0.3, cfg.rx_sphere_radius_m); // 30cm minimum for path capture
+    double r2 = rxSphereM * rxSphereM;
+    double pwrThresh = std::pow(10.0, -70.0 / 10.0); // -70dB precise mode threshold
+
+    bool hasMat = context.material_db && !context.material_db->empty();
+    int RxCount = static_cast<int>(context.rx_grid.size());
+    if (RxCount == 0) return result;
+
+    // Rx 位置平面 (快速预检)
+    std::vector<Point3> rxPos(RxCount);
+    for (int i = 0; i < RxCount; ++i) rxPos[i] = context.rx_grid[i];
+
+    // Per-Rx 路径列表 (线程安全: 每线程独立vector, 最后合并)
+    int nThreads = 1;
+#ifdef _OPENMP
+    nThreads = omp_get_max_threads();
+#endif
+    std::vector<std::vector<GeometricPath>> threadPaths(nThreads);
+    std::vector<std::vector<std::unordered_set<uint64_t>>> threadSigSeen(nThreads);
+    for (int t = 0; t < nThreads; ++t) threadSigSeen[t].resize(RxCount);
+
+    // Per-Rx 命中计数
+    std::vector<std::atomic<int>> rxHitCounts(RxCount);
+
+    std::fprintf(stderr, "[SbrPrecise] rays=%d R<=%d T<=%d D<=%d depth<=%d rx=%d\n",
+                 N_rays, maxRefl, maxTrans, maxDiff, maxDepth, RxCount);
+
+    // ── 射线队列 (wavefront: 按深度分批并行处理) ──
+    struct RayState {
+        Point3 pos; Vec3 dir;
+        double power;
+        int depth, nRefl, nTrans, nDiff;
+        Point3 prev_pos;  // 上一跳位置 (用于段长度计算)
+        std::vector<int> face_ids;
+        std::vector<int> wedge_ids;
+        std::vector<InteractionType> itypes;
+        std::vector<Point3> hit_pts;
+        std::vector<Vec3> inc_dirs;     // 入射方向 per bounce
+        std::vector<Vec3> out_dirs;     // 出射方向 per bounce
+        std::vector<Vec3> normals;      // 面元法线 per bounce
+        std::vector<double> seg_lens;   // 段长度 per bounce
+    };
+
+    // Fibonacci 球面初始射线
+    std::vector<RayState> wave;
+    wave.reserve(N_rays);
+    double initPwr = 1.0 / N_rays;
+    double phi_golden = 3.14159265358979323846 * (3.0 - std::sqrt(5.0));
+
+    for (int i = 0; i < N_rays; ++i) {
+        double y = 1.0 - (i / (N_rays - 1.0)) * 2.0;
+        double radius = std::sqrt(1.0 - y * y);
+        double theta = phi_golden * i;
+        Vec3 dir = MakeVec3(radius * std::cos(theta), y, radius * std::sin(theta));
+        wave.push_back({context.tx_point, dir, initPwr, 0, 0, 0, 0,
+                        context.tx_point, {}, {}, {}, {}, {}, {}, {}, {}});
+    }
+
+    const auto& scene = *context.scene;
+    const auto& query = *context.scene_query;
+    const auto& wedges = scene.wedges;
+    int NW = static_cast<int>(wedges.size());
+
+    std::fprintf(stderr, "[SbrPrecise] wave[0]=%zu\n", wave.size());
+
+    int totalBranches = 0;
+
+    // ── LOS 直接检测: Tx→Rx ──
+    for (int ri = 0; ri < RxCount; ++ri) {
+        VisibilityQueryContext vc;
+        if (query.IsVisible(context.tx_point, rxPos[ri], vc)) {
+            rxHitCounts[ri]++;
+            GeometricPath gp; gp.is_los=true; gp.contains_transmission=false;
+            PathNode txNode; txNode.interaction_type=InteractionType::Tx;
+            txNode.point=context.tx_point; txNode.valid=true; gp.nodes.push_back(txNode);
+            PathNode rxNode; rxNode.interaction_type=InteractionType::Rx;
+            rxNode.point=rxPos[ri]; rxNode.valid=true;
+            rxNode.segment_length_from_previous=Length(Subtract(rxPos[ri],context.tx_point));
+            gp.nodes.push_back(rxNode);
+            gp.total_length=rxNode.segment_length_from_previous;
+            gp.valid=true; gp.path_signature=BuildPathSignature(gp,*context.config);
+            for (int t = 0; t < nThreads; ++t)
+                if (threadSigSeen[t][ri].insert(gp.path_signature).second)
+                    threadPaths[t].push_back(gp);
+        }
+    }
+
+    // ── Wavefront 主循环: 逐深度层并行处理 ──
+    for (int depth = 0; depth < maxDepth && !wave.empty(); ++depth) {
+        std::fprintf(stderr, "[SbrPrecise] depth=%d wave=%zu\r", depth, wave.size());
+
+        // 每线程的下一波 + 路径收集
+        std::vector<std::vector<RayState>> threadNext(nThreads);
+        std::vector<std::vector<GeometricPath>> threadPathsLocal(nThreads);
+        std::vector<std::vector<std::unordered_set<uint64_t>>> threadSigLocal(nThreads);
+        for (int t = 0; t < nThreads; ++t) {
+            threadSigLocal[t].resize(RxCount);
+            threadNext[t].reserve(wave.size() / nThreads * 2);
+        }
+
+#pragma omp parallel for schedule(dynamic, 1000)
+        for (int wi = 0; wi < static_cast<int>(wave.size()); ++wi) {
+            int tid = 0;
+#ifdef _OPENMP
+            tid = omp_get_thread_num();
+#endif
+            const RayState& rs = wave[wi];
+            if (rs.power < pwrThresh) continue;
+
+            // (Rx检测已移至面元命中后 — 见下文)
+            // ── 场景求交 ──
+            Ray ray; ray.origin = rs.pos; ray.direction = rs.dir;
+            FaceQueryContext fqc;
+            fqc.ignored_face_id = rs.face_ids.empty() ? -1 : rs.face_ids.back();
+            fqc.ignore_origin_self_hit = true;
+            fqc.origin_ignore_distance = 0.01;  // 1cm — 防止浮点自交
+            FaceHit hit = query.QueryClosestFaceHit(ray, fqc);
+            if (!hit.hit) continue;
+            const Face& face = scene.faces[hit.face_id];
+            if (face.degenerate) continue;
+
+            double cosI = std::fabs(Dot(rs.dir, hit.normal));
+            if (cosI < 1e-4) cosI = 1e-4;
+            double refPwr = 0.3;
+            if (hasMat) {
+                int mh = static_cast<int>(face.surface_eps_r * 100) + static_cast<int>(face.surface_sigma * 1000);
+                refPwr = FresnelPowerReflectionCached(cosI, face.surface_eps_r, face.surface_sigma, freqHz, mh);
+            }
+
+            // ── Rx 检测 (圆柱管法: 沿射线全程检查) ──
+            for (int ri = 0; ri < RxCount; ++ri) {
+                Vec3 rxToOrigin = MakeVec3(rxPos[ri].x - rs.pos.x, rxPos[ri].y - rs.pos.y, rxPos[ri].z - rs.pos.z);
+                double proj = Dot(rxToOrigin, rs.dir);
+                // Rx必须在射线前方
+                if (proj <= 0.0 || proj > hit.distance + 0.5) continue;
+                // 垂直距离 (圆柱管半径)
+                double dPerp2 = Dot(rxToOrigin, rxToOrigin) - proj * proj;
+                double rxR2 = 4.0; // 2m接收管半径 (圆柱管法)
+                if (dPerp2 > rxR2) continue;
+                // 最近点 (沿射线投影)
+                Point3 closestPt = MakeVec3(rs.pos.x + proj*rs.dir.x, rs.pos.y + proj*rs.dir.y, rs.pos.z + proj*rs.dir.z);
+                // 可见性: 只检查射线起点到该点
+                VisibilityQueryContext vc;
+                if (!query.IsVisible(rs.pos, closestPt, vc)) continue;
+
+                rxHitCounts[ri]++;
+                double finalSeg = Length(Subtract(rxPos[ri], rs.prev_pos));
+                double curSeg = Length(Subtract(hit.position, rs.prev_pos));
+                GeometricPath gp;
+                gp.is_los = (rs.depth == 0);
+                gp.contains_transmission = (rs.nTrans > 0);
+                PathNode txNode; txNode.interaction_type=InteractionType::Tx;
+                txNode.point=context.tx_point; txNode.valid=true; gp.nodes.push_back(txNode);
+                for (size_t k=0; k<rs.face_ids.size(); ++k) {
+                    PathNode pn; pn.interaction_type=rs.itypes[k];
+                    pn.face_id=rs.face_ids[k]; pn.wedge_id=rs.wedge_ids[k];
+                    pn.point=rs.hit_pts[k]; pn.valid=true;
+                    pn.incident_direction=(k<rs.inc_dirs.size())?rs.inc_dirs[k]:Vec3{};
+                    pn.direction=(k<rs.out_dirs.size())?rs.out_dirs[k]:Vec3{};
+                    pn.surface_normal=(k<rs.normals.size())?rs.normals[k]:Vec3{};
+                    pn.segment_length_from_previous=(k<rs.seg_lens.size())?rs.seg_lens[k]:0.0;
+                    if (rs.itypes[k] == InteractionType::Transmission) {
+                        int fid = rs.face_ids[k];
+                        if (fid >= 0 && fid < (int)scene.faces.size()) {
+                            const Face& tf = scene.faces[fid];
+                            pn.transmission_semantic_complete = tf.dual_side_material_resolved;
+                            bool fromFront = Dot(pn.incident_direction, tf.normal) < 0;
+                            pn.medium_in_id=fromFront?tf.front_medium_id:tf.back_medium_id;
+                            pn.medium_out_id=fromFront?tf.back_medium_id:tf.front_medium_id;
+                            pn.front_medium_id=tf.front_medium_id; pn.back_medium_id=tf.back_medium_id;
+                            pn.entered_from_front_side=fromFront;
+                        } else { pn.transmission_semantic_complete=true; pn.medium_in_id=0; pn.medium_out_id=1; }
+                    }
+                    gp.nodes.push_back(pn);
+                }
+                if (rs.depth > 0) {
+                    PathNode last; last.interaction_type=InteractionType::Reflection;
+                    last.face_id=hit.face_id; last.point=hit.position; last.valid=true;
+                    last.incident_direction=rs.dir;
+                    last.direction=Normalize(Subtract(rxPos[ri],hit.position));
+                    last.surface_normal=face.normal;
+                    last.segment_length_from_previous=curSeg;
+                    gp.nodes.push_back(last);
+                }
+                PathNode rxNode; rxNode.interaction_type=InteractionType::Rx;
+                rxNode.point=rxPos[ri]; rxNode.valid=true;
+                rxNode.segment_length_from_previous=finalSeg;
+                gp.nodes.push_back(rxNode);
+                gp.total_length=0;
+                for(size_t j=1;j<gp.nodes.size();++j)
+                    gp.total_length+=Length(Subtract(gp.nodes[j].point,gp.nodes[j-1].point));
+                gp.valid=true;
+                gp.path_signature=BuildPathSignature(gp,*context.config);
+                if(threadSigLocal[tid][ri].insert(gp.path_signature).second)
+                    threadPathsLocal[tid].push_back(gp);
+            }
+
+            // ── 绕射检测 (独立棱边遍历, 不依赖面元命中点) ──
+            int edgeId = -1; Vec3 eD; Point3 eCenter;
+            bool isDiffraction = false;
+            if (rs.nDiff < maxDiff && maxDiff > 0) {
+                // 对射线求所有棱边的相交: 射线→边垂距 < 阈值 且 交点在射线前方 且 交点在边上
+                double eps = 0.15;
+                double bestDist = eps;
+                const auto& edges = context.scene->edges;
+                for (int ei = 0; ei < static_cast<int>(edges.size()); ++ei) {
+                    const Edge& e = edges[ei];
+                    if (!e.supports_wedge) continue;
+                    // 射线-线段最短距离 (两直线间垂距)
+                    Vec3 w0 = MakeVec3(rs.pos.x - e.start.x, rs.pos.y - e.start.y, rs.pos.z - e.start.z);
+                    Vec3 ed = MakeVec3(e.end.x - e.start.x, e.end.y - e.start.y, e.end.z - e.start.z);
+                    double a = Dot(rs.dir, rs.dir), b = Dot(rs.dir, ed), e2 = Dot(ed, ed);
+                    double c = Dot(rs.dir, w0), d = -Dot(ed, w0);
+                    double denom = a * e2 - b * b;
+                    if (std::fabs(denom) < 1e-12) continue;
+                    double t = (c * e2 - b * d) / denom;  // 射线参数
+                    double s = (a * d - b * c) / denom;   // 边参数
+                    if (t <= 0.0 || s < 0.0 || s > 1.0) continue;
+                    // 最近点距离
+                    Point3 rp = MakeVec3(rs.pos.x + t*rs.dir.x, rs.pos.y + t*rs.dir.y, rs.pos.z + t*rs.dir.z);
+                    Point3 ep = MakeVec3(e.start.x + s*ed.x, e.start.y + s*ed.y, e.start.z + s*ed.z);
+                    double d2 = (rp.x-ep.x)*(rp.x-ep.x) + (rp.y-ep.y)*(rp.y-ep.y) + (rp.z-ep.z)*(rp.z-ep.z);
+                    if (d2 < bestDist * bestDist) { bestDist = std::sqrt(d2); edgeId = ei; }
+                }
+                if (edgeId >= 0) { const Edge& e=edges[edgeId]; eD=Normalize(e.direction); eCenter=e.midpoint; isDiffraction=true; }
+            }
+
+            // (cosI/refPwr 已在命中后计算)
+
+            // ── 反射分支 ──
+            if (face.reflection_enabled && rs.nRefl < maxRefl) {
+                double segLen = Length(Subtract(hit.position, rs.prev_pos));
+                RayState rr = rs; rr.dir = ReflectDir(rs.dir, hit.normal);
+                rr.pos = Add(hit.position, Scale(rr.dir, 0.01)); rr.power *= refPwr;
+                rr.depth++; rr.nRefl++; rr.prev_pos = hit.position;
+                rr.face_ids.push_back(hit.face_id); rr.wedge_ids.push_back(-1);
+                rr.itypes.push_back(InteractionType::Reflection); rr.hit_pts.push_back(hit.position);
+                rr.inc_dirs.push_back(rs.dir);
+                rr.out_dirs.push_back(rr.dir);
+                rr.normals.push_back(hit.normal);
+                rr.seg_lens.push_back(segLen);
+                if (rr.power >= pwrThresh) threadNext[tid].push_back(rr);
+            }
+
+            // ── 透射分支 ──
+            if (face.transmission_enabled && face.dual_side_material_resolved && rs.nTrans < maxTrans && hasMat) {
+                double n2 = std::sqrt(std::max(1.0, face.surface_eps_r));
+                double sinT2 = (1.0 - cosI * cosI) / (n2 * n2);
+                if (sinT2 < 1.0) {
+                    double segLen = Length(Subtract(hit.position, rs.prev_pos));
+                    RayState rt = rs; rt.dir = RefractDir(rs.dir, hit.normal, cosI, n2);
+                    rt.pos = Add(hit.position, Scale(rt.dir, 0.01)); rt.power *= (1.0 - refPwr);
+                    rt.depth++; rt.nTrans++; rt.prev_pos = hit.position;
+                    rt.face_ids.push_back(hit.face_id); rt.wedge_ids.push_back(-1);
+                    rt.itypes.push_back(InteractionType::Transmission); rt.hit_pts.push_back(hit.position);
+                    rt.inc_dirs.push_back(rs.dir);
+                    rt.out_dirs.push_back(rt.dir);
+                    rt.normals.push_back(hit.normal);
+                    rt.seg_lens.push_back(segLen);
+                    if (rt.power >= pwrThresh) threadNext[tid].push_back(rt);
+                }
+            }
+
+            // ── 绕射分支 (Keller锥, 复用老SBR精确公式) ──
+            if (isDiffraction && edgeId >= 0) {
+                double cB0 = std::fabs(Dot(rs.dir, eD));
+                double b0   = std::acos(std::min(1.0, cB0));
+                Vec3 pB = Normalize(Cross(rs.dir, eD));
+                if (Length(pB) < 1e-9) pB = Normalize(Cross(rs.dir, MakeVec3(0, 1, 0)));
+                double segLen = Length(Subtract(eCenter, rs.prev_pos));
+                int nSamples = 4; // 4 Keller cone samples
+                for (int si = 0; si < nSamples; ++si) {
+                    double phi = (si * 0.5 + 0.25) * kPi;
+                    Vec3 crossTerm = Cross(eD, pB);
+                    Vec3 coneDir = MakeVec3(
+                        std::sin(b0) * std::cos(phi) * pB.x + std::cos(b0) * eD.x + std::sin(b0) * std::sin(phi) * crossTerm.x,
+                        std::sin(b0) * std::cos(phi) * pB.y + std::cos(b0) * eD.y + std::sin(b0) * std::sin(phi) * crossTerm.y,
+                        std::sin(b0) * std::cos(phi) * pB.z + std::cos(b0) * eD.z + std::sin(b0) * std::sin(phi) * crossTerm.z);
+                    RayState rd = rs; rd.dir = coneDir;
+                    rd.pos = Add(eCenter, Scale(rd.dir, 0.01));
+                    rd.power *= 0.1; rd.depth++; rd.nDiff++; rd.prev_pos = eCenter;
+                    rd.face_ids.push_back(-1); rd.wedge_ids.push_back(edgeId);
+                    rd.itypes.push_back(InteractionType::Diffraction); rd.hit_pts.push_back(eCenter);
+                    rd.inc_dirs.push_back(rs.dir); rd.out_dirs.push_back(rd.dir);
+                    rd.normals.push_back(eD); rd.seg_lens.push_back(segLen);
+                    if (rd.power >= pwrThresh) threadNext[tid].push_back(rd);
+                }
+            }
+        }
+
+        // ── 合并下一波 (上限保护) ──
+        wave.clear();
+        for (int t = 0; t < nThreads; ++t) {
+            totalBranches += static_cast<int>(threadNext[t].size());
+            if (wave.size() < 5000000) // cap at 5M rays per wave
+                wave.insert(wave.end(), threadNext[t].begin(), threadNext[t].end());
+            threadPaths[t].insert(threadPaths[t].end(), threadPathsLocal[t].begin(), threadPathsLocal[t].end());
+            threadPathsLocal[t].clear();
+            for (int ri = 0; ri < RxCount; ++ri) {
+                threadSigSeen[t][ri].insert(threadSigLocal[t][ri].begin(), threadSigLocal[t][ri].end());
+                threadSigLocal[t][ri].clear();
+            }
+        }
+#pragma omp parallel for
+        for (int t = 0; t < nThreads; ++t) { threadNext[t].clear(); threadNext[t].reserve(wave.size() / nThreads * 2); }
+    }
+
+    std::fprintf(stderr, "\n[SbrPrecise] done: branches=%d", totalBranches);
+
+    // ── 合并线程路径 ──
+    result.rx_records.resize(RxCount);
+    for (int ri = 0; ri < RxCount; ++ri) {
+        result.rx_records[ri].rx_index = ri;
+        result.rx_records[ri].rx_position = rxPos[ri];
+        result.rx_records[ri].ray_hit_count = rxHitCounts[ri].load();
+    }
+    for (int t = 0; t < nThreads; ++t) {
+        for (size_t pi = 0; pi < threadPaths[t].size(); ++pi) {
+            const auto& gp = threadPaths[t][pi];
+            // 通过前两个交互节点的 face_id 推断 Rx index (简化: 存到所有非空)
+            for (int ri = 0; ri < RxCount; ++ri) {
+                if (threadSigSeen[t][ri].count(gp.path_signature)) {
+                    result.rx_records[ri].paths.push_back(gp);
+                    break;
+                }
+            }
+        }
+    }
+
+    result.total_rays = N_rays;
+    result.active_rx_count = 0;
+    int totalPaths = 0;
+    for (int ri = 0; ri < RxCount; ++ri) {
+        if (result.rx_records[ri].ray_hit_count > 0) result.active_rx_count++;
+        totalPaths += static_cast<int>(result.rx_records[ri].paths.size());
+    }
+    result.succeeded = true;
+
+    std::fprintf(stderr, "[SbrPrecise] done: branches=%d active_rx=%d/%d total_paths=%d\n",
+                 totalBranches, result.active_rx_count, RxCount, totalPaths);
+    return result;
+}
+
 } // namespace rt

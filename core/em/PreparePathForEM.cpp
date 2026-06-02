@@ -16,21 +16,13 @@ namespace rt {
 /// <returns>true if the path passes all pre-checks and can enter the EM pipeline.</returns>
 bool PreparePathForEM(const EMSolverInput& input)
 {
-    // Null-pointer guard: all three core references must be valid
+    // Null-pointer guard
     if (input.config == nullptr || input.scene == nullptr || input.path == nullptr)
-    {
         return false;
-    }
-    // Path must be marked valid by the search engine
     if (!input.path->valid)
-    {
         return false;
-    }
-    // At minimum, a path needs a Tx node and an Rx node
     if (input.path->nodes.size() < 2)
-    {
         return false;
-    }
 
     // Scan all interaction nodes to verify transmission semantic completeness.
     // Each transmission node must have:
@@ -83,9 +75,7 @@ bool PreparePathForEM(const EMSolverInput& input)
 
     // Block path if any transmission node lacks complete semantics
     if (!transmissionSemanticComplete)
-    {
         return false;
-    }
 
     return true;
 }

@@ -1,0 +1,313 @@
+{
+  "app_runtime": { "mode": "debug", "log_level": "INFO", "run_id": "meeting" },
+  "scene_import": {
+    "source_file": "demo/meeting.obj", "source_format": "obj",
+    "scene_material_map_file": "configs/scenes/scene_material_map.json"
+  },
+  "scene_preprocess": { "enable_wedge_build": true, "enable_scene_cache": false, "bvh_leaf_size": 16 },
+  "material": { "material_database_file": "demo/ItuMaterial.csv", "missing_material_policy": "strict" },
+  "antenna": {
+    "source_type": "Ideal", "pattern_file": "", "polarization_file": "",
+    "forward_x": 1.0, "forward_y": 0.0, "forward_z": 0.0,
+    "up_x": 0.0, "up_y": 0.0, "up_z": 1.0
+  },
+  "path_search": {
+    "max_path_depth": 8,
+    "max_reflection_count": 3,
+    "max_transmission_count": 2,
+    "max_diffraction_count": 1,
+    "enable_los": true,
+    "enable_v10_precise_engine": true,
+    "tx_x": 1.5,
+    "tx_y": 1.5,
+    "tx_z": -10.0,
+    "rx_list": [
+      {
+        "id": "rx1",
+        "x": 1.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx2",
+        "x": 2.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx3",
+        "x": 3.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx4",
+        "x": 4.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx5",
+        "x": 5.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx6",
+        "x": 6.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx7",
+        "x": 7.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx8",
+        "x": 8.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx9",
+        "x": 9.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx10",
+        "x": 10.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx11",
+        "x": 11.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx12",
+        "x": 12.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx13",
+        "x": 13.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx14",
+        "x": 14.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx15",
+        "x": 15.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx16",
+        "x": 16.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx17",
+        "x": 17.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx18",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -14.15
+      },
+      {
+        "id": "rx19",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -13.15
+      },
+      {
+        "id": "rx20",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -12.15
+      },
+      {
+        "id": "rx21",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -11.15
+      },
+      {
+        "id": "rx22",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -10.15
+      },
+      {
+        "id": "rx23",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -9.15
+      },
+      {
+        "id": "rx24",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -8.15
+      },
+      {
+        "id": "rx25",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -7.15
+      },
+      {
+        "id": "rx26",
+        "x": 18.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx27",
+        "x": 17.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx28",
+        "x": 16.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx29",
+        "x": 15.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx30",
+        "x": 14.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx31",
+        "x": 13.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx32",
+        "x": 12.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx33",
+        "x": 11.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx34",
+        "x": 10.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx35",
+        "x": 9.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx36",
+        "x": 8.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx37",
+        "x": 7.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx38",
+        "x": 6.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx39",
+        "x": 5.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx40",
+        "x": 4.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx41",
+        "x": 3.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx42",
+        "x": 2.5,
+        "y": 1.5,
+        "z": -6.0
+      },
+      {
+        "id": "rx43",
+        "x": 1.5,
+        "y": 1.5,
+        "z": -6.0
+      }
+    ]
+  },
+  "sbr": {
+    "enabled": true, "ray_count": 2000000, "max_ray_depth": 8,
+    "max_reflection_count": 3, "max_transmission_count": 2, "max_diffraction_count": 1,
+    "ray_power_threshold_dB": -327,
+    "rx_grid_min_x": 0.0, "rx_grid_max_x": 20.0,
+    "rx_grid_min_y": 0.0, "rx_grid_max_y": 3.0,
+    "rx_grid_min_z": -20.0, "rx_grid_max_z": 0.0,
+    "rx_grid_step_x": 0.1, "rx_grid_step_y": 0.1, "rx_grid_step_z": 0.1,
+    "rx_sphere_radius_m": 0.1, "tx_power_dBm": 20, "store_paths": true
+  },
+  "frequency_sweep": {
+    "enabled": true, "center_hz": 3000000000.0, "bandwidth_hz": 200000000.0,
+    "point_count": 201, "spacing": "linear", "retrace_per_frequency": false, "mode": "fixed_gain"
+  },
+  "channel_observation": {
+    "export_ideal_delta_cir": true, "export_sampled_cfr": true,
+    "export_observed_cir_ifft": true, "delay_bin_s": 1e-09,
+    "window_type": "hann", "ifft_convention": "vna_like"
+  },
+  "em_solver": { "frequency_hz": 3000000000.0, "solver_mode": "Precise" },
+  "output": {
+    "export_paths": true, "export_cir": true, "export_pdp": true,
+    "export_aps": true, "export_config_snapshot": true
+  },
+  "acceleration": {
+    "backend": "CPU_FaceBVH", "gpu_device_id": 0,
+    "gpu_batch_size": 1000000, "gpu_use_rt_core": false
+  }
+}

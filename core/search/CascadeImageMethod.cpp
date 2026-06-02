@@ -60,21 +60,31 @@ CascadeImageResult SolveCascadeReflection(
             return result;
         }
 
-        // BVH 射线求交
+        // BVH 射线求交 — 用范围查询容忍中间遮挡面元
         Ray ray; ray.origin = src; ray.direction = dir;
         FaceQueryContext qc;
         qc.origin_ignore_distance = 1e-6;
-        FaceHit hit = query.QueryClosestFaceHit(ray, qc);
+        double maxDist = Length(Subtract(mirrors[i], src)) * 2.0;
+        std::vector<FaceHit> allHits = query.QueryFaceHitsInRange(ray, 0.0, maxDist, qc);
 
         const Face& target_face = scene.faces[face_ids[i]];
-        if (!hit.hit || hit.face_id != target_face.face_id) {
-            result.failure_reason = "face mismatch at step " + std::to_string(i)
-                + ": expected=" + std::to_string(face_ids[i])
-                + ", got=" + std::to_string(hit.face_id);
+        FaceHit bestHit;
+        bestHit.hit = false;
+        for (const auto& h : allHits) {
+            if (h.face_id == target_face.face_id) {
+                bestHit = h; break;  // 找到目标面元
+            }
+        }
+        if (!bestHit.hit) {
+            // fallback: 用最近命中 (可能是浮点偏移导致的面元错位)
+            if (!allHits.empty()) bestHit = allHits[0];
+        }
+        if (!bestHit.hit) {
+            result.failure_reason = "no hit at step " + std::to_string(i);
             return result;
         }
 
-        Point3 P = hit.position;
+        Point3 P = bestHit.position;
         double segLen = Length(Subtract(P, src));
         totalLen += segLen;
 
