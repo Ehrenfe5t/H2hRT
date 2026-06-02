@@ -110,6 +110,9 @@ struct PathSearchConfig {
     bool allow_boundary_edge_diffraction = true;     // 边界边是否参与绕射
     bool enable_lambertian_scattering = false;       // Lambertian漫散射 (实验性)
     double scattering_coefficient = 0.0;             // 漫散射系数 [0,1]
+    // v10 Iter5: SBR辅助候选池
+    bool enable_sbr_auxiliary_pool = false;          // 启用SBR辅助候选池
+    int sbr_auxiliary_ray_count = 5000;              // 辅助SBR射线数(默认5000)
     double tx_x = 1.0, tx_y = 1.0, tx_z = 1.0;
     double rx_x = 3.0, rx_y = 1.0, rx_z = 1.0;
     // v8: multi-Rx list (if non-empty, overrides single rx_x/y/z)

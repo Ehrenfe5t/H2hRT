@@ -216,6 +216,7 @@
     <ClCompile Include="core\search\BidirectionalPVS.cpp" />
     <ClCompile Include="core\search\InteractionStateMachine.cpp" />
     <ClCompile Include="core\search\HybridPathSolver.cpp" />
+    <ClCompile Include="core\search\SbrAuxiliaryPool.cpp" />
     <ClCompile Include="core\search\GeometryValidity.cpp" />
     <ClCompile Include="core\search\ReflectionExpander.cpp" />
     <ClCompile Include="core\search\ResolveMediumTransition.cpp" />
