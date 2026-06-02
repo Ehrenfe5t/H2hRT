@@ -214,6 +214,7 @@
     <ClCompile Include="core\search\DiffractionExpander.cpp" />
     <ClCompile Include="core\search\CascadeImageMethod.cpp" />
     <ClCompile Include="core\search\BidirectionalPVS.cpp" />
+    <ClCompile Include="core\search\InteractionStateMachine.cpp" />
     <ClCompile Include="core\search\GeometryValidity.cpp" />
     <ClCompile Include="core\search\ReflectionExpander.cpp" />
     <ClCompile Include="core\search\ResolveMediumTransition.cpp" />
