@@ -4,6 +4,7 @@
 #include "ApplyReflectionInteraction.h"
 #include "../common/math/Vec3.h"
 #include "../common/math/Complex.h"
+#include "../common/math/ComplexVec3.h"
 #include "../common/math/MathConstants.h"
 #include "../common/material/MaterialDatabase.h"
 #include <cmath>
@@ -67,6 +68,25 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
 
     Complex gammaTE = FresnelTE(cosI, epsC);
     Complex gammaTM = FresnelTM(cosI, epsC);
+
+    // ── v9 B2-a: 复矢量路径 ──
+    if (field.vector_field_valid) {
+        // 投影: E_in → TE, TM 复分量
+        Complex E_TE = ComplexDot(field.electric_field_world, eTE);
+        Complex E_TM = ComplexDot(field.electric_field_world, eTM);
+
+        // Fresnel: 各分量乘复系数
+        Complex E_TE_ref = gammaTE * E_TE;
+        Complex E_TM_ref = gammaTM * E_TM;
+
+        // 重构: 从TE/TM基重新构建世界复电场
+        field.electric_field_world = ReconstructFromBasis(E_TE_ref, eTE, E_TM_ref, eTM);
+
+        field.SyncLegacyFields();
+        return true;
+    }
+
+    // ── 旧标量路径 (兼容) ──
     Complex A_TE_ref = gammaTE * A_TE_inc;
     Complex A_TM_ref = gammaTM * A_TM_inc;
 

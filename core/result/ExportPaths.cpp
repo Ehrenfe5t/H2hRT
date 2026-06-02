@@ -104,7 +104,43 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
                      << ", \"x\": " << node.point.x
                      << ", \"y\": " << node.point.y
                      << ", \"z\": " << node.point.z
-                     << " }";
+                     // v9 StageB: medium semantics
+                     << ", \"medium_in_id\": " << node.medium_in_id
+                     << ", \"medium_out_id\": " << node.medium_out_id
+                     << ", \"front_medium_id\": " << node.front_medium_id
+                     << ", \"back_medium_id\": " << node.back_medium_id
+                     << ", \"entered_from_front_side\": " << (node.entered_from_front_side ? "true" : "false")
+                     << ", \"transmission_semantic_complete\": " << (node.transmission_semantic_complete ? "true" : "false")
+                     // v9 StageB: direction vectors
+                     << ", \"incident_dx\": " << node.incident_direction.x
+                     << ", \"incident_dy\": " << node.incident_direction.y
+                     << ", \"incident_dz\": " << node.incident_direction.z
+                     << ", \"direction_dx\": " << node.direction.x
+                     << ", \"direction_dy\": " << node.direction.y
+                     << ", \"direction_dz\": " << node.direction.z
+                     << ", \"normal_nx\": " << node.surface_normal.x
+                     << ", \"normal_ny\": " << node.surface_normal.y
+                     << ", \"normal_nz\": " << node.surface_normal.z
+                     << ", \"segment_length\": " << node.segment_length_from_previous
+                     // v9 StageB: Snell diagnostics
+                     << ", \"snell_residual\": " << node.snell_residual
+                     << ", \"snell_theta_i_rad\": " << node.snell_theta_i_rad
+                     << ", \"snell_theta_t_rad\": " << node.snell_theta_t_rad
+                     << ", \"snell_tir\": " << (node.snell_tir ? "true" : "false");
+                // v9 StageB: Diffraction diagnostics (only for Diffraction nodes)
+                if (node.interaction_type == InteractionType::Diffraction) {
+                    const auto& dd = node.diffraction_diag;
+                    json << ", \"diffraction_diag\": {"
+                         << "\"edge_t\": " << dd.edge_parameter_t
+                         << ", \"s1\": " << dd.s1
+                         << ", \"s2\": " << dd.s2
+                         << ", \"keller_residual\": " << dd.keller_residual
+                         << ", \"fermat_endpoint_warning\": " << (dd.fermat_endpoint_warning ? "true" : "false")
+                         << ", \"vis_from_source\": " << (dd.visibility_from_source ? "true" : "false")
+                         << ", \"vis_to_rx\": " << (dd.visibility_to_rx ? "true" : "false")
+                         << "}";
+                }
+                json << " }";
                 if (nodeIndex + 1U < sourcePath->nodes.size())
                 {
                     json << ", ";
@@ -170,6 +206,26 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << "  \"path_count\": " << context.precise_result->path_results.results.size() << ",\n"
              << "  \"source_path_count\": " << (context.search_result != nullptr ? context.search_result->path_set.paths.size() : 0) << "\n"
              << "}\n";
+
+    // v9 StageC: search diagnostics (failure_reason_counts for TIR/Snell validation)
+    if (context.search_result != nullptr) {
+        std::ostringstream diag;
+        diag << "{\n  \"failure_reason_counts\": {";
+        bool first = true;
+        for (auto& [reason, count] : context.search_result->failure_reason_counts) {
+            if (!first) diag << ",";
+            diag << "\n    \"" << reason << "\": " << count;
+            first = false;
+        }
+        diag << "\n  },\n  \"generated_state_count\": " << context.search_result->generated_state_count
+             << ",\n  \"deduplicated_state_count\": " << context.search_result->deduplicated_state_count
+             << ",\n  \"candidate_state_count\": " << context.search_result->candidate_state_count
+             << ",\n  \"accepted_state_count\": " << context.search_result->accepted_state_count
+             << "\n}\n";
+        std::string diagPath = context.export_root_directory + "/paths/search_diagnostics.json";
+        WriteTextFile(diagPath, diag.str());
+        bundle.exported_files.push_back(diagPath);
+    }
 
     if (!WriteTextFile(jsonPath, json.str()) || !WriteTextFile(csvPath, csv.str()) || !WriteTextFile(manifestPath, manifest.str()))
     {

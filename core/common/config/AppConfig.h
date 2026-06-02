@@ -58,6 +58,8 @@ struct ScenePreprocessConfig {
 /// </summary>
 struct MaterialConfig {
     std::string material_database_file;
+    // v9 step28: 材质策略 — strict=缺失中止, warn=warning+真空fallback, debug=忽略
+    std::string missing_material_policy = "strict";
     // v6: material_mapping_file, frequency_query_mode, allow_material_fallback, default_background_medium removed
     // 材质映射统一用 scene_import.scene_material_map_file
 };
@@ -94,6 +96,20 @@ struct PathSearchConfig {
     int max_scattering_count = 0;
     bool enable_los = true;
     int max_consecutive_same_interaction = 5;
+    // v9 step11: 剪枝阈值配置化 (原硬编码8/16)
+    int per_expander_keep_limit = 8;     // 每个扩展器保留候选数
+    int per_state_keep_limit = 16;       // 每个状态保留候选总数
+    // v9 step11: wedge候选配置化 (原硬编码50m/64)
+    double wedge_max_distance_m = 50.0;  // 绕射候选最大距离
+    int wedge_max_candidates = 64;       // 绕射候选最大数量
+    // v9 step28: 物理容忍度配置
+    double direction_closure_angle_tol_deg = 2.0; // LS闭合方向容差(°) 原硬编码2°
+    double snell_residual_tol = 1.0e-6;           // Snell残差阈值
+    bool exhaustive_debug_mode = false;            // 关闭top-K剪枝, 用于对照实验
+    // v9 D-3: 绕射/散射控制
+    bool allow_boundary_edge_diffraction = true;     // 边界边是否参与绕射
+    bool enable_lambertian_scattering = false;       // Lambertian漫散射 (实验性)
+    double scattering_coefficient = 0.0;             // 漫散射系数 [0,1]
     double tx_x = 1.0, tx_y = 1.0, tx_z = 1.0;
     double rx_x = 3.0, rx_y = 1.0, rx_z = 1.0;
     // v8: multi-Rx list (if non-empty, overrides single rx_x/y/z)
@@ -137,6 +153,31 @@ struct EMSolverConfig {
     double frequency_hz = 2.4e9;
     std::string solver_mode = "Precise";
     // v6: enable_polarization removed
+};
+
+/// <summary>
+/// v9 主线C: 频率扫频配置 — 宽带信道仿真
+/// </summary>
+struct FrequencySweepConfig {
+    bool enabled = false;             // 是否启用频域扫频
+    double center_hz = 3.0e9;        // 中心频率 (Hz)
+    double bandwidth_hz = 2.0e8;     // 带宽 (Hz)
+    int point_count = 201;           // 频点数
+    std::string spacing = "linear";  // "linear" | "log"
+    bool retrace_per_frequency = false; // 每频点重新几何寻径 (默认复用路径)
+    std::string mode = "fixed_gain"; // "fixed_gain" | "frequency_sweep_em"
+};
+
+/// <summary>
+/// v9 主线C: 信道观测配置 — 测量等效CIR参数
+/// </summary>
+struct ChannelObservationConfig {
+    bool export_ideal_delta_cir = true;   // 理想δ CIR
+    bool export_sampled_cfr = true;       // 采样CFR H(f)
+    bool export_observed_cir_ifft = true; // IFFT可观测CIR
+    double delay_bin_s = 1.0e-9;          // 时延分bin宽度
+    std::string window_type = "hann";     // 窗函数: "hann"|"rect"|"hamming"
+    std::string ifft_convention = "vna_like"; // IFFT约定
 };
 
 /// <summary>
@@ -224,6 +265,8 @@ struct AppConfig {
     PipelineConfig pipeline;            // v8: 管线阶段控制
     AccelerationConfig acceleration;    // v8: 加速器后端选择
     NumericToleranceConfig numeric_tolerance;
+    FrequencySweepConfig frequency_sweep;       // v9 C: 宽带扫频
+    ChannelObservationConfig channel_observation; // v9 C: 信道观测
 };
 
 /// <summary>

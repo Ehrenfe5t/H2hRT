@@ -93,6 +93,53 @@ public:
 
     bool empty() const { return byName_.empty(); }
 
+    // v9 G-1: ITU-R P.2040 外推 — 单频点材料 → 频率相关参数
+    // ε_r(f) = ε_r(f0) · (f/f0)^{b}
+    // σ(f) = σ(f0) · (f/f0)^{d}
+    // b, d 来自ITU推荐值 (典型建筑材料)
+    MaterialProps ExtrapolateITU(const MaterialProps& base, double baseFreq, double targetFreq) const {
+        // v9 StageH: ITU-R P.2040-1 参数表 — 常见建筑材料频率依赖模型
+        // εr(f) = εr(f0)·(f/f0)^{b}, σ(f) = σ(f0)·(f/f0)^{d}
+        // 参数来源: ITU-R P.2040-1 Table 4 (1-100 GHz)
+        static const std::map<std::string, std::pair<double,double>> ituParams = {
+            // {name: (b_exponent, d_exponent)}
+            {"concrete",   {-0.1235, 0.6110}},
+            {"brick",      {-0.0960, 0.6400}},
+            {"plasterboard",{-0.0910, 0.5720}},
+            {"wood",       {-0.0737, 0.7142}},
+            {"glass",      {-0.0350, 0.6600}},
+            {"ceiling_board",{-0.0700, 0.6300}},
+            {"chipboard",  {-0.0780, 0.6330}},
+            {"floorboard", {-0.0760, 0.6250}},
+            {"metal",      {-0.2000, 1.0000}},
+            {"very_dry_ground",{-0.0350, 0.6200}},
+            {"medium_dry_ground",{-0.0500, 0.7000}},
+            {"wet_ground", {-0.0900, 0.8000}},
+        };
+
+        MaterialProps r = base;
+        double ratio = targetFreq / baseFreq;
+        if (std::fabs(ratio - 1.0) < 1e-9) return r;
+
+        // Look up ITU-R parameters by material name
+        double b = -0.1, d = 0.5; // default fallback
+        for (auto& [name, params] : ituParams) {
+            if (base.name.find(name) != std::string::npos) {
+                b = params.first; d = params.second; break;
+            }
+        }
+
+        r.epsilon_r = base.epsilon_r * std::pow(ratio, b);
+        r.epsilon_r = std::max(1.0, r.epsilon_r);
+        r.sigma = base.sigma * std::pow(ratio, d);
+        return r;
+    }
+
+    // v9 G-2: 检查单个材质名是否在数据库中
+    bool HasMaterial(const std::string& name) const {
+        return !name.empty() && byName_.find(name) != byName_.end();
+    }
+
 private:
     std::unordered_map<std::string, std::map<double, MaterialProps>> byName_;
     std::unordered_map<int, std::map<double, MaterialProps>> byId_;

@@ -14,6 +14,19 @@
 namespace rt {
 
 /// <summary>
+/// v9 D-4: 绕射几何诊断字段 — 仅绕射节点有效
+/// </summary>
+struct DiffractionDiagnostics {
+    double edge_parameter_t = 0.0;    // Fermat最优点在边上的参数 [0,1]
+    double s1 = 0.0;                   // Tx到绕射点距离
+    double s2 = 0.0;                   // 绕射点到Rx距离
+    double keller_residual = 0.0;     // |cosβ_tx - cosβ_rx| (Keller cone残差)
+    bool fermat_endpoint_warning = false; // 最优点接近边端点
+    bool visibility_from_source = false;
+    bool visibility_to_rx = false;
+};
+
+/// <summary>
 /// 几何路径节点结构。
 /// </summary>
 struct PathNode {
@@ -35,6 +48,12 @@ struct PathNode {
     Vec3 surface_normal;
     double segment_length_from_previous = 0.0;
     bool valid = false;
+    // v9 Stage2: Snell诊断 (仅透射节点)
+    double snell_residual = 0.0;           // |n1·sinθ_i - n2·sinθ_t|
+    double snell_theta_i_rad = 0.0;        // 入射角
+    double snell_theta_t_rad = 0.0;        // 出射角
+    bool snell_tir = false;                // 全内反射标志
+    DiffractionDiagnostics diffraction_diag; // v9 D-4: 绕射诊断 (仅绕射节点)
 };
 
 } // namespace rt

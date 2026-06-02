@@ -33,7 +33,9 @@ enum class GeometryValidityReason {
     InvalidPathSequence,
     MixedPathNotAllowed,
     PathDepthExceeded,
-    CandidateRejectedByControl
+    CandidateRejectedByControl,
+    TotalInternalReflection,     // v9-StageC
+    SnellResidualExceeded        // v9-StageC
 };
 
 /// <summary>

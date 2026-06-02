@@ -27,6 +27,13 @@ struct SbrCoverageResult {
     int active_rx_count = 0;
     std::vector<RxCoverageRecord> rx_records;
     std::vector<std::string> trace_lines;
+    // v9 Stage8: SBR diagnostics
+    int total_bounces = 0;              // 总反射次数
+    int total_transmissions = 0;        // 总透射次数
+    int total_diffractions = 0;         // 总绕射次数
+    int rays_below_threshold = 0;       // 功率低于阈值的射线数
+    int rays_terminated_early = 0;      // 无交互提前终止的射线
+    std::string convergence_notes;       // 收敛性说明
 };
 
 struct SbrContext {

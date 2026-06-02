@@ -97,6 +97,19 @@ void BuildSceneWedges(const AppConfig& config, Scene& scene)
         wedge.wedge_flags = WedgeFlagDiffractable;
         wedge.bounds = BuildBounds(wedge.segment_start, wedge.segment_end);
 
+        // v9 D-6: 凸性 + UTD有效性
+        wedge.zero_face_id = edge.face_id0; // 默认positive_face为UTD参考面
+        if (wedgeAngle < 180.0) {
+            wedge.convexity = WedgeConvexity::Convex;
+        } else if (wedgeAngle > 180.0) {
+            wedge.convexity = WedgeConvexity::Concave;
+        } else {
+            wedge.convexity = WedgeConvexity::Boundary; // 180°平地, 非真正wedge
+        }
+        // UTD n = exterior_angle / π, 有效范围 [0.5, 2.0]
+        double n = wedgeAngle / 180.0;
+        wedge.valid_for_utd = (!edge.is_non_manifold) && (n >= 0.5 && n <= 2.0);
+
         if (edge.is_non_manifold)
         {
             wedge.wedge_flags |= WedgeFlagNonManifoldSource;

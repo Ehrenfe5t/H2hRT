@@ -117,6 +117,31 @@ bool InitializeTxField(const EMSolverInput& input, FieldAccumulator& field)
         field.power_linear *= gainLin;
     }
 
+    // ── v9 B1-d: 初始化复矢量电场 ──
+    // 从已构建的极化矢量构造世界坐标复电场
+    double polMag = std::sqrt(Dot(field.polarization_vector, field.polarization_vector)
+                            + Dot(field.polarization_imag, field.polarization_imag));
+    if (polMag > 1e-12) {
+        double invMag = 1.0 / polMag;
+        double amp = std::sqrt(std::max(0.0, field.power_linear));
+        // E_world = amp * (P_real + j*P_imag) / |P|
+        field.electric_field_world = ComplexVec3(
+            Complex(field.polarization_vector.x * amp * invMag,
+                    field.polarization_imag.x * amp * invMag),
+            Complex(field.polarization_vector.y * amp * invMag,
+                    field.polarization_imag.y * amp * invMag),
+            Complex(field.polarization_vector.z * amp * invMag,
+                    field.polarization_imag.z * amp * invMag));
+    } else {
+        // 默认: Y轴垂直极化, 单位幅度
+        field.electric_field_world = ComplexVec3(
+            Complex(0.0, 0.0),
+            Complex(std::sqrt(field.power_linear), 0.0),
+            Complex(0.0, 0.0));
+    }
+    field.vector_field_valid = true;
+    field.SyncLegacyFields();
+
     field.valid = true;
     return true;
 }

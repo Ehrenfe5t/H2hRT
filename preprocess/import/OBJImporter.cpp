@@ -8,6 +8,8 @@
 
 #include "OBJImporter.h"
 
+#include "../../core/common/math/Vec3.h"
+
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -28,40 +30,90 @@ bool ParseVector3(std::istringstream& lineStream, Vec3& vector)
     return static_cast<bool>(lineStream >> vector.x >> vector.y >> vector.z);
 }
 
-bool ParseFace(std::istringstream& lineStream, Face& face)
+/// <summary>
+/// v9 step23: 增强OBJ面解析 — 支持 v, v//n, v/t, v/t/n 四种格式 + 负索引 + 四边形fan triangulation
+/// </summary>
+/// <param name="tokens">已split的面token列表 (不含'f'前缀).</param>
+/// <param name="outFaces">输出的三角面列表 (四边形拆为2个).</param>
+/// <param name="totalVertices">网格总顶点数 (用于解析负索引).</param>
+/// <param name="totalNormals">网格总法向量数.</param>
+/// <returns>解析成功返回true.</returns>
+bool ParseFaceTokens(const std::vector<std::string>& tokens,
+                     std::vector<Face>& outFaces,
+                     int totalVertices, int totalNormals)
 {
-    std::string token0;
-    std::string token1;
-    std::string token2;
-    if (!(lineStream >> token0 >> token1 >> token2))
-    {
-        return false;
-    }
+    if (tokens.size() < 3) return false;
 
-    auto parseVertexNormal = [](const std::string& token, int& vertexIndex, int& normalIndex) -> bool
+    // 解析单个顶点标记 "v", "v//n", "v/t", "v/t/n"
+    auto parseToken = [&](const std::string& token, int& vi, int& ni) -> bool
     {
-        const std::size_t slashPos = token.find("//");
-        if (slashPos == std::string::npos)
-        {
-            return false;
+        vi = -1; ni = -1;
+        if (token.empty()) return false;
+
+        // 计数斜杠
+        size_t s1 = token.find('/');
+        if (s1 == std::string::npos) {
+            // 格式: "v" — 仅顶点
+            vi = std::atoi(token.c_str());
+        } else {
+            vi = std::atoi(token.substr(0, s1).c_str());
+            size_t s2 = token.find('/', s1 + 1);
+            if (s2 == s1 + 1) {
+                // 格式: "v//n" — 顶点+法线 (跳过纹理坐标)
+                ni = std::atoi(token.substr(s2 + 1).c_str());
+            } else if (s2 == std::string::npos) {
+                // 格式: "v/t" — 顶点+纹理 (忽略纹理)
+                // ni stays -1
+            } else {
+                // 格式: "v/t/n" — 顶点+纹理+法线
+                ni = std::atoi(token.substr(s2 + 1).c_str());
+            }
         }
 
-        vertexIndex = std::atoi(token.substr(0, slashPos).c_str()) - 1;
-        normalIndex = std::atoi(token.substr(slashPos + 2U).c_str()) - 1;
+        // 负索引转换: -1 = 最后一个, -2 = 倒数第二个...
+        if (vi < 0) vi = totalVertices + vi;  // vi is negative, so this adds
+        else vi = vi - 1;                      // 1-based → 0-based
+        if (ni < 0 && ni != -1) ni = totalNormals + ni;
+        else if (ni > 0) ni = ni - 1;
+
+        // Bounds check: 防止vector subscript out of range
+        if (vi < 0 || vi >= totalVertices) return false;
+        if (ni >= 0 && ni >= totalNormals) ni = -1;  // invalid normal → ignore
         return true;
     };
 
-    int normalIndex0 = -1;
-    int normalIndex1 = -1;
-    int normalIndex2 = -1;
-    if (!parseVertexNormal(token0, face.vertex_index0, normalIndex0) ||
-        !parseVertexNormal(token1, face.vertex_index1, normalIndex1) ||
-        !parseVertexNormal(token2, face.vertex_index2, normalIndex2))
+    // 解析3个顶点索引 (三角面或四边形的前3个)
+    auto buildFace = [&](int v0, int v1, int v2, int n0, int n1, int n2) -> Face
     {
-        return false;
+        Face f;
+        f.vertex_index0 = v0;
+        f.vertex_index1 = v1;
+        f.vertex_index2 = v2;
+        f.normal_index = (n0 >= 0) ? n0 : -1;
+        return f;
+    };
+
+    int v[4] = {-1, -1, -1, -1}, n[4] = {-1, -1, -1, -1};
+
+    // 解析前3个顶点 (至少需要3个)
+    for (int i = 0; i < 3; ++i) {
+        if (!parseToken(tokens[i], v[i], n[i])) return false;
+    }
+    outFaces.push_back(buildFace(v[0], v[1], v[2], n[0], n[1], n[2]));
+
+    // 四边形: 第4个顶点 → fan triangulation (v0, v2, v3)
+    if (tokens.size() >= 4) {
+        if (!parseToken(tokens[3], v[3], n[3])) return false;
+        outFaces.push_back(buildFace(v[0], v[2], v[3], n[0], n[2], n[3]));
     }
 
-    face.normal_index = normalIndex0;
+    // 五边形及以上: fan triangulation (v0, vi-1, vi) for i=3..n-1
+    for (size_t i = 4; i < tokens.size(); ++i) {
+        int vi, ni;
+        if (!parseToken(tokens[i], vi, ni)) return false;
+        outFaces.push_back(buildFace(v[0], v[i-2], vi, n[0], n[i-2], ni));
+    }
+
     return true;
 }
 
@@ -174,33 +226,58 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath,
                 result.scene.objects.push_back(objectRecord);
             }
 
-            Face face;
-            if (ParseFace(lineStream, face))
-            {
-                face.face_id = static_cast<int>(result.scene.faces.size());
-                face.object_id = currentObjectId;
-                face.object_name = currentObjectName;
-                if (face.normal_index >= 0 && face.normal_index < static_cast<int>(result.scene.normals.size()))
-                {
-                    face.normal = result.scene.normals[face.normal_index];
-                }
-                else if (face.normal_index >= 0)
-                {
-                    sawOutOfRangeNormalIndex = true;
-                    result.errors.push_back(RtError::Create(
-                        ErrorCode::JsonParseError,
-                        "Module2",
-                        "OBJ face references an out-of-range normal index.",
-                        filePath,
-                        BuildLineLocationMessage(lineNumber),
-                        false));
-                    continue;
-                }
+            // v9 step23: 支持 v/vt/vn, v//vn, v/vt 格式 + 四边形fan triangulation
+            std::vector<std::string> faceTokens;
+            std::string token;
+            while (lineStream >> token) faceTokens.push_back(token);
 
-                result.scene.faces.push_back(face);
-                if (currentObjectId >= 0 && currentObjectId < static_cast<int>(result.scene.objects.size()))
-                {
-                    result.scene.objects[currentObjectId].face_ids.push_back(face.face_id);
+            std::vector<Face> parsedFaces;
+            if (!faceTokens.empty() && ParseFaceTokens(faceTokens, parsedFaces,
+                static_cast<int>(result.scene.vertices.size()),
+                static_cast<int>(result.scene.normals.size())))
+            {
+                int totalVerts = static_cast<int>(result.scene.vertices.size());
+                for (auto& face : parsedFaces) {
+                    // 顶点索引越界保护 — 拒绝非法面
+                    if (face.vertex_index0 < 0 || face.vertex_index0 >= totalVerts ||
+                        face.vertex_index1 < 0 || face.vertex_index1 >= totalVerts ||
+                        face.vertex_index2 < 0 || face.vertex_index2 >= totalVerts) {
+                        sawMalformedFace = true;
+                        continue;
+                    }
+                    face.face_id = static_cast<int>(result.scene.faces.size());
+                    face.object_id = currentObjectId;
+                    face.object_name = currentObjectName;
+                    if (face.normal_index >= 0 && face.normal_index < static_cast<int>(result.scene.normals.size()))
+                    {
+                        face.normal = result.scene.normals[face.normal_index];
+                    }
+                    else if (face.normal_index >= 0)
+                    {
+                        sawOutOfRangeNormalIndex = true;
+                    }
+                    else
+                    {
+                        // v9 step23: 无法向量时从几何计算 (cross product of edges)
+                        if (face.vertex_index0 >= 0 && face.vertex_index1 >= 0 && face.vertex_index2 >= 0 &&
+                            face.vertex_index0 < static_cast<int>(result.scene.vertices.size()) &&
+                            face.vertex_index1 < static_cast<int>(result.scene.vertices.size()) &&
+                            face.vertex_index2 < static_cast<int>(result.scene.vertices.size()))
+                        {
+                            const Vec3& v0 = result.scene.vertices[face.vertex_index0];
+                            const Vec3& v1 = result.scene.vertices[face.vertex_index1];
+                            const Vec3& v2 = result.scene.vertices[face.vertex_index2];
+                            Vec3 e1 = Subtract(v1, v0);
+                            Vec3 e2 = Subtract(v2, v0);
+                            face.normal = Normalize(Cross(e1, e2));
+                        }
+                    }
+
+                    result.scene.faces.push_back(face);
+                    if (currentObjectId >= 0 && currentObjectId < static_cast<int>(result.scene.objects.size()))
+                    {
+                        result.scene.objects[currentObjectId].face_ids.push_back(face.face_id);
+                    }
                 }
             }
             else
@@ -212,7 +289,7 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath,
                     "Module2",
                     "Unsupported or malformed OBJ face record.",
                     filePath,
-                    "Current importer expects triangle faces in 'v//n' format. " + BuildLineLocationMessage(lineNumber),
+                    "Expects 3+ vertex indices. " + BuildLineLocationMessage(lineNumber),
                     false));
             }
         }

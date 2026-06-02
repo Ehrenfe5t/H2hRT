@@ -40,18 +40,22 @@ MediumTransitionInfo ResolveMediumTransition(const PathState& state, const FaceH
     info.front_material_id = face.front_material_id;
     info.back_material_id = face.back_material_id;
     info.dual_side_semantic_complete = face.transmission_semantic_complete;
-    info.medium_in_id = state.current_medium_id;
-
-    if (frontSide)
-    {
-        info.medium_out_id = face.back_medium_id;
-    }
-    else
-    {
-        info.medium_out_id = face.front_medium_id;
-    }
-
     info.entered_from_front_side = frontSide;
+
+    // v9 step27: 介质侧匹配校验 — 当前介质必须等于face的入射侧介质
+    int expected_in = frontSide ? face.front_medium_id : face.back_medium_id;
+    int expected_out = frontSide ? face.back_medium_id : face.front_medium_id;
+
+    if (state.current_medium_id != expected_in) {
+        // 介质不匹配: 拒绝该候选 (strict模式)
+        info.medium_in_id = state.current_medium_id;
+        info.medium_out_id = expected_out;
+        info.valid = false; // medium mismatch → invalid
+        return info;
+    }
+
+    info.medium_in_id = expected_in;
+    info.medium_out_id = expected_out;
     info.valid = info.dual_side_semantic_complete && info.medium_in_id >= 0 && info.medium_out_id >= 0;
     return info;
 }

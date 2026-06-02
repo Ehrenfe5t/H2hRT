@@ -273,9 +273,11 @@ std::vector<bool> OptiXSceneAccelerator::IsOccludedBatch(
 
     float* origins = static_cast<float*>(std::malloc(n * 3 * sizeof(float)));
     float* dirs = static_cast<float*>(std::malloc(n * 3 * sizeof(float)));
+    float* tmaxs = static_cast<float*>(std::malloc(n * sizeof(float)));
     int* occluded = static_cast<int*>(std::malloc(n * sizeof(int)));
 
     float tMin = static_cast<float>(ctx.origin_offset_distance);
+    float targetShrink = static_cast<float>(ctx.target_shrink_distance);
 
     for (int i = 0; i < n; ++i) {
         origins[i * 3 + 0] = static_cast<float>(starts[i].x);
@@ -294,15 +296,18 @@ std::vector<bool> OptiXSceneAccelerator::IsOccludedBatch(
         } else {
             dirs[i * 3 + 0] = 1.0f; dirs[i * 3 + 1] = 0.0f; dirs[i * 3 + 2] = 0.0f;
         }
+
+        // v9 step7: 每条线段使用实际长度作为tMax，防止目标点后方被误判遮挡
+        tmaxs[i] = (len > targetShrink) ? (len - targetShrink) : len;
     }
 
-    LaunchOcclusionQuery(origins, dirs, n, tMin, 1e30f, occluded,
+    LaunchOcclusionQuery(origins, dirs, n, tMin, tmaxs, occluded,
         ctx.ignored_face_id, ctx.ignored_face_id2);
 
     std::vector<bool> results(n, false);
     for (int i = 0; i < n; ++i) results[i] = (occluded[i] != 0);
 
-    std::free(origins); std::free(dirs); std::free(occluded);
+    std::free(origins); std::free(dirs); std::free(tmaxs); std::free(occluded);
     return results;
 }
 

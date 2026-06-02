@@ -13,6 +13,7 @@
 #include "ValidationReport.h"
 #include "../common/config/AppConfig.h"
 #include "../em/EMProfile.h"
+#include "../em/BuildBroadbandCFR.h"
 #include "../search/SearchEngine.h"
 
 namespace rt {
@@ -25,6 +26,7 @@ struct ResultExportContext {
     const SearchEngineResult* search_result = nullptr;
     const EMAggregateResult* precise_result = nullptr;
     const EMAggregateResult* coverage_result = nullptr;
+    const BroadbandChannelResult* broadband_result = nullptr; // v9 Stage5
     bool real_chain_enabled = false;
     std::string primary_input_source;
     std::string export_root_directory;

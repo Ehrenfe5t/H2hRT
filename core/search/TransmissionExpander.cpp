@@ -109,15 +109,14 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
             continue;
         }
 
-        // B6-A: Snell refraction instead of pointing at Rx
+        // B6-A: Snell refraction — v9 Stage2 uses SnellRefractV2 with diagnostics
         Vec3 incidentDir = Normalize(Subtract(hit.position, state.current_point));
         Vec3 txDir;
+        SnellResult snellRes; // v9 Stage2: store for PathNode diagnostics
         if (context.material_db && !context.material_db->empty())
         {
-            // Get refractive indices from material database
             const Face& txFace = context.scene->faces[hit.face_id];
-            double n1 = 1.0; // default: air
-            double n2 = 1.0;
+            double n1 = 1.0, n2 = 1.0;
             if (!txFace.front_material_name.empty())
             {
                 auto p1 = context.material_db->QueryByName(txFace.front_material_name, context.config->em_solver.frequency_hz);
@@ -125,12 +124,22 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
                 if (mediumInfo.entered_from_front_side) { n1 = std::sqrt(std::max(1.0, p1.epsilon_r)); n2 = std::sqrt(std::max(1.0, p2.epsilon_r)); }
                 else { n1 = std::sqrt(std::max(1.0, p2.epsilon_r)); n2 = std::sqrt(std::max(1.0, p1.epsilon_r)); }
             }
-            txDir = SnellRefract(incidentDir, hit.normal, n1, n2);
-            if (Length(txDir) <= 0.0) continue; // v7.4 A7: TIR→拒绝候选, 不回退Rx方向
+            snellRes = SnellRefractV2(incidentDir, hit.normal, n1, n2);
+            // v9 StageC: TIR → 结构化拒绝 + 记录reason
+            if (!snellRes.valid || snellRes.total_internal_reflection) {
+                result.failure_reasons.push_back(GeometryValidityReason::TotalInternalReflection);
+                continue;
+            }
+            // v9 StageC: Snell residual超限检查
+            if (snellRes.residual > context.config->path_search.snell_residual_tol) {
+                result.failure_reasons.push_back(GeometryValidityReason::SnellResidualExceeded);
+                continue;
+            }
+            txDir = snellRes.direction;
         }
         else
         {
-            continue; // v7.4 A7: 无材质DB→拒绝, 不产生物理无效路径
+            continue;
         }
 
         PathState nextState = state;
@@ -184,6 +193,11 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         node.incident_direction = incidentDir; // v7.4 B15: 供EM层Fresnel计算恢复入射角
         node.surface_normal = hit.normal;
         node.segment_length_from_previous = hit.distance;
+        // v9 Stage2: Snell diagnostics
+        node.snell_residual = snellRes.residual;
+        node.snell_theta_i_rad = snellRes.theta_i_rad;
+        node.snell_theta_t_rad = snellRes.theta_t_rad;
+        node.snell_tir = snellRes.total_internal_reflection;
         node.valid = true;
         nextState.traversed_nodes.push_back(node);
         nextState.state_signature = BuildStateSignature(nextState, *context.config);
@@ -207,7 +221,9 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         {
             return lhs.score < rhs.score;
         });
-    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 8U);
+    int limit = context.config->path_search.per_expander_keep_limit;
+    const std::size_t keepLimit = (limit <= 0) ? acceptedStates.size()
+        : std::min<std::size_t>(acceptedStates.size(), static_cast<std::size_t>(limit));
     for (std::size_t i = 0; i < keepLimit; ++i)
     {
         result.next_states.push_back(acceptedStates[i].state);
@@ -271,6 +287,7 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
 
         Vec3 incidentDir = Normalize(Subtract(hit.position, state.current_point));
         Vec3 txDir;
+        SnellResult snellResC; // v9 Stage2: constrained path
         if (context.material_db && !context.material_db->empty()) {
             const Face& txFace = context.scene->faces[hit.face_id];
             double n1 = 1.0, n2 = 1.0;
@@ -280,8 +297,16 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
                 if (mi.entered_from_front_side) { n1 = std::sqrt(std::max(1.0, p1.epsilon_r)); n2 = std::sqrt(std::max(1.0, p2.epsilon_r)); }
                 else { n1 = std::sqrt(std::max(1.0, p2.epsilon_r)); n2 = std::sqrt(std::max(1.0, p1.epsilon_r)); }
             }
-            txDir = SnellRefract(incidentDir, hit.normal, n1, n2);
-            if (Length(txDir) <= 0.0) continue;
+            snellResC = SnellRefractV2(incidentDir, hit.normal, n1, n2);
+            if (!snellResC.valid || snellResC.total_internal_reflection) {
+                result.failure_reasons.push_back(GeometryValidityReason::TotalInternalReflection);
+                continue;
+            }
+            if (snellResC.residual > context.config->path_search.snell_residual_tol) {
+                result.failure_reasons.push_back(GeometryValidityReason::SnellResidualExceeded);
+                continue;
+            }
+            txDir = snellResC.direction;
         } else { continue; }
 
         PathState ns = state;
@@ -309,7 +334,12 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
         node.transmission_semantic_complete = mi.dual_side_semantic_complete;
         node.point = hit.position; node.direction = ns.current_direction;
         node.incident_direction = incidentDir; node.surface_normal = hit.normal;
-        node.segment_length_from_previous = hit.distance; node.valid = true;
+        node.segment_length_from_previous = hit.distance;
+        node.snell_residual = snellResC.residual;
+        node.snell_theta_i_rad = snellResC.theta_i_rad;
+        node.snell_theta_t_rad = snellResC.theta_t_rad;
+        node.snell_tir = snellResC.total_internal_reflection;
+        node.valid = true;
         ns.traversed_nodes.push_back(node);
         ns.state_signature = BuildStateSignature(ns, *context.config); ns.valid = true;
         const GeometryValidityResult ev = IsValidExpandedState(context, ns);
@@ -320,7 +350,8 @@ ExpanderResult ExpandTransmission(const PathSearchContext& context, const PathSt
     }
 
     std::sort(acceptedStates.begin(), acceptedStates.end(), [](auto& a, auto& b) { return a.score < b.score; });
-    const size_t keep = std::min(acceptedStates.size(), size_t(8));
+    int lim = context.config->path_search.per_expander_keep_limit;
+    const size_t keep = (lim <= 0) ? acceptedStates.size() : std::min(acceptedStates.size(), static_cast<size_t>(lim));
     for (size_t i = 0; i < keep; ++i) result.next_states.push_back(acceptedStates[i].state);
     if (result.next_states.empty() && result.failure_reasons.empty())
         result.failure_reasons.push_back(GeometryValidityReason::NoHit);

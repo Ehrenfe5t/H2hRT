@@ -50,6 +50,10 @@ struct EMPathResult {
     double aod_phi_deg = 0.0;            ///< Angle of Departure azimuth [deg], 0=+X, 90=+Y.
     double aoa_theta_deg = 0.0;          ///< Angle of Arrival zenith [deg].
     double aoa_phi_deg = 0.0;            ///< Angle of Arrival azimuth [deg].
+    // v9 B-8: 极化统计
+    double co_pol_power_linear = 0.0;    ///< Co-polarized received power.
+    double cross_pol_power_linear = 0.0; ///< Cross-polarized received power.
+    double xpr_dB = 0.0;                  ///< Cross-Polarization Ratio = 10*log10(co/cross).
 };
 
 /// <summary>

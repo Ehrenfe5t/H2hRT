@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 
 #ifdef __AVX2__
 #include <immintrin.h>
@@ -363,25 +364,19 @@ SceneQuery::SceneQuery(const Scene& scene, const AppConfig& config,
 /// <returns>最近有效面元命中结果。</returns>
 FaceHit SceneQuery::QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& context) const
 {
-    // Note: GPU single-ray launch overhead > CPU BVH traversal.
-    // GPU is only used for batch queries (QueryClosestFaceHitBatch).
-    std::vector<FaceHit> hits = QueryAllFaceHits(ray, context);
-    if (hits.empty())
-    {
-        return FaceHit{};
+    // v9 F-1: 路由到快速路径 (BVH早停, 非all-hits→min)
+    // GPU single-ray overhead > CPU BVH; batch queries use GPU.
+    if (scene_.acceleration.face_acceleration.face_bvh.valid) {
+        return QueryClosestFaceHitFast(ray, context);
     }
+    // BVH不可用: fallback到all-hits
+    std::vector<FaceHit> hits = QueryAllFaceHits(ray, context);
+    if (hits.empty()) return FaceHit{};
 
     FaceHit closest = hits.front();
-    for (const FaceHit& hit : hits)
-    {
-        if (!hit.hit)
-        {
-            continue;
-        }
-        if (!closest.hit || hit.distance < closest.distance)
-        {
-            closest = hit;
-        }
+    for (const FaceHit& hit : hits) {
+        if (!hit.hit) continue;
+        if (!closest.hit || hit.distance < closest.distance) closest = hit;
     }
     return closest;
 }
@@ -524,41 +519,85 @@ bool SceneQuery::IsVisible(const Point3& start, const Point3& end, const Visibil
 std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origin, const WedgeQueryContext& context) const
 {
     std::vector<WedgeCandidate> candidates;
+    const auto& wa = scene_.acceleration.wedge_acceleration;
+    const auto& records = wa.wedge_query_records;
+    const double maxDist = config_.path_search.wedge_max_distance_m;
 
-    for (const WedgeQueryRecord& record : scene_.acceleration.wedge_acceleration.wedge_query_records)
-    {
-        if (record.wedge_id == context.ignored_wedge_id)
-        {
-            continue;
-        }
-        if (context.avoid_recent_wedge && record.wedge_id == context.recent_wedge_id)
-        {
-            continue;
-        }
+    // v9 step26: 使用均匀网格空间索引, 仅查询origin附近的cell
+    if (wa.grid.nx > 0 && wa.grid.cell_size > 0.0) {
+        // 找到origin所在cell
+        int cx = static_cast<int>((origin.x - wa.grid.bounds.min.x) / wa.grid.cell_size);
+        int cy = static_cast<int>((origin.y - wa.grid.bounds.min.y) / wa.grid.cell_size);
+        int cz = static_cast<int>((origin.z - wa.grid.bounds.min.z) / wa.grid.cell_size);
 
-        if (context.avoid_adjacent_wedge_to_recent_face &&
-            (record.positive_face_id == context.recent_face_id || record.negative_face_id == context.recent_face_id))
-        {
-            continue;
-        }
+        // 搜索半径 (cell数) — 至少1, 覆盖maxDist范围
+        int searchRad = std::max(1, static_cast<int>(maxDist / wa.grid.cell_size) + 1);
 
-        const Vec3 delta = Subtract(record.center_point, origin);
-        const double distanceToOrigin = Length(delta);
-        if (distanceToOrigin > 50.0)
-        {
-            continue;
-        }
+        // 遍历邻域cells
+        for (int dz = -searchRad; dz <= searchRad; ++dz) {
+            int nz = cz + dz;
+            if (nz < 0 || nz >= wa.grid.nz) continue;
+            for (int dy = -searchRad; dy <= searchRad; ++dy) {
+                int ny = cy + dy;
+                if (ny < 0 || ny >= wa.grid.ny) continue;
+                for (int dx = -searchRad; dx <= searchRad; ++dx) {
+                    int nx = cx + dx;
+                    if (nx < 0 || nx >= wa.grid.nx) continue;
 
-        WedgeCandidate candidate;
-        candidate.wedge_id = record.wedge_id;
-        candidate.source_edge_id = record.source_edge_id;
-        candidate.center_point = record.center_point;
-        candidate.direction = record.direction;
-        candidate.length = record.length;
-        candidate.wedge_angle_deg = record.wedge_angle_deg;
-        candidate.positive_face_id = record.positive_face_id;
-        candidate.negative_face_id = record.negative_face_id;
-        candidates.push_back(candidate);
+                    size_t cellIdx = static_cast<size_t>(nx) * wa.grid.ny * wa.grid.nz
+                                   + static_cast<size_t>(ny) * wa.grid.nz + nz;
+                    if (cellIdx >= wa.grid.cells.size()) continue;
+
+                    for (int wi : wa.grid.cells[cellIdx]) {
+                        if (wi < 0 || wi >= static_cast<int>(records.size())) continue;
+                        const auto& record = records[wi];
+
+                        if (record.wedge_id == context.ignored_wedge_id) continue;
+                        if (context.avoid_recent_wedge && record.wedge_id == context.recent_wedge_id) continue;
+                        if (context.avoid_adjacent_wedge_to_recent_face &&
+                            (record.positive_face_id == context.recent_face_id ||
+                             record.negative_face_id == context.recent_face_id)) continue;
+
+                        const Vec3 delta = Subtract(record.center_point, origin);
+                        if (Length(delta) > maxDist) continue;
+
+                        WedgeCandidate candidate;
+                        candidate.wedge_id = record.wedge_id;
+                        candidate.source_edge_id = record.source_edge_id;
+                        candidate.center_point = record.center_point;
+                        candidate.direction = record.direction;
+                        candidate.length = record.length;
+                        candidate.wedge_angle_deg = record.wedge_angle_deg;
+                        candidate.positive_face_id = record.positive_face_id;
+                        candidate.negative_face_id = record.negative_face_id;
+                        candidates.push_back(candidate);
+                    }
+                }
+            }
+        }
+    } else {
+        // grid不可用 → fallback线性扫描
+        for (const WedgeQueryRecord& record : records) {
+            if (record.wedge_id == context.ignored_wedge_id) continue;
+            if (context.avoid_recent_wedge && record.wedge_id == context.recent_wedge_id) continue;
+            if (context.avoid_adjacent_wedge_to_recent_face &&
+                (record.positive_face_id == context.recent_face_id ||
+                 record.negative_face_id == context.recent_face_id)) continue;
+
+            const Vec3 delta = Subtract(record.center_point, origin);
+            if (Length(delta) > maxDist) continue;
+
+            WedgeCandidate candidate;
+            candidate.wedge_id = record.wedge_id;
+            candidate.source_edge_id = record.source_edge_id;
+            candidate.center_point = record.center_point;
+            candidate.direction = record.direction;
+            candidate.length = record.length;
+            candidate.wedge_angle_deg = record.wedge_angle_deg;
+            candidate.positive_face_id = record.positive_face_id;
+            candidate.negative_face_id = record.negative_face_id;
+            candidates.push_back(candidate);
+        }
     }
 
     std::sort(
@@ -575,10 +614,10 @@ std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origi
             return lhs.length > rhs.length;
         });
 
-    constexpr int kMaxWedgeCandidates = 64;
-    if (static_cast<int>(candidates.size()) > kMaxWedgeCandidates)
+    const int maxWedgeCands = config_.path_search.wedge_max_candidates;
+    if (static_cast<int>(candidates.size()) > maxWedgeCands)
     {
-        candidates.resize(static_cast<std::size_t>(kMaxWedgeCandidates));
+        candidates.resize(static_cast<std::size_t>(maxWedgeCands));
     }
 
     return candidates;
@@ -613,4 +652,18 @@ std::vector<std::vector<int>> SceneQuery::QueryRxHitsBatch(
     return std::vector<std::vector<int>>(N);
 }
 
+
+// v9 F-3: backend query diagnostics report
+std::string SceneQuery::GetBackendDiagnostics() const {
+    std::ostringstream ss;
+    ss << "Backend: " << (accelerator_ ? accelerator_->BackendName() : "CPU_FaceBVH");
+    if (accelerator_) {
+        ss << " | queries: closest=" << accelerator_->closest_hit_queries
+           << " all=" << accelerator_->all_hits_queries
+           << " occ=" << accelerator_->occlusion_queries
+           << " | all-hits=" << (accelerator_->SupportsAllHits() ? "yes" : "NO")
+           << " double=" << (accelerator_->UsesDoublePrecision() ? "yes" : "no");
+    }
+    return ss.str();
+}
 } // namespace rt

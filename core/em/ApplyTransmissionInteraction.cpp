@@ -3,6 +3,7 @@
 #include "ApplyTransmissionInteraction.h"
 #include "../common/math/Vec3.h"
 #include "../common/math/Complex.h"
+#include "../common/math/ComplexVec3.h"
 #include "../common/math/MathConstants.h"
 #include <cmath>
 
@@ -75,6 +76,33 @@ bool ApplyTransmissionInteraction(FieldAccumulator& field, const PathNode& node,
 
     Complex tTE = FresnelTE_T(cosI, epsC);
     Complex tTM = FresnelTM_T(cosI, epsC);
+
+    // ── v9 B2-b: 复矢量路径 ──
+    if (field.vector_field_valid) {
+        Complex E_TE = ComplexDot(field.electric_field_world, eTE);
+        Complex E_TM = ComplexDot(field.electric_field_world, eTM);
+
+        Complex E_TE_trans = tTE * E_TE;
+        Complex E_TM_trans = tTM * E_TM;
+
+        field.electric_field_world = ReconstructFromBasis(E_TE_trans, eTE, E_TM_trans, eTM);
+
+        field.current_medium_id = node.medium_out_id;
+        field.last_transmission_medium_in_id = node.medium_in_id;
+        field.last_transmission_medium_out_id = node.medium_out_id;
+        field.transmission_semantic_consumed = true;
+
+        double alpha = (field.frequency_hz > 0.0)
+            ? (kTwoPi * field.frequency_hz / kC0) * std::fabs(Sqrt(epsC).im)
+            : 0.0;
+        field.current_attenuation_np_per_m = alpha;
+        field.current_refractive_index = std::max(1.0, Sqrt(epsC).re);
+
+        field.SyncLegacyFields();
+        return true;
+    }
+
+    // ── 旧标量路径 (兼容) ──
     Complex A_TE_trans = tTE * A_TE_inc;
     Complex A_TM_trans = tTM * A_TM_inc;
 

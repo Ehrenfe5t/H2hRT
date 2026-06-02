@@ -390,6 +390,7 @@ void OptiXSceneAccelerator::LaunchOcclusionQuery(
     params.ray_dirs = d_dirs;
     params.tmin = tMin;
     params.tmax = tMax;
+    params.tmaxs = nullptr;   // v9 step7: scalar tMax mode
     params.occluded = d_occluded;
     params.ray_count = rayCount;
     params.query_type = 1;  // occlusion
@@ -410,6 +411,57 @@ void OptiXSceneAccelerator::LaunchOcclusionQuery(
     CUDA_CHECK(cudaMemcpy(occluded, d_occluded, rayCount * sizeof(int), cudaMemcpyDeviceToHost));
 
     CUDA_CHECK(cudaFree(d_origins)); CUDA_CHECK(cudaFree(d_dirs));
+    CUDA_CHECK(cudaFree(d_occluded));
+    CUDA_CHECK(cudaFree(reinterpret_cast<void*>(d_params)));
+}
+
+// v9 step7: per-ray tMax overload for batch occlusion
+void OptiXSceneAccelerator::LaunchOcclusionQuery(
+    const float* origins, const float* dirs, int rayCount,
+    float tMin, const float* tMaxs, int* occluded,
+    int ignoredFaceId, int ignoredFaceId2) const
+{
+    float *d_origins, *d_dirs, *d_tmaxs;
+    int *d_occluded;
+
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_origins), rayCount * 3 * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_dirs), rayCount * 3 * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_tmaxs), rayCount * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_occluded), rayCount * sizeof(int)));
+
+    CUDA_CHECK(cudaMemcpy(d_origins, origins, rayCount * 3 * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_dirs, dirs, rayCount * 3 * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_tmaxs, tMaxs, rayCount * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemset(d_occluded, 0, rayCount * sizeof(int)));
+
+    UnifiedLaunchParams params;
+    params.traversable = gas_handle_;
+    params.ray_origins = d_origins;
+    params.ray_dirs = d_dirs;
+    params.tmin = tMin;
+    params.tmax = 0.0f;         // unused when tmaxs is set
+    params.tmaxs = d_tmaxs;     // per-ray tMax
+    params.occluded = d_occluded;
+    params.ray_count = rayCount;
+    params.query_type = 1;
+    params.ignored_face_id = ignoredFaceId;
+    params.ignored_face_id2 = ignoredFaceId2;
+    params.face_records = d_face_records_;
+
+    CUdeviceptr d_params;
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void**>(&d_params), sizeof(UnifiedLaunchParams)));
+    CUDA_CHECK(cudaMemcpy(reinterpret_cast<void*>(d_params), &params,
+        sizeof(UnifiedLaunchParams), cudaMemcpyHostToDevice));
+
+    OPTIX_CHECK(optixLaunch(optix_pipeline_, nullptr, d_params,
+        sizeof(UnifiedLaunchParams), &sbt_,
+        static_cast<unsigned int>(rayCount), 1, 1));
+
+    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaMemcpy(occluded, d_occluded, rayCount * sizeof(int), cudaMemcpyDeviceToHost));
+
+    CUDA_CHECK(cudaFree(d_origins)); CUDA_CHECK(cudaFree(d_dirs));
+    CUDA_CHECK(cudaFree(d_tmaxs));
     CUDA_CHECK(cudaFree(d_occluded));
     CUDA_CHECK(cudaFree(reinterpret_cast<void*>(d_params)));
 }

@@ -1,6 +1,6 @@
 {
   "version": "v4",
-  "timestamp": "2026-05-09T09:01:27.048735",
+  "timestamp": "2026-05-31T19:02:58.944333",
   "results": {
     "L1": {
       "total": 5,
@@ -41,20 +41,20 @@
     },
     "L2": {
       "total": 2,
-      "passed": 2,
-      "failed": 0,
+      "passed": 0,
+      "failed": 2,
       "details": [
         {
           "id": "L2-1",
           "name": "b1路径数≥300(基线)",
-          "passed": true,
-          "detail": "precise paths=362"
+          "passed": false,
+          "detail": "precise paths=0"
         },
         {
           "id": "L2-2",
           "name": "SBR可运行",
-          "passed": true,
-          "detail": "pipeline_ok=True"
+          "passed": false,
+          "detail": "pipeline_ok=False"
         }
       ]
     },

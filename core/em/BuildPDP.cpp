@@ -1,33 +1,61 @@
-// Builds the Power Delay Profile (PDP) from per-path EM results: maps each valid
-// path into a delay-vs-power tap. Simpler than CIR -- no phase/amplitude, only power.
+// Builds the Power Delay Profile (PDP) from per-path EM results.
+// v9 step24: 支持延迟分bin PWM + 相干/非相干功率分离.
 
 #include "BuildPDP.h"
+#include "../common/math/Complex.h"
+#include <map>
 
 namespace rt {
 
-/// <summary>
-/// Build a Power Delay Profile (PDP) from per-path EM results.
-/// Each valid path contributes a PDP tap with its delay and linear power.
-/// Unlike CIR, PDP discards phase and complex amplitude, retaining only
-/// power-vs-delay for large-scale delay spread analysis.
-/// </summary>
-/// <param name="pathResults">Per-path EM results from the solver.</param>
-/// <returns>PDPResult with one tap per valid path.</returns>
 PDPResult BuildPDP(const EMPathResultSet& pathResults)
 {
     PDPResult result;
     for (const EMPathResult& item : pathResults.results)
     {
-        if (!item.valid)
-        {
-            continue; // silently skip invalid paths
-        }
+        if (!item.valid) continue;
         PDPTap tap;
-        tap.delay_s = item.delay_s;       // propagation delay in seconds
-        tap.power_linear = item.power_linear; // received linear power
+        tap.delay_s = item.delay_s;
+        tap.power_linear = item.power_linear;
         result.taps.push_back(tap);
     }
     return result;
+}
+
+// v9 step24: binned PDP with coherent + incoherent power
+PDPResult BuildPDP(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
+{
+    PDPResult result;
+
+    if (profile.delay_bin_s > 0.0) {
+        struct BinData { Complex sum; double incoherentPwr; double centerDelay; };
+        std::map<int, BinData> bins;
+
+        for (const auto& item : pathResults.results) {
+            if (!item.valid) continue;
+
+            int binIdx = static_cast<int>(std::floor(item.delay_s / profile.delay_bin_s));
+            auto& bin = bins[binIdx];
+            bin.centerDelay = (binIdx + 0.5) * profile.delay_bin_s;
+
+            Complex alpha(item.amplitude_real * std::cos(item.phase_rad),
+                          item.amplitude_real * std::sin(item.phase_rad));
+            bin.sum = bin.sum + alpha;
+            bin.incoherentPwr += alpha.NormSq();
+        }
+
+        for (auto& [idx, bin] : bins) {
+            PDPTap tap;
+            tap.delay_s = bin.centerDelay;
+            tap.coherent_power_linear = bin.sum.NormSq();   // |Σα|²
+            tap.incoherent_power_linear = bin.incoherentPwr; // Σ|α|²
+            tap.power_linear = tap.coherent_power_linear;    // 默认=相干
+            result.taps.push_back(tap);
+        }
+        return result;
+    }
+
+    // fallback: per-path (backward compat)
+    return BuildPDP(pathResults);
 }
 
 } // namespace rt

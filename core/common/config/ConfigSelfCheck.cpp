@@ -82,9 +82,69 @@ ConfigSelfCheckResult RunModule1SelfCheck(const AppConfig& config)
 {
     ConfigSelfCheckResult result;
 
-    // v6: validator simplified to always-pass; negative tests deferred to v7
-    result.details.push_back("v6: NegativeCase tests skipped (validator simplified)");
-    result.succeeded = true;
+    // v9 step3: 恢复负例自检 — 内联构造错误配置验证validator能正确拦截
+    struct NegTest {
+        const char* name;
+        const char* expectedToken;
+        AppConfig badConfig;
+    };
+
+    // 以实际config为模板，逐项修改出已知错误
+    AppConfig base = config;
+
+    const NegTest tests[] = {
+        {"frequency_zero", "frequency_hz",
+         [&](){ auto c=base; c.em_solver.frequency_hz=0.0; return c; }()},
+        {"depth_zero", "max_path_depth",
+         [&](){ auto c=base; c.path_search.max_path_depth=0; return c; }()},
+        {"neg_reflection", "max_reflection_count",
+         [&](){ auto c=base; c.path_search.max_reflection_count=-1; return c; }()},
+        {"neg_eps_length", "eps_length",
+         [&](){ auto c=base; c.numeric_tolerance.eps_length=0.0; return c; }()},
+        {"neg_eps_intersection", "eps_intersection",
+         [&](){ auto c=base; c.numeric_tolerance.eps_intersection=0.0; return c; }()},
+        {"empty_source", "source_file",
+         [&](){ auto c=base; c.scene_import.source_file=""; return c; }()},
+        {"empty_material_map", "scene_material_map_file",
+         [&](){ auto c=base; c.scene_import.scene_material_map_file=""; return c; }()},
+    };
+
+    const int numTests = sizeof(tests) / sizeof(tests[0]);
+    int passed = 0, failed = 0;
+
+    for (int i = 0; i < numTests; ++i) {
+        const auto& t = tests[i];
+        ConfigValidationResult vr = ValidateAppConfig(t.badConfig);
+        if (vr.passed) {
+            // 负例竟然通过了 → 自检失败
+            result.error = RtError::Create(
+                ErrorCode::SelfCheckFailed, "Module1",
+                std::string("NegTest '") + t.name + "' unexpectedly passed validation.",
+                t.expectedToken,
+                "Validator coverage may have regressed.", true);
+            result.details.push_back(std::string("[FAIL] ") + t.name + " — should have been rejected but passed");
+            failed++;
+        } else {
+            bool found = false;
+            for (const auto& err : vr.errors)
+                if (err.find(t.expectedToken) != std::string::npos) { found = true; break; }
+            if (found) {
+                result.details.push_back(std::string("[PASS] ") + t.name + " — correctly rejected");
+                passed++;
+            } else {
+                result.details.push_back(std::string("[WARN] ") + t.name + " — rejected but missing expected token '" + t.expectedToken + "'");
+                failed++;
+            }
+        }
+    }
+
+    if (failed > 0) {
+        result.succeeded = false;
+    } else {
+        result.succeeded = true;
+        result.details.push_back("All " + std::to_string(passed) + " negative cases correctly rejected.");
+    }
+
     return result;
 }
 

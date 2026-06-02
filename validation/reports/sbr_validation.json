@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-06-01T02:07:25.932248",
+  "suite": "sbr",
+  "backend": "cpu",
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "critical_skipped_count": 0,
+  "technical_passed": true,
+  "overall_passed": true,
+  "paper_ready": true,
+  "_note": "overall_passed/technical_passed means zero failures. paper_ready means zero failures AND zero critical skipped. Final acceptance uses paper_ready ONLY.",
+  "rt_executable_cases": 1,
+  "analytic_formula_cases": 0,
+  "allow_skip": false,
+  "cases": [
+    {
+      "case_id": "SBR-1",
+      "case_name": "SBR coverage output",
+      "suite": "sbr",
+      "backend": "cpu",
+      "related_module": "core/search",
+      "source": "rt_executable_output",
+      "input_config": "",
+      "scene": "",
+      "frequency_hz": 3000000000.0,
+      "reference_value": 1.0,
+      "simulated_value": 1.0,
+      "absolute_error": 0.0,
+      "relative_error": 0.0,
+      "tolerance": 0.0,
+      "passed": true,
+      "failure_reason": "",
+      "detail": "pwr=51.74uW paths=2",
+      "skipped": false,
+      "skip_reason": "",
+      "critical_skip": false
+    }
+  ]
+}

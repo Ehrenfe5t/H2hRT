@@ -16,8 +16,8 @@
     "max_scattering_count": 0,
     "enable_los": true,
     "max_consecutive_same_interaction": 5,
-    "tx_x": 0.0, "tx_y": 0.0, "tx_z": 5.0,
-    "rx_x": 1.0, "rx_y": 0.0, "rx_z": 5.0
+    "tx_x": 1.5, "tx_y": 0.5, "tx_z": 1.0,
+    "rx_x": 0.5, "rx_y": 3.0, "rx_z": 1.0
   },
   "sbr": { "enabled": false },
   "em_solver": { "frequency_hz": 3500000000.0, "solver_mode": "Precise" },

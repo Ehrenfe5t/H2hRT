@@ -63,6 +63,7 @@ struct UnifiedLaunchParams {
     const float* ray_dirs;       // [N*3]
     float tmin;
     float tmax;
+    const float* tmaxs;          // v9 step7: per-ray tMax (nullptr→use scalar tmax)
 
     // Closest-hit outputs
     int* hit_flags;              // [N]
@@ -114,6 +115,10 @@ public:
     std::string BackendName() const override { return "GPU_OptiX"; }
     bool SupportsBatchQuery() const override { return true; }
     size_t MaxBatchSize() const override { return max_batch_size_; }
+    // v9 step29: GPU capability flags
+    bool SupportsAllHits() const override { return false; }
+    bool SupportsObjectFilter() const override { return false; }
+    bool UsesDoublePrecision() const override { return false; }
 
     // ── 场景数据生命周期 ──
     void BuildFromScene(const Scene& scene) override;
@@ -145,6 +150,10 @@ private:
                                int ignoredFaceId = -1, int ignoredFaceId2 = -1) const;
     void LaunchOcclusionQuery(const float* origins, const float* dirs, int rayCount,
                               float tMin, float tMax, int* occluded,
+                              int ignoredFaceId = -1, int ignoredFaceId2 = -1) const;
+    // v9 step7: per-ray tMax overload — 防止batch occlusion中tMax过大导致目标点后方被误判遮挡
+    void LaunchOcclusionQuery(const float* origins, const float* dirs, int rayCount,
+                              float tMin, const float* tMaxs, int* occluded,
                               int ignoredFaceId = -1, int ignoredFaceId2 = -1) const;
     FaceHit BuildFaceHit(int idx, const int* hitFlags, const int* hitFaceIds,
                          const float* hitDistances, const float* hitPositions) const;

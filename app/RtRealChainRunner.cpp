@@ -192,11 +192,35 @@ A1RealChainRunResult RunA1RealChain(
     runResult.precise_result = BuildAggregateResult(runResult.path_result_set, BuildPreciseEMProfile());
     runResult.coverage_result = BuildAggregateResult(runResult.path_result_set, BuildCoverageEMProfile());
 
+    // v9 Stage5: 宽带CFR构建 (主线C主链路接入)
+    if (config.frequency_sweep.enabled) {
+        if (config.frequency_sweep.mode == "frequency_sweep_em") {
+            runResult.broadband_result = BuildBroadbandCFR_FrequencySweep(
+                runResult.path_result_set,
+                config.frequency_sweep,
+                config.channel_observation,
+                materialDb,
+                &scene);
+        } else {
+            runResult.broadband_result = BuildBroadbandCFR_FixedGain(
+                runResult.path_result_set,
+                config.frequency_sweep,
+                config.channel_observation);
+        }
+        if (runResult.broadband_result.valid) {
+            logger.Log(LogLevel::Info, "A1",
+                "宽带CFR构建完成: " + std::to_string(runResult.broadband_result.cfr.size()) +
+                " freq points, " + std::to_string(runResult.broadband_result.observed_cir.taps.size()) +
+                " CIR taps");
+        }
+    }
+
     ResultExportContext context;
     context.config = &config;
     context.search_result = &searchResult;
     context.precise_result = &runResult.precise_result;
     context.coverage_result = &runResult.coverage_result;
+    context.broadband_result = &runResult.broadband_result; // v9 Stage5
     context.real_chain_enabled = true;
     context.primary_input_source = "search_engine_real_output";
     context.export_root_directory = "output/" + config.app_runtime.run_id;

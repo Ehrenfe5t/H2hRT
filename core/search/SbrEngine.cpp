@@ -488,12 +488,27 @@ SbrCoverageResult SbrEngine::Run(const SbrContext& context) const
             }
 
             // ── 透射 (Monte Carlo: 概率选择+物理功率衰减, 不分裂) ──
+            // v9 step8: 预检TIR — 若发生全内反射则不尝试透射
             if (maxTrans>0 && face.transmission_enabled && ct<maxTrans && hasMat
                 && face.dual_side_material_resolved) {
                 double r=RandDouble(rng);
                 Vec3 oldDir=curDir; Point3 oldPt=curPt; // save for PathNode
                 if (r>=refPwr) { // 透射 (概率=1-|Γ|²)
                     double n2=std::sqrt(std::max(1.0,transEpsR));
+                    double sinT2 = (1.0 - cosI*cosI) / (n2*n2);
+                    // v9 step8: TIR预检 — 全内反射时退化为反射而非错误记录透射
+                    if (sinT2 >= 1.0) {
+                        // TIR: 能量全反射, 走下面反射分支
+                        curPwr*=refPwr; cr++;
+                        curDir=ReflectDir(curDir,hit.normal);
+                        curPt=Add(hit.position,Scale(curDir,0.01));
+                        if(context.store_paths){PathNode pn;pn.interaction_type=InteractionType::Reflection;
+                            pn.face_id=hit.face_id;pn.point=hit.position;pn.direction=curDir;
+                            pn.incident_direction=oldDir;pn.surface_normal=hit.normal;
+                            pn.segment_length_from_previous=Length(Subtract(hit.position,oldPt));pn.valid=true;
+                            rayNodes.push_back(pn);}
+                        continue;
+                    }
                     curDir=RefractDir(curDir,hit.normal,cosI,n2);
                     curPt=Add(hit.position,Scale(curDir,0.01));
                     curPwr*=(1.0-refPwr); ct++;
@@ -954,12 +969,11 @@ SbrCoverageResult SbrEngine::RunWavefront(const SbrContext& context) const
             }
         }
 
-        // Rx grid params: build ONCE before depth loop, reuse each wave
-        // (cell data is static across the SBR simulation)
-        static std::vector<int> rxCellOffsets;
-        static std::vector<int> rxFlatData;
-        static ISceneAccelerator::RxGridQueryParams rxParams;
-        static bool rxGridBuilt = false;
+        // v9 step13: 移除static — 每次调用重新构建RxGrid, 防止跨运行污染
+        std::vector<int> rxCellOffsets;
+        std::vector<int> rxFlatData;
+        ISceneAccelerator::RxGridQueryParams rxParams;
+        bool rxGridBuilt = false;
 
         if (!rxGridBuilt) {
             int cellCount = rxGrid.nx * rxGrid.ny * rxGrid.nz;
@@ -1129,41 +1143,48 @@ SbrCoverageResult SbrEngine::RunWavefront(const SbrContext& context) const
             }
 
             // Transmission (Monte Carlo) — per-thread buffer, no omp critical
+            // v9 step8: 预检TIR — 全内反射时退化为反射而非错误记录透射
             if (maxTrans > 0 && face.transmission_enabled && ct < maxTrans && hasMat
                 && face.dual_side_material_resolved) {
                 double r = RandDouble(rng);
                 if (r >= refPwr) {
                     double n2 = std::sqrt(std::max(1.0, transEpsR));
-                    Vec3 newDir = RefractDir(curDir, hit.normal, cosI, n2);
-                    Point3 newPt = Add(hit.position, Scale(newDir, 0.01));
-                    double newPwr = curPwr * (1.0 - refPwr);
-                    SbrRayState ns;
-                    ns.ox = newPt.x; ns.oy = newPt.y; ns.oz = newPt.z;
-                    ns.dx = newDir.x; ns.dy = newDir.y; ns.dz = newDir.z;
-                    ns.curPwr = newPwr;
-                    ns.cr = cr; ns.ct = ct + 1; ns.cd = cd;
-                    ns.noNewHit = noNewHit; ns.diff_paths_stored = 0;
-                    ns.rng = rng; ns.rayIdx = wave[wi].rayIdx;
-                    ns.alive = (ns.curPwr > pwrTh);
-                    RayAux na;
-                    na.hitList = aux[wi].hitList;
-                    na.total_paths = aux[wi].total_paths;
-                    if (context.store_paths) {
-                        na.rayNodes = aux[wi].rayNodes;
-                        PathNode pn; pn.interaction_type = InteractionType::Transmission;
-                        pn.face_id = hit.face_id; pn.point = hit.position; pn.direction = newDir;
-                        pn.incident_direction = curDir; pn.surface_normal = hit.normal;
-                        pn.segment_length_from_previous = Length(Subtract(hit.position, curPt)); pn.valid = true;
-                        na.rayNodes.push_back(pn);
-                    }
-#pragma omp critical(nextwave)
-                    {
-                        nextWave.push_back(ns);
-                        nextAux.push_back(na);
-                    }
-                    continue;
-                }
-            }
+                    double sinT2 = (1.0 - cosI*cosI) / (n2*n2); // v9 step8: TIR预检
+                    if (sinT2 >= 1.0) {
+                        // TIR: 退化为反射 — 走下面反射分支, 不产生透射状态
+                        rng = rng; // suppress unused warning, fall through to reflection
+                    } else {
+                        Vec3 newDir = RefractDir(curDir, hit.normal, cosI, n2);
+                        Point3 newPt = Add(hit.position, Scale(newDir, 0.01));
+                        double newPwr = curPwr * (1.0 - refPwr);
+                        SbrRayState ns;
+                        ns.ox = newPt.x; ns.oy = newPt.y; ns.oz = newPt.z;
+                        ns.dx = newDir.x; ns.dy = newDir.y; ns.dz = newDir.z;
+                        ns.curPwr = newPwr;
+                        ns.cr = cr; ns.ct = ct + 1; ns.cd = cd;
+                        ns.noNewHit = noNewHit; ns.diff_paths_stored = 0;
+                        ns.rng = rng; ns.rayIdx = wave[wi].rayIdx;
+                        ns.alive = (ns.curPwr > pwrTh);
+                        RayAux na;
+                        na.hitList = aux[wi].hitList;
+                        na.total_paths = aux[wi].total_paths;
+                        if (context.store_paths) {
+                            na.rayNodes = aux[wi].rayNodes;
+                            PathNode pn; pn.interaction_type = InteractionType::Transmission;
+                            pn.face_id = hit.face_id; pn.point = hit.position; pn.direction = newDir;
+                            pn.incident_direction = curDir; pn.surface_normal = hit.normal;
+                            pn.segment_length_from_previous = Length(Subtract(hit.position, curPt)); pn.valid = true;
+                            na.rayNodes.push_back(pn);
+                        }
+                        #pragma omp critical(nextwave)
+                        {
+                            nextWave.push_back(ns);
+                            nextAux.push_back(na);
+                        }
+                        continue;
+                    } // end else (normal transmission)
+                } // end if (r >= refPwr)
+            } // end transmission block (v9 step8)
 
             // Reflection — per-thread buffer, no omp critical
             if (face.reflection_enabled && cr < maxRefl) {

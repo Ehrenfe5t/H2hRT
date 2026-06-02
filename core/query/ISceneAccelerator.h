@@ -67,6 +67,18 @@ public:
     virtual std::string BackendName() const = 0;
     virtual bool SupportsBatchQuery() const { return false; }
     virtual size_t MaxBatchSize() const { return 1; }
+    // v9 step29: capability flags for GPU→CPU fallback decisions
+    virtual bool SupportsAllHits() const { return true; }      // GPU=false
+    virtual bool SupportsObjectFilter() const { return true; }  // GPU=false
+    virtual bool UsesDoublePrecision() const { return true; }   // GPU=false (float)
+
+    // v9 F-2: 后端查询统计 — 用于性能诊断
+    mutable size_t closest_hit_queries = 0;
+    mutable size_t all_hits_queries = 0;
+    mutable size_t occlusion_queries = 0;
+    void ResetQueryCounters() const {
+        closest_hit_queries = all_hits_queries = occlusion_queries = 0;
+    }
 
     // ── Scene data lifecycle ──
 

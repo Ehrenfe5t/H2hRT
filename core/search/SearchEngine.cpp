@@ -171,6 +171,8 @@ PathState BuildInitialState(const PathSearchContext& context)
 /// Attempts to close the current search state with a final LOS leg to the
 /// receiver. Returns true and populates path/traceLine if geometry and
 /// visibility checks pass.
+/// v9 step5: 非初始状态(LOS之外)必须检验当前出射方向是否指向Rx，
+/// 防止透射/反射/绕射后的状态绕过Snell/反射定律/ Keller cone直接闭合Rx。
 /// </summary>
 bool TryBuildLosPath(const PathSearchContext& context, const PathState& state, GeometricPath& path, std::string& traceLine)
 {
@@ -179,6 +181,23 @@ bool TryBuildLosPath(const PathSearchContext& context, const PathState& state, G
     {
         traceLine = "LOS invalid: " + validity.detail;
         return false;
+    }
+
+    // v9 step5: 非Tx初始状态 → 出射方向必须指向Rx
+    // 透射(Snell)/反射(镜面反射)/绕射(Keller cone)约束了出射方向，
+    // 若偏离Rx超过容差则拒绝闭合，避免产生违反物理定律的路径
+    if (state.path_depth > 0) {
+        const Vec3 toRx = Normalize(Subtract(context.rx_point, state.current_point));
+        const double alignment = Dot(state.current_direction, toRx);
+        // v9 step28: 方向闭合容差来自配置 (原硬编码2°)
+        const double closureAngleRad = context.config->path_search.direction_closure_angle_tol_deg
+                                       * 3.14159265358979323846 / 180.0;
+        const double minAlignment = std::cos(closureAngleRad);
+        if (alignment < minAlignment) {
+            traceLine = "LOS / final-leg rejected: state direction does not point to Rx "
+                        "(alignment=" + std::to_string(alignment) + ", min=" + std::to_string(minAlignment) + ")";
+            return false;
+        }
     }
 
     const VisibilityQueryContext visibilityContext = BuildVisibilityQueryContext(state, *context.config);
@@ -302,8 +321,13 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
             continue;
         }
 
-        const int perExpanderKeepLimit = 8;
-        const int perStateKeepLimit = 16;
+        // v9 StageC: exhaustive_debug_mode 或 keep<=0 → 不截断
+        const int perExpanderKeepLimit = (context.config->path_search.exhaustive_debug_mode ||
+            context.config->path_search.per_expander_keep_limit <= 0)
+            ? 0 : context.config->path_search.per_expander_keep_limit;
+        const int perStateKeepLimit = (context.config->path_search.exhaustive_debug_mode ||
+            context.config->path_search.per_state_keep_limit <= 0)
+            ? 0 : context.config->path_search.per_state_keep_limit;
 
         std::vector<PathState> acceptedCandidates;
 
@@ -319,7 +343,14 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context) const
         AccumulateFailureReasons(result, diffractionResult);
         AppendCandidates(acceptedCandidates, diffractionResult, result, perExpanderKeepLimit);
 
-        SortAndTruncateCandidates(acceptedCandidates, perStateKeepLimit, result);
+        // v9 StageC: 保证至少有diffraction budget对应的diffraction状态不被截断
+        int diffStateCount = 0;
+        for (auto& cs : acceptedCandidates) { if (cs.has_diffraction) diffStateCount++; }
+        int effectiveStateKeep = perStateKeepLimit;
+        if (currentState.remaining_diffractions > 0 && diffStateCount > 0) {
+            effectiveStateKeep = std::max(effectiveStateKeep, diffStateCount);
+        }
+        SortAndTruncateCandidates(acceptedCandidates, effectiveStateKeep, result);
 
         for (const PathState& nextState : acceptedCandidates)
         {
@@ -372,6 +403,25 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context,
         return result;
     }
 
+    // v9 step6: 排序并去重约束候选集 — expander内使用binary_search要求有序
+    // 若candidate_faces/wedges未排序, binary_search会随机漏解
+    std::vector<int> sortedFaces;
+    std::vector<int> sortedWedges;
+    if (constraints.candidate_faces && !constraints.candidate_faces->empty()) {
+        sortedFaces = *constraints.candidate_faces;
+        std::sort(sortedFaces.begin(), sortedFaces.end());
+        auto last = std::unique(sortedFaces.begin(), sortedFaces.end());
+        sortedFaces.erase(last, sortedFaces.end());
+    }
+    if (constraints.candidate_wedges && !constraints.candidate_wedges->empty()) {
+        sortedWedges = *constraints.candidate_wedges;
+        std::sort(sortedWedges.begin(), sortedWedges.end());
+        auto last = std::unique(sortedWedges.begin(), sortedWedges.end());
+        sortedWedges.erase(last, sortedWedges.end());
+    }
+    const std::vector<int>* pSortedFaces = sortedFaces.empty() ? nullptr : &sortedFaces;
+    const std::vector<int>* pSortedWedges = sortedWedges.empty() ? nullptr : &sortedWedges;
+
     std::priority_queue<ScoredState, std::vector<ScoredState>, CompareScoredState> queue;
     std::unordered_set<uint64_t> stateSignatures;
     std::unordered_set<uint64_t> pathSignatures;
@@ -416,29 +466,34 @@ SearchEngineResult SearchEngine::Run(const PathSearchContext& context,
 
         if (currentState.remaining_total_expansions <= 0) continue;
 
-        const int perExpanderKeepLimit = 8;
+        const int perExpanderKeepLimit = (context.config->path_search.exhaustive_debug_mode ||
+            context.config->path_search.per_expander_keep_limit <= 0)
+            ? 0 : context.config->path_search.per_expander_keep_limit;
         std::vector<PathState> acceptedCandidates;
 
-        // ── v8: 约束展开 ──
-        ExpanderResult reflResult = (constraints.candidate_faces)
-            ? ExpandReflection(context, currentState, constraints.candidate_faces)
+        // ── v8: 约束展开 (v9 step6: 使用排序去重后的副本) ──
+        ExpanderResult reflResult = (pSortedFaces)
+            ? ExpandReflection(context, currentState, pSortedFaces)
             : ExpandReflection(context, currentState);
         AccumulateFailureReasons(result, reflResult);
         AppendCandidates(acceptedCandidates, reflResult, result, perExpanderKeepLimit);
 
-        ExpanderResult transResult = (constraints.candidate_faces)
-            ? ExpandTransmission(context, currentState, constraints.candidate_faces)
+        ExpanderResult transResult = (pSortedFaces)
+            ? ExpandTransmission(context, currentState, pSortedFaces)
             : ExpandTransmission(context, currentState);
         AccumulateFailureReasons(result, transResult);
         AppendCandidates(acceptedCandidates, transResult, result, perExpanderKeepLimit);
 
-        ExpanderResult diffResult = (constraints.candidate_wedges)
-            ? ExpandDiffraction(context, currentState, constraints.candidate_wedges)
+        ExpanderResult diffResult = (pSortedWedges)
+            ? ExpandDiffraction(context, currentState, pSortedWedges)
             : ExpandDiffraction(context, currentState);
         AccumulateFailureReasons(result, diffResult);
         AppendCandidates(acceptedCandidates, diffResult, result, perExpanderKeepLimit);
 
-        SortAndTruncateCandidates(acceptedCandidates, 16, result);
+        int stateKeep = (context.config->path_search.exhaustive_debug_mode ||
+                         context.config->path_search.per_state_keep_limit <= 0)
+            ? 0 : context.config->path_search.per_state_keep_limit;
+        SortAndTruncateCandidates(acceptedCandidates, stateKeep, result);
 
         for (const PathState& nextState : acceptedCandidates)
         {

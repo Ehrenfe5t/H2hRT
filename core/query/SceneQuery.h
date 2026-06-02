@@ -170,6 +170,9 @@ public:
         const std::vector<double>& seg_ends_flat,
         const ISceneAccelerator::RxGridQueryParams& grid) const;
 
+    // v9 F-3: 后端查询诊断报告
+    std::string GetBackendDiagnostics() const;
+
 private:
     const Scene& scene_;
     const AppConfig& config_;

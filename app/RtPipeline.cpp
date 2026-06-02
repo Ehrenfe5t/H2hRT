@@ -8,6 +8,7 @@
 #include "RtPipeline.h"
 
 #include <fstream>
+#include <filesystem>
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -183,23 +184,67 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
         return runResult;
     }
     logger.Log(LogLevel::Info, "App", "批次4: 查询门面与场景缓存完成。");
+    if (batch4Result.scene.query) {
+        logger.Log(LogLevel::Info, "BackendDiag", batch4Result.scene.query->GetBackendDiagnostics());
+    }
 
     // 材质数据库: 加载介电常数
     MaterialDatabase matDb;
     if (!loadResult.config.material.material_database_file.empty()) {
-        matDb.LoadFromCsv(loadResult.config.material.material_database_file);
+        const bool loaded = matDb.LoadFromCsv(loadResult.config.material.material_database_file);
+        // v9 step4: 加载失败不再静默继续 — CSV文件路径存在但无法读取或为空时中止
+        if (!loaded) {
+            logger.Log(LogLevel::Error, "App",
+                "Material database failed to load: " + loadResult.config.material.material_database_file);
+            runResult.succeeded = false;
+            runResult.exit_code = static_cast<int>(ErrorCode::FileNotFound);
+            return runResult;
+        }
         logger.Log(LogLevel::Info, "App", "材质数据库已加载: " + loadResult.config.material.material_database_file);
     }
 
-    // v7.3: 预查所有面元电参数 (后续SBR热路径O(1)读取)
+    // v7.3: 预查所有面元电参数 + v9 G-3: 材质绑定诊断
     if (!matDb.empty()) {
         const double fq = loadResult.config.em_solver.frequency_hz;
+        int matMissingCount = 0, matSameCount = 0;
         for (Face& face : batch4Result.scene.faces) {
             if (!face.surface_material_name.empty()) {
                 MaterialProps sp = matDb.QueryByName(face.surface_material_name, fq);
                 face.surface_eps_r = sp.epsilon_r;
                 face.surface_sigma = sp.sigma;
+                // v9 G-3: 材质缺失诊断
+                if (sp.name.empty() && face.surface_material_name != "vacuum") {
+                    matMissingCount++;
+                    if (matMissingCount <= 10) {
+                        logger.Log(LogLevel::Warn, "MaterialCheck",
+                            "Face #" + std::to_string(face.face_id) + " material '" +
+                            face.surface_material_name + "' not in DB → vacuum");
+                    }
+                }
             }
+            // v9 G-3: 透射面前后介质相同警告
+            if (face.transmission_enabled && face.dual_side_material_resolved &&
+                !face.front_material_name.empty() &&
+                face.front_material_name == face.back_material_name) {
+                matSameCount++;
+            }
+        }
+        // v9 StageH: strict material policy enforcement
+        std::string policy = loadResult.config.material.missing_material_policy;
+        if (matMissingCount > 0) {
+            if (policy == "strict") {
+                logger.Log(LogLevel::Fatal, "MaterialCheck",
+                    std::to_string(matMissingCount) + " faces have materials not in DB. Policy=strict → abort.");
+                runResult.succeeded = false;
+                runResult.exit_code = static_cast<int>(ErrorCode::ValidationFailed);
+                return runResult;
+            }
+            logger.Log(LogLevel::Warn, "MaterialCheck",
+                std::to_string(matMissingCount) + " faces have materials not found in database");
+        }
+        if (matSameCount > 0) {
+            logger.Log(LogLevel::Warn, "MaterialCheck",
+                std::to_string(matSameCount) + " transmission faces have front==back material");
         }
     }
 
@@ -212,6 +257,49 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
                << " pairs, AngularGrid=" << batch4Result.scene.visibility.angular_grid.CellCount()
                << " cells, time=" << batch4Result.scene.visibility.build_time_seconds << "s";
         logger.Log(LogLevel::Info, "S0", pvsLog.str());
+    }
+
+    // v9 StageH: Scene preflight report
+    {
+        std::ostringstream preflight;
+        preflight << "{\n  \"scene\": \"" << loadResult.config.scene_import.source_file << "\",\n"
+                  << "  \"faces\": " << batch4Result.scene.faces.size() << ",\n"
+                  << "  \"vertices\": " << batch4Result.scene.vertices.size() << ",\n"
+                  << "  \"wedges\": " << batch4Result.scene.wedges.size() << ",\n"
+                  << "  \"diffractable_wedges\": " << batch4Result.scene.acceleration.wedge_acceleration.diffractable_wedge_count << ",\n"
+                  << "  \"material_policy\": \"" << loadResult.config.material.missing_material_policy << "\",\n"
+                  << "  \"material_db\": \"" << loadResult.config.material.material_database_file << "\",\n"
+                  << "  \"normals_from_file\": " << (batch4Result.scene.normals.size() > 0 ? "true" : "false") << ",\n"
+                  << "  \"wedge_build_enabled\": " << (loadResult.config.scene_preprocess.enable_wedge_build ? "true" : "false") << ",\n"
+                  << "  \"material_issues\": [\n";
+        // List faces with material issues
+        bool firstIssue = true;
+        for (const auto& face : batch4Result.scene.faces) {
+            bool hasIssue = false;
+            std::string issue;
+            if (!face.surface_material_name.empty() && face.surface_eps_r <= 1.01 && face.surface_sigma <= 0.0) {
+                // surface material likely not found (vacuum fallback)
+                if (face.surface_material_name != "vacuum") {
+                    hasIssue = true; issue = "surface material '" + face.surface_material_name + "' may be missing";
+                }
+            }
+            if (face.transmission_enabled && face.dual_side_material_resolved &&
+                !face.front_material_name.empty() && face.front_material_name == face.back_material_name) {
+                hasIssue = true; issue = "front==back material on transmission face";
+            }
+            if (hasIssue) {
+                if (!firstIssue) preflight << ",\n";
+                preflight << "    {\"face_id\": " << face.face_id << ", \"issue\": \"" << issue << "\"}";
+                firstIssue = false;
+            }
+        }
+        preflight << "\n  ]\n}\n";
+        std::string dir = "output/" + loadResult.config.app_runtime.run_id + "/reports";
+        std::string preflightPath = dir + "/scene_preflight_report.json";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        std::ofstream pf(preflightPath);
+        if (pf.is_open()) { pf << preflight.str(); pf.close(); }
     }
 
     // v8 Phase 2: SBR粗扫 + Rx种子采样 (收集活跃面元集)

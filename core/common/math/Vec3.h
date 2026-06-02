@@ -10,6 +10,8 @@
 
 #include <cmath>
 
+#include "MathConstants.h"
+
 namespace rt {
 
 /// <summary>
@@ -22,6 +24,21 @@ struct Vec3 {
 };
 
 typedef Vec3 Point3;
+
+/// <summary>
+/// v9 步骤1: Snell折射的结构化结果，替代旧SnellRefract的零向量返回。
+/// 包含完整诊断信息：入射角、出射角、TIR标志、Snell残差。
+/// </summary>
+struct SnellResult {
+    bool valid = false;                     // 计算是否有效
+    bool total_internal_reflection = false; // 是否发生全内反射
+    Vec3 direction;                         // 折射方向 (TIR时为零向量)
+    double cos_i = 0.0;                     // |cos(入射角)|, 已clamp到[0,1]
+    double cos_t = 0.0;                     // |cos(出射角)|, TIR时为0
+    double theta_i_rad = 0.0;               // 入射角 (弧度)
+    double theta_t_rad = 0.0;               // 出射角 (弧度), TIR时为pi/2
+    double residual = 0.0;                  // |n1*sin(theta_i) - n2*sin(theta_t)|
+};
 
 // v8 GPU: nvcc EDG front-end cannot parse MSVC-stdlib-dependent inline functions.
 // When included from .cu files, only struct definitions are visible.
@@ -199,6 +216,75 @@ inline Vec3 SnellRefract(const Vec3& incident, const Vec3& normal, double n1, do
         eta * incident.x + (eta * cosI - cosT) * normal.x,
         eta * incident.y + (eta * cosI - cosT) * normal.y,
         eta * incident.z + (eta * cosI - cosT) * normal.z);
+}
+
+/// <summary>
+/// v9 增强版Snell折射计算，返回结构化SnellResult。
+/// 相比旧版SnellRefract的改进：
+///   - 自动翻转法线，确保cos_i>=0（背面入射时自动校正）
+///   - cosI clamp到[0,1]，防止浮点误差导致NaN
+///   - 输出入射角/出射角/TIR标志/Snell残差等诊断信息
+/// </summary>
+/// <param name="incident">入射方向（指向表面）。</param>
+/// <param name="normal">表面法线（任意朝向，内部自动校正）。</param>
+/// <param name="n1">入射侧介质折射率。</param>
+/// <param name="n2">出射侧介质折射率。</param>
+/// <returns>结构化SnellResult，含折射方向和完整诊断。</returns>
+inline SnellResult SnellRefractV2(const Vec3& incident, const Vec3& normal, double n1, double n2) {
+    SnellResult result;
+
+    // 自动翻转法线: 确保法线指向入射侧 (Dot(incident, effectiveNormal) <= 0)
+    Vec3 effectiveNormal = normal;
+    double dotIN = Dot(incident, normal);
+    if (dotIN > 0.0) {
+        // 入射方向与法线同侧 → 法线需要翻转
+        effectiveNormal = Scale(normal, -1.0);
+        dotIN = -dotIN;
+    }
+
+    // cos(入射角) = -Dot(incident, effectiveNormal), 应 >= 0
+    double cosI = -dotIN;
+    // Clamp到[0,1]防止浮点误差导致cosI>1或cosI<0
+    if (cosI > 1.0) cosI = 1.0;
+    if (cosI < 0.0) cosI = 0.0;
+
+    result.cos_i = cosI;
+    result.theta_i_rad = std::acos(cosI);
+
+    double eta = n1 / n2;
+    double sin2I = 1.0 - cosI * cosI;
+    double sinT2 = eta * eta * sin2I;
+
+    if (sinT2 >= 1.0) {
+        // ── 全内反射 ──
+        result.total_internal_reflection = true;
+        result.valid = true;
+        result.cos_t = 0.0;
+        result.theta_t_rad = kHalfPi;
+        // TIR物理上仍在临界角满足Snell: n1*sin(theta_c) = n2*sin(pi/2)
+        result.residual = 0.0;
+        // direction保持零向量
+        return result;
+    }
+
+    double cosT = std::sqrt(1.0 - sinT2);
+    result.cos_t = cosT;
+    result.theta_t_rad = std::acos(cosT);
+
+    // Snell残差: |n1*sin(theta_i) - n2*sin(theta_t)|
+    double sinI = std::sqrt(sin2I);
+    double sinT = std::sqrt(1.0 - cosT * cosT);
+    result.residual = std::fabs(n1 * sinI - n2 * sinT);
+
+    // 计算折射方向: eta * incident + (eta*cos_i - cos_t) * effectiveNormal
+    double coeff = eta * cosI - cosT;
+    result.direction = MakeVec3(
+        eta * incident.x + coeff * effectiveNormal.x,
+        eta * incident.y + coeff * effectiveNormal.y,
+        eta * incident.z + coeff * effectiveNormal.z);
+
+    result.valid = true;
+    return result;
 }
 
 #endif // __CUDACC__

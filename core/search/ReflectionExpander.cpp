@@ -256,7 +256,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
         {
             return lhs.score < rhs.score;
         });
-    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), 8U);
+    const std::size_t keepLimit = std::min<std::size_t>(acceptedStates.size(), static_cast<std::size_t>(context.config->path_search.per_expander_keep_limit));
     for (std::size_t i = 0; i < keepLimit; ++i)
     {
         result.next_states.push_back(acceptedStates[i].state);
@@ -355,7 +355,7 @@ ExpanderResult ExpandReflection(const PathSearchContext& context, const PathStat
     }
 
     std::sort(acceptedStates.begin(), acceptedStates.end(), [](auto& a, auto& b) { return a.score < b.score; });
-    const size_t keep = std::min(acceptedStates.size(), size_t(8));
+    const size_t keep = std::min(acceptedStates.size(), static_cast<size_t>(context.config->path_search.per_expander_keep_limit));
     for (size_t i = 0; i < keep; ++i) result.next_states.push_back(acceptedStates[i].state);
     if (result.next_states.empty() && result.failure_reasons.empty())
         result.failure_reasons.push_back(GeometryValidityReason::NoHit);

@@ -5,6 +5,7 @@
 #include "ApplyDiffractionInteraction.h"
 #include "../common/math/Vec3.h"
 #include "../common/math/Complex.h"
+#include "../common/math/ComplexVec3.h"
 #include "../common/math/MathConstants.h"
 #include <cmath>
 #include <cstdlib>
@@ -15,17 +16,15 @@ namespace {
 
 // ---- C3-C: Numerical Fresnel transition function ----
 // F(x) = 2*j*sqrt(x)*exp(j*x) * integral_{sqrt(x)}^{inf} exp(-j*tau^2) dtau
-// Numerical integration via 8-point Gauss-Legendre quadrature with adaptive interval refinement
+// v9 D-1: 增强数值积分精度 — 32区间 + 更大渐近切换点
 
-Complex FresnelIntegralTailNumerical(double tau0, int NIntervals = 16)
+Complex FresnelIntegralTailNumerical(double tau0, int NIntervals = 32)
 {
-    // GL 8-point weights and abscissae on [-1, 1]
     static const double glX[8] = {-0.960289856497536, -0.796666477413627, -0.525532409916329, -0.183434642495650,
                                     0.183434642495650,  0.525532409916329,  0.796666477413627,  0.960289856497536};
     static const double glW[8] = { 0.101228536290376,  0.222381034453374,  0.313706645877887,  0.362683783378362,
                                     0.362683783378362,  0.313706645877887,  0.222381034453374,  0.101228536290376};
 
-    // Adaptive: integrate over [tau0, tau0 + NIntervals * step] where step = 0.5
     double step = 0.5;
     Complex sum(0.0, 0.0);
     for (int seg = 0; seg < NIntervals; ++seg) {
@@ -36,23 +35,21 @@ Complex FresnelIntegralTailNumerical(double tau0, int NIntervals = 16)
         for (int k = 0; k < 8; ++k) {
             double tau = mid + half * glX[k];
             double tau2 = tau * tau;
-            // exp(-j*tau^2) = cos(tau^2) - j*sin(tau^2)
             Complex f(std::cos(tau2), -std::sin(tau2));
             sum = sum + Complex(glW[k] * f.re, glW[k] * f.im);
         }
     }
-    return Complex(sum.re * step * 0.5, sum.im * step * 0.5); // half-width scaling already in weights
+    return Complex(sum.re * step * 0.5, sum.im * step * 0.5);
 }
 
 Complex FresnelTransitionNumerical(double x)
 {
     if (x < 0.0) x = 0.0;
     if (x < 1e-8) return Complex(0.0, 0.0);
-    // v7.4 B19: x>10时数值积分欠采样, 切换到渐近展开 F(x)≈1+j/(2x)
-    if (x > 10.0) return Complex(1.0, 0.5/x);
+    // v9 D-1: 渐近切换点从10提升到50 (渐近误差 ~1/(4x²), 在x=50时≈1e-4)
+    if (x > 50.0) return Complex(1.0, 0.5 / x);
     double sqrtX = std::sqrt(x);
-    Complex tail = FresnelIntegralTailNumerical(sqrtX);
-    // F(x) = 2*j*sqrt(x)*exp(j*x) * tail
+    Complex tail = FresnelIntegralTailNumerical(sqrtX, 32);
     Complex prefactor(0.0, 2.0 * sqrtX);
     Complex expJX(std::cos(x), std::sin(x));
     Complex F = prefactor * expJX;
@@ -190,6 +187,22 @@ bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, 
         else                       eSoft_dir = Normalize(Cross(kOut, MakeVec3(0.0, 1.0, 0.0)));
     }
     Vec3 eHard_dir = Normalize(Cross(kOut, eSoft_dir));   // 在衍射面内, ⟂kOut
+
+    // ── v9 B2-c: 复矢量路径 ──
+    if (field.vector_field_valid) {
+        Complex E_soft = ComplexDot(field.electric_field_world, eSoft_dir);
+        Complex E_hard = ComplexDot(field.electric_field_world, eHard_dir);
+
+        Complex E_DS = Dsoft * E_soft;
+        Complex E_DH = Dhard * E_hard;
+
+        field.electric_field_world = ReconstructFromBasis(E_DS, eSoft_dir, E_DH, eHard_dir);
+
+        field.SyncLegacyFields();
+        return true;
+    }
+
+    // ── 旧标量路径 (兼容) ──
     Complex eS(Dot(field.polarization_vector, eSoft_dir), Dot(field.polarization_imag, eSoft_dir));
     Complex eH(Dot(field.polarization_vector, eHard_dir), Dot(field.polarization_imag, eHard_dir));
     Complex eDS = Dsoft * eS, eDH = Dhard * eH;

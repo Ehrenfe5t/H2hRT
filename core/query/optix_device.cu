@@ -16,6 +16,7 @@ struct UnifiedLaunchParams {
     const float* ray_dirs;
     float tmin;
     float tmax;
+    const float* tmaxs;      // v9 step7: per-ray tMax for batch occlusion
     int* hit_flags;
     int* hit_face_ids;
     int* hit_object_ids;
@@ -98,11 +99,15 @@ extern "C" __global__ void __raygen__rg()
         // ── Occlusion query ──
         unsigned int p0 = 0u;
 
+        // v9 step7: per-ray tMax — prevents false occlusion from faces beyond the target point
+        float rayTmax = (launch_params.tmaxs != nullptr)
+            ? launch_params.tmaxs[idx] : launch_params.tmax;
+
         optixTrace(
             OPTIX_PAYLOAD_TYPE_DEFAULT,
             launch_params.traversable,
             origin, direction,
-            launch_params.tmin, launch_params.tmax,
+            launch_params.tmin, rayTmax,
             0.0f, OptixVisibilityMask(0xFF),
             OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
             1u, 0u, 0u,   // SBT hitgroup[1] = any-hit

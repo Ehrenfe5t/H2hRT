@@ -98,7 +98,7 @@ def load_rx_data(output_root, run_id):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run_id", default="412")
+    parser.add_argument("--run_id", default="v9_full")
     parser.add_argument("--output_root", default="G:/RT/H2hRT-7.1-SBR-/output")
     parser.add_argument("--freq_hz", type=float, default=3.0e9)
     parser.add_argument("--tx_x", type=float, default=2.38)

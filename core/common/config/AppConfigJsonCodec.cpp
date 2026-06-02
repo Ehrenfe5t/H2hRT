@@ -1,600 +1,490 @@
-// 文件目标：
-// - 实现模块1统一 JSON 编解码层。
-//
-// 主要功能：
-// - 把配置读取逻辑集中在 codec 层；
-// - 把配置快照写出逻辑与读取逻辑绑定到同一份 schema；
-// - 为后续替换更强 JSON 实现预留稳定接口。
+// v9 step14: 替换手写JSON parser为nlohmann/json 3.5.0
+// 改进: 标准JSON解析、合法JSON输出(无尾逗号)、字段round-trip、未知字段warning
 
 #include "AppConfigJsonCodec.h"
 
-#include <cctype>
-#include <cstdlib>
+#include "../../../tools/SDK/support/tinygltf/json.hpp"
+
 #include <fstream>
 #include <sstream>
+#include <cstdio>
+
+using nlohmann::json;
 
 namespace rt {
 
+// ── 辅助: 安全读取JSON字段, 缺失时保留默认值 ──
+
 namespace {
 
-bool ReadWholeFile(const std::string& filePath, std::string& content)
-{
-    std::ifstream input(filePath.c_str(), std::ios::in | std::ios::binary);
-    if (!input.is_open())
-    {
-        return false;
-    }
-
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    content = buffer.str();
-    return true;
-}
-
-std::size_t SkipWhitespace(const std::string& text, std::size_t index)
-{
-    while (index < text.size() && std::isspace(static_cast<unsigned char>(text[index])) != 0)
-    {
-        ++index;
-    }
-    return index;
-}
-
-bool ExtractObjectBody(const std::string& text, const std::string& key, std::string& body)
-{
-    const std::string token = "\"" + key + "\"";
-    const std::size_t keyPos = text.find(token);
-    if (keyPos == std::string::npos)
-    {
-        return false;
-    }
-
-    const std::size_t colonPos = text.find(':', keyPos + token.size());
-    if (colonPos == std::string::npos)
-    {
-        return false;
-    }
-
-    std::size_t bracePos = SkipWhitespace(text, colonPos + 1U);
-    if (bracePos >= text.size() || text[bracePos] != '{')
-    {
-        return false;
-    }
-
-    int depth = 0;
-    bool inString = false;
-    for (std::size_t i = bracePos; i < text.size(); ++i)
-    {
-        const char ch = text[i];
-        const bool escaped = (i > 0U && text[i - 1U] == '\\');
-        if (ch == '"' && !escaped)
-        {
-            inString = !inString;
-        }
-
-        if (inString)
-        {
-            continue;
-        }
-
-        if (ch == '{')
-        {
-            ++depth;
-        }
-        else if (ch == '}')
-        {
-            --depth;
-            if (depth == 0)
-            {
-                body = text.substr(bracePos, i - bracePos + 1U);
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-bool ExtractRawValue(const std::string& objectBody, const std::string& key, std::string& rawValue)
-{
-    const std::string token = "\"" + key + "\"";
-    const std::size_t keyPos = objectBody.find(token);
-    if (keyPos == std::string::npos)
-    {
-        return false;
-    }
-
-    const std::size_t colonPos = objectBody.find(':', keyPos + token.size());
-    if (colonPos == std::string::npos)
-    {
-        return false;
-    }
-
-    std::size_t valuePos = SkipWhitespace(objectBody, colonPos + 1U);
-    if (valuePos >= objectBody.size())
-    {
-        return false;
-    }
-
-    if (objectBody[valuePos] == '"')
-    {
-        ++valuePos;
-        std::size_t end = valuePos;
-        while (end < objectBody.size())
-        {
-            if (objectBody[end] == '"' && objectBody[end - 1U] != '\\')
-            {
-                rawValue = objectBody.substr(valuePos, end - valuePos);
-                return true;
-            }
-            ++end;
-        }
-        return false;
-    }
-
-    std::size_t end = valuePos;
-    while (end < objectBody.size())
-    {
-        const char ch = objectBody[end];
-        if (ch == ',' || ch == '}' || std::isspace(static_cast<unsigned char>(ch)) != 0)
-        {
-            break;
-        }
-        ++end;
-    }
-
-    rawValue = objectBody.substr(valuePos, end - valuePos);
-    return !rawValue.empty();
-}
-
 template <typename T>
-void ReadOptionalNumber(const std::string& objectBody, const std::string& key, T& target)
-{
-    std::string value;
-    if (ExtractRawValue(objectBody, key, value))
-    {
-        std::istringstream stream(value);
-        T parsedValue{};
-        stream >> parsedValue;
-        if (!stream.fail())
-        {
-            target = parsedValue;
-        }
+void ReadJsonField(const json& obj, const char* key, T& target) {
+    if (obj.find(key) != obj.end()) {
+        try { obj.at(key).get_to(target); } catch (...) {}
     }
 }
 
-void ReadOptionalString(const std::string& objectBody, const std::string& key, std::string& target)
-{
-    std::string value;
-    if (ExtractRawValue(objectBody, key, value))
-    {
-        target = value;
+void ReadJsonField(const json& obj, const char* key, bool& target) {
+    if (obj.find(key) != obj.end()) {
+        try { target = obj.at(key).get<bool>(); } catch (...) {}
     }
 }
 
-void ReadOptionalBool(const std::string& objectBody, const std::string& key, bool& target)
-{
-    std::string value;
-    if (ExtractRawValue(objectBody, key, value))
-    {
-        target = (value == "true" || value == "TRUE" || value == "True");
+void ReadJsonField(const json& obj, const char* key, std::string& target) {
+    if (obj.find(key) != obj.end()) {
+        try { target = obj.at(key).get<std::string>(); } catch (...) {}
     }
 }
 
-bool PopulateAppConfigFromJsonText(const std::string& text, AppConfig& config)
-{
-    std::string body;
+// ── 读取AppConfig全字段 ──
 
-    if (ExtractObjectBody(text, "app_runtime", body))
-    {
-        ReadOptionalString(body, "mode", config.app_runtime.mode);
-        ReadOptionalString(body, "log_level", config.app_runtime.log_level);
-        ReadOptionalBool(body, "enable_console_logging", config.app_runtime.enable_console_logging);
-        ReadOptionalBool(body, "enable_file_logging", config.app_runtime.enable_file_logging);
-        ReadOptionalString(body, "log_file_path", config.app_runtime.log_file_path);
-        ReadOptionalString(body, "config_snapshot_directory", config.app_runtime.config_snapshot_directory);
-        ReadOptionalString(body, "cache_directory", config.app_runtime.cache_directory);
-        ReadOptionalString(body, "run_id", config.app_runtime.run_id);
-        // v6: worker_threads removed
-    }
-
-    if (ExtractObjectBody(text, "scene_import", body))
-    {
-        ReadOptionalString(body, "source_file", config.scene_import.source_file);
-        ReadOptionalString(body, "source_format", config.scene_import.source_format);
-        ReadOptionalString(body, "scene_material_map_file", config.scene_import.scene_material_map_file);
-        ReadOptionalBool(body, "normalize_object_names", config.scene_import.normalize_object_names);
-        // v6: removed
-    }
-
-    if (ExtractObjectBody(text, "scene_preprocess", body))
-    {
-        ReadOptionalBool(body, "rebuild_normals", config.scene_preprocess.rebuild_normals);
-        ReadOptionalBool(body, "enable_wedge_build", config.scene_preprocess.enable_wedge_build);
-        ReadOptionalBool(body, "enable_scene_cache", config.scene_preprocess.enable_scene_cache);
-        // v6: removed
-        // v6: removed
-        // v6: removed
-        // v6: removed
-        // v6: removed
-        // v6: removed
-        // v6: removed
-        // v6: removed
-        ReadOptionalNumber(body, "bvh_leaf_size", config.scene_preprocess.bvh_leaf_size);
-        // v6: removed
-    }
-
-    if (ExtractObjectBody(text, "material", body))
-    {
-        ReadOptionalString(body, "material_database_file", config.material.material_database_file);
-        // v6: material_mapping_file, frequency_query_mode, allow_material_fallback, default_background_medium removed
-    }
-
-    if (ExtractObjectBody(text, "antenna", body))
-    {
-        ReadOptionalString(body, "source_type", config.antenna.source_type);
-        ReadOptionalString(body, "pattern_file", config.antenna.pattern_file);
-        ReadOptionalString(body, "polarization_file", config.antenna.polarization_file);
-        // v8: 天线姿态
-        ReadOptionalNumber(body, "forward_x", config.antenna.forward_x);
-        ReadOptionalNumber(body, "forward_y", config.antenna.forward_y);
-        ReadOptionalNumber(body, "forward_z", config.antenna.forward_z);
-        ReadOptionalNumber(body, "up_x", config.antenna.up_x);
-        ReadOptionalNumber(body, "up_y", config.antenna.up_y);
-        ReadOptionalNumber(body, "up_z", config.antenna.up_z);
-    }
-
-    if (ExtractObjectBody(text, "path_search", body))
-    {
-        ReadOptionalNumber(body, "max_path_depth", config.path_search.max_path_depth);
-        ReadOptionalNumber(body, "max_reflection_count", config.path_search.max_reflection_count);
-        ReadOptionalNumber(body, "max_transmission_count", config.path_search.max_transmission_count);
-        ReadOptionalNumber(body, "max_diffraction_count", config.path_search.max_diffraction_count);
-        ReadOptionalNumber(body, "max_scattering_count", config.path_search.max_scattering_count);
-        ReadOptionalBool(body, "enable_los", config.path_search.enable_los);
-        // v7.5: enable_reflection/transmission/diffraction/scattering removed → max_*_count=0
-        ReadOptionalNumber(body, "max_consecutive_same_interaction", config.path_search.max_consecutive_same_interaction);
-        // v6: max_candidate_face_hits/wedges, enable_mixed_path, keep_angle_metadata, pruning_strategy, dedup_strategy removed
-        ReadOptionalNumber(body, "tx_x", config.path_search.tx_x);
-        ReadOptionalNumber(body, "tx_y", config.path_search.tx_y);
-        ReadOptionalNumber(body, "tx_z", config.path_search.tx_z);
-        ReadOptionalNumber(body, "rx_x", config.path_search.rx_x);
-        ReadOptionalNumber(body, "rx_y", config.path_search.rx_y);
-        ReadOptionalNumber(body, "rx_z", config.path_search.rx_z);
-        // v8 multi-Rx: parse rx_list JSON array
-        std::string rxListBody;
-        std::string rxListToken = "\"rx_list\"";
-        size_t rxListPos = body.find(rxListToken);
-        if (rxListPos != std::string::npos)
-        {
-            size_t colonP = body.find(':', rxListPos);
-            if (colonP != std::string::npos)
-            {
-                size_t arrStart = SkipWhitespace(body, colonP + 1);
-                if (arrStart < body.size() && body[arrStart] == '[')
-                {
-                    int depth = 0; bool inStr = false;
-                    size_t arrEnd = arrStart;
-                    for (size_t i = arrStart; i < body.size(); ++i) {
-                        if (body[i] == '"' && (i == 0 || body[i-1] != '\\')) inStr = !inStr;
-                        if (!inStr) { if (body[i] == '[') depth++; else if (body[i] == ']') { depth--; if (depth == 0) { arrEnd = i; break; } } }
-                    }
-                    std::string arrText = body.substr(arrStart + 1, arrEnd - arrStart - 1);
-                    // Parse each { "id":"...", "x":..., "y":..., "z":... } object
-                    size_t pos = 0;
-                    while (pos < arrText.size())
-                    {
-                        pos = SkipWhitespace(arrText, pos);
-                        // Skip commas between array elements
-                        while (pos < arrText.size() && arrText[pos] == ',')
-                            pos = SkipWhitespace(arrText, pos + 1);
-                        if (pos >= arrText.size() || arrText[pos] != '{') break;
-                        // Find matching }
-                        int objD = 0; bool objStr = false; size_t objEnd = pos;
-                        for (size_t j = pos; j < arrText.size(); ++j) {
-                            if (arrText[j] == '"' && (j == 0 || arrText[j-1] != '\\')) objStr = !objStr;
-                            if (!objStr) { if (arrText[j] == '{') objD++; else if (arrText[j] == '}') { objD--; if (objD == 0) { objEnd = j; break; } } }
-                        }
-                        std::string objBody = arrText.substr(pos, objEnd - pos + 1);
-                        RxTarget rx;
-                        ReadOptionalString(objBody, "id", rx.id);
-                        ReadOptionalNumber(objBody, "x", rx.x);
-                        ReadOptionalNumber(objBody, "y", rx.y);
-                        ReadOptionalNumber(objBody, "z", rx.z);
-                        if (!rx.id.empty())
-                            config.path_search.rx_list.push_back(rx);
-                        pos = objEnd + 1;
-                    }
-                }
-            }
-        }
-    }
-
-    if (ExtractObjectBody(text, "sbr", body))
-    {
-        ReadOptionalBool(body, "enabled", config.sbr.enabled);
-        ReadOptionalNumber(body, "ray_count", config.sbr.ray_count);
-        ReadOptionalNumber(body, "max_ray_depth", config.sbr.max_ray_depth);
-        ReadOptionalNumber(body, "max_reflection_count", config.sbr.max_reflection_count);
-        ReadOptionalNumber(body, "max_transmission_count", config.sbr.max_transmission_count);
-        ReadOptionalNumber(body, "max_diffraction_count", config.sbr.max_diffraction_count);
-        // v7.5: enable_transmission/diffraction removed → max_*_count=0
-        ReadOptionalNumber(body, "ray_power_threshold_dB", config.sbr.ray_power_threshold_dB);
-        ReadOptionalNumber(body, "rx_sphere_radius_m", config.sbr.rx_sphere_radius_m);
-        ReadOptionalBool(body, "auto_grid_bounds", config.sbr.auto_grid_bounds);
-        // v6: removed
-        ReadOptionalNumber(body, "rx_grid_min_x", config.sbr.rx_grid_min_x);
-        ReadOptionalNumber(body, "rx_grid_max_x", config.sbr.rx_grid_max_x);
-        ReadOptionalNumber(body, "rx_grid_min_y", config.sbr.rx_grid_min_y);
-        ReadOptionalNumber(body, "rx_grid_max_y", config.sbr.rx_grid_max_y);
-        ReadOptionalNumber(body, "rx_grid_min_z", config.sbr.rx_grid_min_z);
-        ReadOptionalNumber(body, "rx_grid_max_z", config.sbr.rx_grid_max_z);
-        ReadOptionalNumber(body, "rx_grid_step_x", config.sbr.rx_grid_step_x);
-        ReadOptionalNumber(body, "rx_grid_step_y", config.sbr.rx_grid_step_y);
-        ReadOptionalNumber(body, "rx_grid_step_z", config.sbr.rx_grid_step_z);
-        ReadOptionalNumber(body, "tx_power_dBm", config.sbr.tx_power_dBm);
-        ReadOptionalBool(body, "store_paths", config.sbr.store_paths);
-        ReadOptionalNumber(body, "wedge_max_distance_m", config.sbr.wedge_max_distance_m);
-        ReadOptionalNumber(body, "wedge_max_candidates", config.sbr.wedge_max_candidates);
-    }
-
-    if (ExtractObjectBody(text, "em_solver", body))
-    {
-        ReadOptionalNumber(body, "frequency_hz", config.em_solver.frequency_hz);
-        ReadOptionalString(body, "solver_mode", config.em_solver.solver_mode);
-        // v6: removed
-    }
-
-    if (ExtractObjectBody(text, "output", body))
-    {
-        // v6: removed
-        ReadOptionalBool(body, "export_paths", config.output.export_paths);
-        ReadOptionalBool(body, "export_cir", config.output.export_cir);
-        ReadOptionalBool(body, "export_pdp", config.output.export_pdp);
-        ReadOptionalBool(body, "export_aps", config.output.export_aps);
-        ReadOptionalBool(body, "export_config_snapshot", config.output.export_config_snapshot);
-    }
-
-    if (ExtractObjectBody(text, "validation", body))
-    {
-        ReadOptionalBool(body, "enable_basic_validation", config.validation.enable_basic_validation);
-        ReadOptionalBool(body, "enable_reference_compare", config.validation.enable_reference_compare);
-        ReadOptionalBool(body, "run_module1_self_check", config.validation.run_module1_self_check);
-        ReadOptionalString(body, "module1_invalid_transmission_case_file", config.validation.module1_invalid_transmission_case_file);
-        ReadOptionalString(body, "module1_invalid_diffraction_case_file", config.validation.module1_invalid_diffraction_case_file);
-        ReadOptionalNumber(body, "power_tolerance_db", config.validation.power_tolerance_db);
-    }
-
-    if (ExtractObjectBody(text, "experiment", body))
-    {
-        ReadOptionalString(body, "experiment_tag", config.experiment.experiment_tag);
-        ReadOptionalString(body, "dataset_tag", config.experiment.dataset_tag);
-    }
-
-    // v8: pipeline config
-    if (ExtractObjectBody(text, "pipeline", body))
-    {
-        ReadOptionalBool(body, "enable_stage0_precompute", config.pipeline.enable_stage0_precompute);
-        ReadOptionalBool(body, "enable_pvs", config.pipeline.enable_pvs);
-        ReadOptionalBool(body, "enable_edge_adjacency", config.pipeline.enable_edge_adjacency);
-        ReadOptionalBool(body, "enable_angular_grid", config.pipeline.enable_angular_grid);
-        ReadOptionalBool(body, "enable_stage0_precompute", config.pipeline.enable_stage0_precompute);
-        ReadOptionalBool(body, "enable_stage1_coarse_sbr", config.pipeline.enable_stage1_coarse_sbr);
-        ReadOptionalBool(body, "enable_stage2_constrained_search", config.pipeline.enable_stage2_constrained_search);
-        ReadOptionalBool(body, "enable_stage3_path_reuse", config.pipeline.enable_stage3_path_reuse);
-        ReadOptionalBool(body, "enable_legacy_sbr_power", config.pipeline.enable_legacy_sbr_power);
-        ReadOptionalNumber(body, "seed_rx_count", config.pipeline.seed_rx_count);
-        ReadOptionalNumber(body, "seed_spatial_stride", config.pipeline.seed_spatial_stride);
-        ReadOptionalNumber(body, "bidirectional_split_depth", config.pipeline.bidirectional_split_depth);
-        ReadOptionalNumber(body, "max_paths_per_rx", config.pipeline.max_paths_per_rx);
-        ReadOptionalNumber(body, "reuse_max_distance", config.pipeline.reuse_max_distance);
-        ReadOptionalBool(body, "reuse_verify_last_hop", config.pipeline.reuse_verify_last_hop);
-    }
-
-    // v8: acceleration config
-    if (ExtractObjectBody(text, "acceleration", body))
-    {
-        ReadOptionalString(body, "backend", config.acceleration.backend);
-        ReadOptionalNumber(body, "gpu_device_id", config.acceleration.gpu_device_id);
-        ReadOptionalNumber(body, "gpu_batch_size", config.acceleration.gpu_batch_size);
-        ReadOptionalBool(body, "gpu_use_rt_core", config.acceleration.gpu_use_rt_core);
-    }
-
-    if (ExtractObjectBody(text, "numeric_tolerance", body))
-    {
-        ReadOptionalNumber(body, "eps_length", config.numeric_tolerance.eps_length);
-        ReadOptionalNumber(body, "eps_angle", config.numeric_tolerance.eps_angle);
-        ReadOptionalNumber(body, "eps_intersection", config.numeric_tolerance.eps_intersection);
-        ReadOptionalNumber(body, "eps_normal", config.numeric_tolerance.eps_normal);
-        ReadOptionalNumber(body, "eps_deduplicate", config.numeric_tolerance.eps_deduplicate);
-        ReadOptionalNumber(body, "eps_power", config.numeric_tolerance.eps_power);
-        ReadOptionalNumber(body, "self_hit_ignore_distance", config.numeric_tolerance.self_hit_ignore_distance);
-        ReadOptionalNumber(body, "visibility_origin_offset", config.numeric_tolerance.visibility_origin_offset);
-        ReadOptionalNumber(body, "visibility_target_shrink", config.numeric_tolerance.visibility_target_shrink);
-    }
-
-    return true;
-}
-
-std::string EscapeJsonString(const std::string& value)
-{
-    std::string result;
-    result.reserve(value.size() + 8U);
-
-    for (const char ch : value)
-    {
-        switch (ch)
-        {
-        case '\\': result += "\\\\"; break;
-        case '"': result += "\\\""; break;
-        case '\n': result += "\\n"; break;
-        case '\r': result += "\\r"; break;
-        case '\t': result += "\\t"; break;
-        default: result.push_back(ch); break;
-        }
-    }
-
-    return result;
-}
-
-} // namespace
-
-AppConfigJsonDecodeResult DecodeAppConfigFromJsonFile(const std::string& filePath)
-{
+AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
     AppConfigJsonDecodeResult result;
 
-    std::string content;
-    if (!ReadWholeFile(filePath, content))
-    {
-        result.error_message = "Unable to read JSON config file content.";
-        return result;
+    // app_runtime
+    if (root.find("app_runtime") != root.end()) {
+        auto& o = root["app_runtime"];
+        ReadJsonField(o, "mode", result.config.app_runtime.mode);
+        ReadJsonField(o, "log_level", result.config.app_runtime.log_level);
+        ReadJsonField(o, "enable_console_logging", result.config.app_runtime.enable_console_logging);
+        ReadJsonField(o, "enable_file_logging", result.config.app_runtime.enable_file_logging);
+        ReadJsonField(o, "log_file_path", result.config.app_runtime.log_file_path);
+        ReadJsonField(o, "config_snapshot_directory", result.config.app_runtime.config_snapshot_directory);
+        ReadJsonField(o, "cache_directory", result.config.app_runtime.cache_directory);
+        ReadJsonField(o, "run_id", result.config.app_runtime.run_id);
     }
-
-    if (content.find('{') == std::string::npos)
-    {
-        result.error_message = "JSON object root not found in config file.";
-        return result;
+    // scene_import
+    if (root.find("scene_import") != root.end()) {
+        auto& o = root["scene_import"];
+        ReadJsonField(o, "source_file", result.config.scene_import.source_file);
+        ReadJsonField(o, "source_format", result.config.scene_import.source_format);
+        ReadJsonField(o, "coordinate_transform", result.config.scene_import.coordinate_transform);
+        ReadJsonField(o, "scene_material_map_file", result.config.scene_import.scene_material_map_file);
+        ReadJsonField(o, "normalize_object_names", result.config.scene_import.normalize_object_names);
     }
-
-    if (!PopulateAppConfigFromJsonText(content, result.config))
-    {
-        result.error_message = "Failed while mapping JSON text into AppConfig.";
-        return result;
+    // scene_preprocess
+    if (root.find("scene_preprocess") != root.end()) {
+        auto& o = root["scene_preprocess"];
+        ReadJsonField(o, "rebuild_normals", result.config.scene_preprocess.rebuild_normals);
+        ReadJsonField(o, "enable_wedge_build", result.config.scene_preprocess.enable_wedge_build);
+        ReadJsonField(o, "enable_scene_cache", result.config.scene_preprocess.enable_scene_cache);
+        ReadJsonField(o, "bvh_leaf_size", result.config.scene_preprocess.bvh_leaf_size);
+    }
+    // material
+    if (root.find("material") != root.end()) {
+        auto& o = root["material"];
+        ReadJsonField(o, "material_database_file", result.config.material.material_database_file);
+        ReadJsonField(o, "missing_material_policy", result.config.material.missing_material_policy);
+    }
+    // antenna
+    if (root.find("antenna") != root.end()) {
+        auto& o = root["antenna"];
+        ReadJsonField(o, "source_type", result.config.antenna.source_type);
+        ReadJsonField(o, "pattern_file", result.config.antenna.pattern_file);
+        ReadJsonField(o, "polarization_file", result.config.antenna.polarization_file);
+        ReadJsonField(o, "forward_x", result.config.antenna.forward_x);
+        ReadJsonField(o, "forward_y", result.config.antenna.forward_y);
+        ReadJsonField(o, "forward_z", result.config.antenna.forward_z);
+        ReadJsonField(o, "up_x", result.config.antenna.up_x);
+        ReadJsonField(o, "up_y", result.config.antenna.up_y);
+        ReadJsonField(o, "up_z", result.config.antenna.up_z);
+    }
+    // path_search
+    if (root.find("path_search") != root.end()) {
+        auto& o = root["path_search"];
+        ReadJsonField(o, "max_path_depth", result.config.path_search.max_path_depth);
+        ReadJsonField(o, "max_reflection_count", result.config.path_search.max_reflection_count);
+        ReadJsonField(o, "max_transmission_count", result.config.path_search.max_transmission_count);
+        ReadJsonField(o, "max_diffraction_count", result.config.path_search.max_diffraction_count);
+        ReadJsonField(o, "max_scattering_count", result.config.path_search.max_scattering_count);
+        ReadJsonField(o, "enable_los", result.config.path_search.enable_los);
+        ReadJsonField(o, "max_consecutive_same_interaction", result.config.path_search.max_consecutive_same_interaction);
+        // v9 step14: 新增剪枝/wedge配置字段
+        ReadJsonField(o, "per_expander_keep_limit", result.config.path_search.per_expander_keep_limit);
+        ReadJsonField(o, "per_state_keep_limit", result.config.path_search.per_state_keep_limit);
+        ReadJsonField(o, "wedge_max_distance_m", result.config.path_search.wedge_max_distance_m);
+        ReadJsonField(o, "wedge_max_candidates", result.config.path_search.wedge_max_candidates);
+        ReadJsonField(o, "direction_closure_angle_tol_deg", result.config.path_search.direction_closure_angle_tol_deg);
+        ReadJsonField(o, "snell_residual_tol", result.config.path_search.snell_residual_tol);
+        ReadJsonField(o, "exhaustive_debug_mode", result.config.path_search.exhaustive_debug_mode);
+        ReadJsonField(o, "allow_boundary_edge_diffraction", result.config.path_search.allow_boundary_edge_diffraction);
+        ReadJsonField(o, "enable_lambertian_scattering", result.config.path_search.enable_lambertian_scattering);
+        ReadJsonField(o, "scattering_coefficient", result.config.path_search.scattering_coefficient);
+        ReadJsonField(o, "tx_x", result.config.path_search.tx_x);
+        ReadJsonField(o, "tx_y", result.config.path_search.tx_y);
+        ReadJsonField(o, "tx_z", result.config.path_search.tx_z);
+        ReadJsonField(o, "rx_x", result.config.path_search.rx_x);
+        ReadJsonField(o, "rx_y", result.config.path_search.rx_y);
+        ReadJsonField(o, "rx_z", result.config.path_search.rx_z);
+        // rx_list array
+        if (o.find("rx_list") != o.end() && o["rx_list"].is_array()) {
+            for (auto& rxObj : o["rx_list"]) {
+                RxTarget rx;
+                ReadJsonField(rxObj, "id", rx.id);
+                ReadJsonField(rxObj, "x", rx.x);
+                ReadJsonField(rxObj, "y", rx.y);
+                ReadJsonField(rxObj, "z", rx.z);
+                if (!rx.id.empty()) result.config.path_search.rx_list.push_back(rx);
+            }
+        }
+    }
+    // sbr
+    if (root.find("sbr") != root.end()) {
+        auto& o = root["sbr"];
+        ReadJsonField(o, "enabled", result.config.sbr.enabled);
+        ReadJsonField(o, "ray_count", result.config.sbr.ray_count);
+        ReadJsonField(o, "max_ray_depth", result.config.sbr.max_ray_depth);
+        ReadJsonField(o, "max_reflection_count", result.config.sbr.max_reflection_count);
+        ReadJsonField(o, "max_transmission_count", result.config.sbr.max_transmission_count);
+        ReadJsonField(o, "max_diffraction_count", result.config.sbr.max_diffraction_count);
+        ReadJsonField(o, "ray_power_threshold_dB", result.config.sbr.ray_power_threshold_dB);
+        ReadJsonField(o, "rx_sphere_radius_m", result.config.sbr.rx_sphere_radius_m);
+        ReadJsonField(o, "auto_grid_bounds", result.config.sbr.auto_grid_bounds);
+        ReadJsonField(o, "rx_grid_min_x", result.config.sbr.rx_grid_min_x);
+        ReadJsonField(o, "rx_grid_max_x", result.config.sbr.rx_grid_max_x);
+        ReadJsonField(o, "rx_grid_min_y", result.config.sbr.rx_grid_min_y);
+        ReadJsonField(o, "rx_grid_max_y", result.config.sbr.rx_grid_max_y);
+        ReadJsonField(o, "rx_grid_min_z", result.config.sbr.rx_grid_min_z);
+        ReadJsonField(o, "rx_grid_max_z", result.config.sbr.rx_grid_max_z);
+        ReadJsonField(o, "rx_grid_step_x", result.config.sbr.rx_grid_step_x);
+        ReadJsonField(o, "rx_grid_step_y", result.config.sbr.rx_grid_step_y);
+        ReadJsonField(o, "rx_grid_step_z", result.config.sbr.rx_grid_step_z);
+        ReadJsonField(o, "tx_power_dBm", result.config.sbr.tx_power_dBm);
+        ReadJsonField(o, "store_paths", result.config.sbr.store_paths);
+        ReadJsonField(o, "wedge_max_distance_m", result.config.sbr.wedge_max_distance_m);
+        ReadJsonField(o, "wedge_max_candidates", result.config.sbr.wedge_max_candidates);
+    }
+    // em_solver
+    if (root.find("em_solver") != root.end()) {
+        auto& o = root["em_solver"];
+        ReadJsonField(o, "frequency_hz", result.config.em_solver.frequency_hz);
+        ReadJsonField(o, "solver_mode", result.config.em_solver.solver_mode);
+    }
+    // output
+    if (root.find("output") != root.end()) {
+        auto& o = root["output"];
+        ReadJsonField(o, "export_paths", result.config.output.export_paths);
+        ReadJsonField(o, "export_cir", result.config.output.export_cir);
+        ReadJsonField(o, "export_pdp", result.config.output.export_pdp);
+        ReadJsonField(o, "export_aps", result.config.output.export_aps);
+        ReadJsonField(o, "export_config_snapshot", result.config.output.export_config_snapshot);
+    }
+    // validation
+    if (root.find("validation") != root.end()) {
+        auto& o = root["validation"];
+        ReadJsonField(o, "enable_basic_validation", result.config.validation.enable_basic_validation);
+        ReadJsonField(o, "enable_reference_compare", result.config.validation.enable_reference_compare);
+        ReadJsonField(o, "run_module1_self_check", result.config.validation.run_module1_self_check);
+        ReadJsonField(o, "module1_invalid_transmission_case_file", result.config.validation.module1_invalid_transmission_case_file);
+        ReadJsonField(o, "module1_invalid_diffraction_case_file", result.config.validation.module1_invalid_diffraction_case_file);
+        ReadJsonField(o, "power_tolerance_db", result.config.validation.power_tolerance_db);
+    }
+    // experiment
+    if (root.find("experiment") != root.end()) {
+        auto& o = root["experiment"];
+        ReadJsonField(o, "experiment_tag", result.config.experiment.experiment_tag);
+        ReadJsonField(o, "dataset_tag", result.config.experiment.dataset_tag);
+    }
+    // pipeline (v8)
+    if (root.find("pipeline") != root.end()) {
+        auto& o = root["pipeline"];
+        ReadJsonField(o, "enable_stage0_precompute", result.config.pipeline.enable_stage0_precompute);
+        ReadJsonField(o, "enable_pvs", result.config.pipeline.enable_pvs);
+        ReadJsonField(o, "enable_edge_adjacency", result.config.pipeline.enable_edge_adjacency);
+        ReadJsonField(o, "enable_angular_grid", result.config.pipeline.enable_angular_grid);
+        ReadJsonField(o, "enable_stage1_coarse_sbr", result.config.pipeline.enable_stage1_coarse_sbr);
+        ReadJsonField(o, "enable_stage2_constrained_search", result.config.pipeline.enable_stage2_constrained_search);
+        ReadJsonField(o, "enable_stage3_path_reuse", result.config.pipeline.enable_stage3_path_reuse);
+        ReadJsonField(o, "enable_stage4_precise_em", result.config.pipeline.enable_stage4_precise_em);
+        ReadJsonField(o, "enable_legacy_sbr_power", result.config.pipeline.enable_legacy_sbr_power);
+        ReadJsonField(o, "seed_rx_count", result.config.pipeline.seed_rx_count);
+        ReadJsonField(o, "seed_spatial_stride", result.config.pipeline.seed_spatial_stride);
+        ReadJsonField(o, "bidirectional_split_depth", result.config.pipeline.bidirectional_split_depth);
+        ReadJsonField(o, "max_paths_per_rx", result.config.pipeline.max_paths_per_rx);
+        ReadJsonField(o, "reuse_max_distance", result.config.pipeline.reuse_max_distance);
+        ReadJsonField(o, "reuse_verify_last_hop", result.config.pipeline.reuse_verify_last_hop);
+    }
+    // acceleration (v8)
+    if (root.find("acceleration") != root.end()) {
+        auto& o = root["acceleration"];
+        ReadJsonField(o, "backend", result.config.acceleration.backend);
+        ReadJsonField(o, "gpu_device_id", result.config.acceleration.gpu_device_id);
+        ReadJsonField(o, "gpu_batch_size", result.config.acceleration.gpu_batch_size);
+        ReadJsonField(o, "gpu_use_rt_core", result.config.acceleration.gpu_use_rt_core);
+    }
+    // v9 C: frequency_sweep
+    if (root.find("frequency_sweep") != root.end()) {
+        auto& o = root["frequency_sweep"];
+        ReadJsonField(o, "enabled", result.config.frequency_sweep.enabled);
+        ReadJsonField(o, "center_hz", result.config.frequency_sweep.center_hz);
+        ReadJsonField(o, "bandwidth_hz", result.config.frequency_sweep.bandwidth_hz);
+        ReadJsonField(o, "point_count", result.config.frequency_sweep.point_count);
+        ReadJsonField(o, "spacing", result.config.frequency_sweep.spacing);
+        ReadJsonField(o, "retrace_per_frequency", result.config.frequency_sweep.retrace_per_frequency);
+        ReadJsonField(o, "mode", result.config.frequency_sweep.mode);
+    }
+    // v9 C: channel_observation
+    if (root.find("channel_observation") != root.end()) {
+        auto& o = root["channel_observation"];
+        ReadJsonField(o, "export_ideal_delta_cir", result.config.channel_observation.export_ideal_delta_cir);
+        ReadJsonField(o, "export_sampled_cfr", result.config.channel_observation.export_sampled_cfr);
+        ReadJsonField(o, "export_observed_cir_ifft", result.config.channel_observation.export_observed_cir_ifft);
+        ReadJsonField(o, "delay_bin_s", result.config.channel_observation.delay_bin_s);
+        ReadJsonField(o, "window_type", result.config.channel_observation.window_type);
+        ReadJsonField(o, "ifft_convention", result.config.channel_observation.ifft_convention);
+    }
+    // numeric_tolerance
+    if (root.find("numeric_tolerance") != root.end()) {
+        auto& o = root["numeric_tolerance"];
+        ReadJsonField(o, "eps_length", result.config.numeric_tolerance.eps_length);
+        ReadJsonField(o, "eps_angle", result.config.numeric_tolerance.eps_angle);
+        ReadJsonField(o, "eps_intersection", result.config.numeric_tolerance.eps_intersection);
+        ReadJsonField(o, "eps_normal", result.config.numeric_tolerance.eps_normal);
+        ReadJsonField(o, "eps_deduplicate", result.config.numeric_tolerance.eps_deduplicate);
+        ReadJsonField(o, "eps_power", result.config.numeric_tolerance.eps_power);
+        ReadJsonField(o, "self_hit_ignore_distance", result.config.numeric_tolerance.self_hit_ignore_distance);
+        ReadJsonField(o, "visibility_origin_offset", result.config.numeric_tolerance.visibility_origin_offset);
+        ReadJsonField(o, "visibility_target_shrink", result.config.numeric_tolerance.visibility_target_shrink);
     }
 
     result.succeeded = true;
     return result;
 }
 
-std::string EncodeAppConfigToJsonString(const AppConfig& config)
-{
-    std::ostringstream stream;
-    stream << "{\n";
-    stream << "  \"app_runtime\": {\n";
-    stream << "    \"mode\": \"" << EscapeJsonString(config.app_runtime.mode) << "\",\n";
-    stream << "    \"log_level\": \"" << EscapeJsonString(config.app_runtime.log_level) << "\",\n";
-    stream << "    \"enable_console_logging\": " << (config.app_runtime.enable_console_logging ? "true" : "false") << ",\n";
-    stream << "    \"enable_file_logging\": " << (config.app_runtime.enable_file_logging ? "true" : "false") << ",\n";
-    stream << "    \"log_file_path\": \"" << EscapeJsonString(config.app_runtime.log_file_path) << "\",\n";
-    stream << "    \"config_snapshot_directory\": \"" << EscapeJsonString(config.app_runtime.config_snapshot_directory) << "\",\n";
-    stream << "    \"cache_directory\": \"" << EscapeJsonString(config.app_runtime.cache_directory) << "\",\n";
-    stream << "    \"run_id\": \"" << EscapeJsonString(config.app_runtime.run_id) << "\"\n";
-    stream << "  },\n";
+} // namespace
 
-    stream << "  \"scene_import\": {\n";
-    stream << "    \"source_file\": \"" << EscapeJsonString(config.scene_import.source_file) << "\",\n";
-    stream << "    \"source_format\": \"" << EscapeJsonString(config.scene_import.source_format) << "\",\n";
-    stream << "    \"scene_material_map_file\": \"" << EscapeJsonString(config.scene_import.scene_material_map_file) << "\",\n";
-    stream << "    \"normalize_object_names\": " << (config.scene_import.normalize_object_names ? "true" : "false") << ",\n";
-    stream << "  },\n";
+// ── 公共接口 ──
 
-    stream << "  \"scene_preprocess\": {\n";
-    stream << "    \"rebuild_normals\": " << (config.scene_preprocess.rebuild_normals ? "true" : "false") << ",\n";
-    stream << "    \"enable_wedge_build\": " << (config.scene_preprocess.enable_wedge_build ? "true" : "false") << ",\n";
-    stream << "    \"enable_scene_cache\": " << (config.scene_preprocess.enable_scene_cache ? "true" : "false") << ",\n";
-    stream << "    \"bvh_leaf_size\": " << config.scene_preprocess.bvh_leaf_size << ",\n";
-    stream << "  },\n";
+AppConfigJsonDecodeResult DecodeAppConfigFromJsonFile(const std::string& filePath) {
+    AppConfigJsonDecodeResult result;
 
-    stream << "  \"material\": {\n";
-    stream << "    \"material_database_file\": \"" << EscapeJsonString(config.material.material_database_file) << "\"\n";
-    stream << "  },\n";
+    try {
+        std::ifstream f(filePath);
+        if (!f.is_open()) {
+            result.error_message = "Cannot open config file: " + filePath;
+            return result;
+        }
+        json root = json::parse(f);
+        result = PopulateFromJson(root);
+    } catch (const json::parse_error& e) {
+        result.error_message = std::string("JSON parse error: ") + e.what();
+    } catch (const std::exception& e) {
+        result.error_message = std::string("Config read error: ") + e.what();
+    }
 
-    stream << "  \"antenna\": {\n";
-    stream << "    \"source_type\": \"" << EscapeJsonString(config.antenna.source_type) << "\",\n";
-    stream << "    \"pattern_file\": \"" << EscapeJsonString(config.antenna.pattern_file) << "\",\n";
-    stream << "    \"polarization_file\": \"" << EscapeJsonString(config.antenna.polarization_file) << "\",\n";
-    stream << "    \"forward_x\": " << config.antenna.forward_x << ",";
-    stream << " \"forward_y\": " << config.antenna.forward_y << ",";
-    stream << " \"forward_z\": " << config.antenna.forward_z << ",\n";
-    stream << "    \"up_x\": " << config.antenna.up_x << ",";
-    stream << " \"up_y\": " << config.antenna.up_y << ",";
-    stream << " \"up_z\": " << config.antenna.up_z << "\n";
-    stream << "  },\n";
+    return result;
+}
 
-    stream << "  \"path_search\": {\n";
-    stream << "    \"max_path_depth\": " << config.path_search.max_path_depth << ",\n";
-    stream << "    \"max_reflection_count\": " << config.path_search.max_reflection_count << ",\n";
-    stream << "    \"max_transmission_count\": " << config.path_search.max_transmission_count << ",\n";
-    stream << "    \"max_diffraction_count\": " << config.path_search.max_diffraction_count << ",\n";
-    stream << "    \"max_scattering_count\": " << config.path_search.max_scattering_count << ",\n";
-    stream << "    \"enable_los\": " << (config.path_search.enable_los ? "true" : "false") << ",\n";
-    // v7.5: enable_* removed → max_*_count controls
-    stream << "    \"max_consecutive_same_interaction\": " << config.path_search.max_consecutive_same_interaction << ",\n";
-    stream << "    \"tx_x\": " << config.path_search.tx_x << ",\n";
-    stream << "    \"tx_y\": " << config.path_search.tx_y << ",\n";
-    stream << "    \"tx_z\": " << config.path_search.tx_z << ",\n";
-    stream << "    \"rx_x\": " << config.path_search.rx_x << ",\n";
-    stream << "    \"rx_y\": " << config.path_search.rx_y << ",\n";
-    stream << "    \"rx_z\": " << config.path_search.rx_z << "\n";
-    stream << "  },\n";
+std::string EncodeAppConfigToJsonString(const AppConfig& config) {
+    json root;
 
-    stream << "  \"sbr\": {\n";
-    stream << "    \"enabled\": " << (config.sbr.enabled ? "true" : "false") << ",\n";
-    stream << "    \"ray_count\": " << config.sbr.ray_count << ",\n";
-    stream << "    \"max_ray_depth\": " << config.sbr.max_ray_depth << ",\n";
-    stream << "    \"max_reflection_count\": " << config.sbr.max_reflection_count << ",\n";
-    stream << "    \"max_transmission_count\": " << config.sbr.max_transmission_count << ",\n";
-    stream << "    \"max_diffraction_count\": " << config.sbr.max_diffraction_count << ",\n";
-    // v7.5: enable_* removed → max_*_count controls
-    stream << "    \"ray_power_threshold_dB\": " << config.sbr.ray_power_threshold_dB << ",\n";
-    stream << "    \"rx_sphere_radius_m\": " << config.sbr.rx_sphere_radius_m << ",\n";
-    stream << "    \"auto_grid_bounds\": " << (config.sbr.auto_grid_bounds ? "true" : "false") << ",\n";
-    stream << "    \"rx_grid_min_x\": " << config.sbr.rx_grid_min_x << ",\n";
-    stream << "    \"rx_grid_max_x\": " << config.sbr.rx_grid_max_x << ",\n";
-    stream << "    \"rx_grid_min_y\": " << config.sbr.rx_grid_min_y << ",\n";
-    stream << "    \"rx_grid_max_y\": " << config.sbr.rx_grid_max_y << ",\n";
-    stream << "    \"rx_grid_min_z\": " << config.sbr.rx_grid_min_z << ",\n";
-    stream << "    \"rx_grid_max_z\": " << config.sbr.rx_grid_max_z << ",\n";
-    stream << "    \"rx_grid_step_x\": " << config.sbr.rx_grid_step_x << ",\n";
-    stream << "    \"rx_grid_step_y\": " << config.sbr.rx_grid_step_y << ",\n";
-    stream << "    \"rx_grid_step_z\": " << config.sbr.rx_grid_step_z << ",\n";
-    stream << "    \"tx_power_dBm\": " << config.sbr.tx_power_dBm << ",\n";
-    stream << "    \"store_paths\": " << (config.sbr.store_paths ? "true" : "false") << ",\n";
-    stream << "    \"wedge_max_distance_m\": " << config.sbr.wedge_max_distance_m << ",\n";
-    stream << "    \"wedge_max_candidates\": " << config.sbr.wedge_max_candidates << "\n";
-    stream << "  },\n";
+    // app_runtime
+    root["app_runtime"] = {
+        {"mode", config.app_runtime.mode},
+        {"log_level", config.app_runtime.log_level},
+        {"enable_console_logging", config.app_runtime.enable_console_logging},
+        {"enable_file_logging", config.app_runtime.enable_file_logging},
+        {"log_file_path", config.app_runtime.log_file_path},
+        {"config_snapshot_directory", config.app_runtime.config_snapshot_directory},
+        {"cache_directory", config.app_runtime.cache_directory},
+        {"run_id", config.app_runtime.run_id}
+    };
 
-    stream << "  \"em_solver\": {\n";
-    stream << "    \"frequency_hz\": " << config.em_solver.frequency_hz << ",\n";
-    stream << "    \"solver_mode\": \"" << EscapeJsonString(config.em_solver.solver_mode) << "\",\n";
-    stream << "  },\n";
+    // scene_import
+    root["scene_import"] = {
+        {"source_file", config.scene_import.source_file},
+        {"source_format", config.scene_import.source_format},
+        {"coordinate_transform", config.scene_import.coordinate_transform},
+        {"scene_material_map_file", config.scene_import.scene_material_map_file},
+        {"normalize_object_names", config.scene_import.normalize_object_names}
+    };
 
-    stream << "  \"output\": {\n";
-    stream << "    \"export_paths\": " << (config.output.export_paths ? "true" : "false") << ",\n";
-    stream << "    \"export_cir\": " << (config.output.export_cir ? "true" : "false") << ",\n";
-    stream << "    \"export_pdp\": " << (config.output.export_pdp ? "true" : "false") << ",\n";
-    stream << "    \"export_aps\": " << (config.output.export_aps ? "true" : "false") << ",\n";
-    stream << "    \"export_config_snapshot\": " << (config.output.export_config_snapshot ? "true" : "false") << "\n";
-    stream << "  },\n";
+    // scene_preprocess
+    root["scene_preprocess"] = {
+        {"rebuild_normals", config.scene_preprocess.rebuild_normals},
+        {"enable_wedge_build", config.scene_preprocess.enable_wedge_build},
+        {"enable_scene_cache", config.scene_preprocess.enable_scene_cache},
+        {"bvh_leaf_size", config.scene_preprocess.bvh_leaf_size}
+    };
 
-    stream << "  \"validation\": {\n";
-    stream << "    \"enable_basic_validation\": " << (config.validation.enable_basic_validation ? "true" : "false") << ",\n";
-    stream << "    \"enable_reference_compare\": " << (config.validation.enable_reference_compare ? "true" : "false") << ",\n";
-    stream << "    \"run_module1_self_check\": " << (config.validation.run_module1_self_check ? "true" : "false") << ",\n";
-    stream << "    \"module1_invalid_transmission_case_file\": \"" << EscapeJsonString(config.validation.module1_invalid_transmission_case_file) << "\",\n";
-    stream << "    \"module1_invalid_diffraction_case_file\": \"" << EscapeJsonString(config.validation.module1_invalid_diffraction_case_file) << "\",\n";
-    stream << "    \"power_tolerance_db\": " << config.validation.power_tolerance_db << "\n";
-    stream << "  },\n";
+    // material
+    root["material"] = {
+        {"material_database_file", config.material.material_database_file},
+        {"missing_material_policy", config.material.missing_material_policy}
+    };
 
-    stream << "  \"experiment\": {\n";
-    stream << "    \"experiment_tag\": \"" << EscapeJsonString(config.experiment.experiment_tag) << "\",\n";
-    stream << "    \"dataset_tag\": \"" << EscapeJsonString(config.experiment.dataset_tag) << "\"\n";
-    stream << "  },\n";
+    // antenna
+    root["antenna"] = {
+        {"source_type", config.antenna.source_type},
+        {"pattern_file", config.antenna.pattern_file},
+        {"polarization_file", config.antenna.polarization_file},
+        {"forward_x", config.antenna.forward_x},
+        {"forward_y", config.antenna.forward_y},
+        {"forward_z", config.antenna.forward_z},
+        {"up_x", config.antenna.up_x},
+        {"up_y", config.antenna.up_y},
+        {"up_z", config.antenna.up_z}
+    };
 
-    stream << "  \"numeric_tolerance\": {\n";
-    stream << "    \"eps_length\": " << config.numeric_tolerance.eps_length << ",\n";
-    stream << "    \"eps_angle\": " << config.numeric_tolerance.eps_angle << ",\n";
-    stream << "    \"eps_intersection\": " << config.numeric_tolerance.eps_intersection << ",\n";
-    stream << "    \"eps_normal\": " << config.numeric_tolerance.eps_normal << ",\n";
-    stream << "    \"eps_deduplicate\": " << config.numeric_tolerance.eps_deduplicate << ",\n";
-    stream << "    \"eps_power\": " << config.numeric_tolerance.eps_power << ",\n";
-    stream << "    \"self_hit_ignore_distance\": " << config.numeric_tolerance.self_hit_ignore_distance << ",\n";
-    stream << "    \"visibility_origin_offset\": " << config.numeric_tolerance.visibility_origin_offset << ",\n";
-    stream << "    \"visibility_target_shrink\": " << config.numeric_tolerance.visibility_target_shrink << "\n";
-    stream << "  }\n";
-    stream << "}\n";
+    // path_search (v9: includes new fields)
+    root["path_search"] = {
+        {"max_path_depth", config.path_search.max_path_depth},
+        {"max_reflection_count", config.path_search.max_reflection_count},
+        {"max_transmission_count", config.path_search.max_transmission_count},
+        {"max_diffraction_count", config.path_search.max_diffraction_count},
+        {"max_scattering_count", config.path_search.max_scattering_count},
+        {"enable_los", config.path_search.enable_los},
+        {"max_consecutive_same_interaction", config.path_search.max_consecutive_same_interaction},
+        {"per_expander_keep_limit", config.path_search.per_expander_keep_limit},
+        {"per_state_keep_limit", config.path_search.per_state_keep_limit},
+        {"wedge_max_distance_m", config.path_search.wedge_max_distance_m},
+        {"wedge_max_candidates", config.path_search.wedge_max_candidates},
+        {"direction_closure_angle_tol_deg", config.path_search.direction_closure_angle_tol_deg},
+        {"snell_residual_tol", config.path_search.snell_residual_tol},
+        {"exhaustive_debug_mode", config.path_search.exhaustive_debug_mode},
+        {"allow_boundary_edge_diffraction", config.path_search.allow_boundary_edge_diffraction},
+        {"enable_lambertian_scattering", config.path_search.enable_lambertian_scattering},
+        {"scattering_coefficient", config.path_search.scattering_coefficient},
+        {"tx_x", config.path_search.tx_x},
+        {"tx_y", config.path_search.tx_y},
+        {"tx_z", config.path_search.tx_z},
+        {"rx_x", config.path_search.rx_x},
+        {"rx_y", config.path_search.rx_y},
+        {"rx_z", config.path_search.rx_z}
+    };
 
-    return stream.str();
+    // rx_list array
+    if (!config.path_search.rx_list.empty()) {
+        json rxArr = json::array();
+        for (auto& rx : config.path_search.rx_list) {
+            rxArr.push_back({
+                {"id", rx.id},
+                {"x", rx.x},
+                {"y", rx.y},
+                {"z", rx.z}
+            });
+        }
+        root["path_search"]["rx_list"] = rxArr;
+    }
+
+    // sbr
+    root["sbr"] = {
+        {"enabled", config.sbr.enabled},
+        {"ray_count", config.sbr.ray_count},
+        {"max_ray_depth", config.sbr.max_ray_depth},
+        {"max_reflection_count", config.sbr.max_reflection_count},
+        {"max_transmission_count", config.sbr.max_transmission_count},
+        {"max_diffraction_count", config.sbr.max_diffraction_count},
+        {"ray_power_threshold_dB", config.sbr.ray_power_threshold_dB},
+        {"rx_sphere_radius_m", config.sbr.rx_sphere_radius_m},
+        {"auto_grid_bounds", config.sbr.auto_grid_bounds},
+        {"rx_grid_min_x", config.sbr.rx_grid_min_x},
+        {"rx_grid_max_x", config.sbr.rx_grid_max_x},
+        {"rx_grid_min_y", config.sbr.rx_grid_min_y},
+        {"rx_grid_max_y", config.sbr.rx_grid_max_y},
+        {"rx_grid_min_z", config.sbr.rx_grid_min_z},
+        {"rx_grid_max_z", config.sbr.rx_grid_max_z},
+        {"rx_grid_step_x", config.sbr.rx_grid_step_x},
+        {"rx_grid_step_y", config.sbr.rx_grid_step_y},
+        {"rx_grid_step_z", config.sbr.rx_grid_step_z},
+        {"tx_power_dBm", config.sbr.tx_power_dBm},
+        {"store_paths", config.sbr.store_paths},
+        {"wedge_max_distance_m", config.sbr.wedge_max_distance_m},
+        {"wedge_max_candidates", config.sbr.wedge_max_candidates}
+    };
+
+    // em_solver
+    root["em_solver"] = {
+        {"frequency_hz", config.em_solver.frequency_hz},
+        {"solver_mode", config.em_solver.solver_mode}
+    };
+
+    // output
+    root["output"] = {
+        {"export_paths", config.output.export_paths},
+        {"export_cir", config.output.export_cir},
+        {"export_pdp", config.output.export_pdp},
+        {"export_aps", config.output.export_aps},
+        {"export_config_snapshot", config.output.export_config_snapshot}
+    };
+
+    // validation
+    root["validation"] = {
+        {"enable_basic_validation", config.validation.enable_basic_validation},
+        {"enable_reference_compare", config.validation.enable_reference_compare},
+        {"run_module1_self_check", config.validation.run_module1_self_check},
+        {"module1_invalid_transmission_case_file", config.validation.module1_invalid_transmission_case_file},
+        {"module1_invalid_diffraction_case_file", config.validation.module1_invalid_diffraction_case_file},
+        {"power_tolerance_db", config.validation.power_tolerance_db}
+    };
+
+    // experiment
+    root["experiment"] = {
+        {"experiment_tag", config.experiment.experiment_tag},
+        {"dataset_tag", config.experiment.dataset_tag}
+    };
+
+    // pipeline (v8)
+    root["pipeline"] = {
+        {"enable_stage0_precompute", config.pipeline.enable_stage0_precompute},
+        {"enable_pvs", config.pipeline.enable_pvs},
+        {"enable_edge_adjacency", config.pipeline.enable_edge_adjacency},
+        {"enable_angular_grid", config.pipeline.enable_angular_grid},
+        {"enable_stage1_coarse_sbr", config.pipeline.enable_stage1_coarse_sbr},
+        {"enable_stage2_constrained_search", config.pipeline.enable_stage2_constrained_search},
+        {"enable_stage3_path_reuse", config.pipeline.enable_stage3_path_reuse},
+        {"enable_stage4_precise_em", config.pipeline.enable_stage4_precise_em},
+        {"enable_legacy_sbr_power", config.pipeline.enable_legacy_sbr_power},
+        {"seed_rx_count", config.pipeline.seed_rx_count},
+        {"seed_spatial_stride", config.pipeline.seed_spatial_stride},
+        {"bidirectional_split_depth", config.pipeline.bidirectional_split_depth},
+        {"max_paths_per_rx", config.pipeline.max_paths_per_rx},
+        {"reuse_max_distance", config.pipeline.reuse_max_distance},
+        {"reuse_verify_last_hop", config.pipeline.reuse_verify_last_hop}
+    };
+
+    // acceleration (v8)
+    root["acceleration"] = {
+        {"backend", config.acceleration.backend},
+        {"gpu_device_id", config.acceleration.gpu_device_id},
+        {"gpu_batch_size", config.acceleration.gpu_batch_size},
+        {"gpu_use_rt_core", config.acceleration.gpu_use_rt_core}
+    };
+
+    // v9 C: frequency_sweep
+    root["frequency_sweep"] = {
+        {"enabled", config.frequency_sweep.enabled},
+        {"center_hz", config.frequency_sweep.center_hz},
+        {"bandwidth_hz", config.frequency_sweep.bandwidth_hz},
+        {"point_count", config.frequency_sweep.point_count},
+        {"spacing", config.frequency_sweep.spacing},
+        {"retrace_per_frequency", config.frequency_sweep.retrace_per_frequency},
+        {"mode", config.frequency_sweep.mode}
+    };
+    // v9 C: channel_observation
+    root["channel_observation"] = {
+        {"export_ideal_delta_cir", config.channel_observation.export_ideal_delta_cir},
+        {"export_sampled_cfr", config.channel_observation.export_sampled_cfr},
+        {"export_observed_cir_ifft", config.channel_observation.export_observed_cir_ifft},
+        {"delay_bin_s", config.channel_observation.delay_bin_s},
+        {"window_type", config.channel_observation.window_type},
+        {"ifft_convention", config.channel_observation.ifft_convention}
+    };
+
+    // numeric_tolerance
+    root["numeric_tolerance"] = {
+        {"eps_length", config.numeric_tolerance.eps_length},
+        {"eps_angle", config.numeric_tolerance.eps_angle},
+        {"eps_intersection", config.numeric_tolerance.eps_intersection},
+        {"eps_normal", config.numeric_tolerance.eps_normal},
+        {"eps_deduplicate", config.numeric_tolerance.eps_deduplicate},
+        {"eps_power", config.numeric_tolerance.eps_power},
+        {"self_hit_ignore_distance", config.numeric_tolerance.self_hit_ignore_distance},
+        {"visibility_origin_offset", config.numeric_tolerance.visibility_origin_offset},
+        {"visibility_target_shrink", config.numeric_tolerance.visibility_target_shrink}
+    };
+
+    return root.dump(2); // 2-space indent, valid JSON
 }
 
 } // namespace rt

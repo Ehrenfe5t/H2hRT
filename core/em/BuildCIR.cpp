@@ -3,6 +3,8 @@
 // path IDs. Respects the profile's power threshold and coherent flag.
 
 #include "BuildCIR.h"
+#include "../common/math/Complex.h"
+#include <map>
 
 namespace rt {
 
@@ -19,24 +21,49 @@ namespace rt {
 CIRResult BuildCIR(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
 {
     CIRResult result;
-    result.coherent = profile.enable_coherent_sum; // whether taps represent coherent sums
+    result.coherent = profile.enable_coherent_sum;
 
-    for (const EMPathResult& item : pathResults.results)
-    {
-        // Filter: skip invalid paths or those below power threshold
-        if (!item.valid || item.power_linear < profile.min_power_threshold_linear)
-        {
-            continue;
+    // v9 step24: 延迟分bin相干CIR
+    if (profile.delay_bin_s > 0.0 && profile.enable_coherent_sum) {
+        // 找出所有有效路径, 按delay分bin
+        struct BinData { Complex sum; double centerDelay; std::vector<int> ids; };
+        std::map<int, BinData> bins; // bin index → data
+
+        for (const auto& item : pathResults.results) {
+            if (!item.valid || item.power_linear < profile.min_power_threshold_linear) continue;
+
+            int binIdx = static_cast<int>(std::floor(item.delay_s / profile.delay_bin_s));
+            auto& bin = bins[binIdx];
+            bin.centerDelay = (binIdx + 0.5) * profile.delay_bin_s;
+            // 复振幅 = amplitude * exp(j*phase)
+            Complex alpha(item.amplitude_real * std::cos(item.phase_rad),
+                          item.amplitude_real * std::sin(item.phase_rad));
+            bin.sum = bin.sum + alpha;
+            bin.ids.push_back(item.path_id);
         }
 
-        // Create a CIR tap: delay, complex amplitude, power
+        for (auto& [idx, bin] : bins) {
+            CIRTap tap;
+            tap.delay_s = bin.centerDelay;
+            tap.amplitude_real = bin.sum.re;
+            tap.amplitude_imag = bin.sum.im;
+            tap.power_linear = bin.sum.NormSq(); // 相干功率: |Σα|²
+            tap.contributing_path_ids = std::move(bin.ids);
+            result.taps.push_back(tap);
+        }
+        return result;
+    }
+
+    // 无分bin: 每路径一个tap (向后兼容)
+    for (const EMPathResult& item : pathResults.results)
+    {
+        if (!item.valid || item.power_linear < profile.min_power_threshold_linear) continue;
+
         CIRTap tap;
         tap.delay_s = item.delay_s;
-        // v7.4 B31: 复振幅包含传播相位 phase_rad
         tap.amplitude_real = item.amplitude_real * std::cos(item.phase_rad);
         tap.amplitude_imag = item.amplitude_real * std::sin(item.phase_rad);
         tap.power_linear = item.power_linear;
-        // Record contributing path ID for traceability
         tap.contributing_path_ids.push_back(item.path_id);
         result.taps.push_back(tap);
     }

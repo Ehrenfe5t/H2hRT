@@ -133,6 +133,13 @@ struct SceneFaceAcceleration {
 /// </summary>
 struct SceneWedgeAcceleration {
     std::vector<WedgeQueryRecord> wedge_query_records;
+    // v9 step26: 均匀网格空间索引 — O(1)邻域查询替代O(W)线性扫描
+    struct UniformGrid {
+        AABB bounds;
+        double cell_size = 10.0;
+        int nx = 0, ny = 0, nz = 0;
+        std::vector<std::vector<int>> cells; // per-cell wedge indices
+    } grid;
     bool valid = false;
     int wedge_count = 0;
     int diffractable_wedge_count = 0;

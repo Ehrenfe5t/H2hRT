@@ -188,9 +188,22 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
         nd.wedge_id = cand.wedge_id;
         nd.point = dp;
         nd.direction = ns.current_direction;
-        nd.incident_direction = Normalize(Subtract(dp, state.current_point)); // C3-A: incoming direction for UTD phi'
+        nd.incident_direction = Normalize(Subtract(dp, state.current_point));
         nd.segment_length_from_previous = seg;
         nd.valid = true;
+        // v9 Stage7: 绕射诊断
+        nd.diffraction_diag.edge_parameter_t = tBest;
+        nd.diffraction_diag.s1 = seg;
+        nd.diffraction_diag.s2 = Length(Subtract(context.rx_point, dp));
+        nd.diffraction_diag.fermat_endpoint_warning = (tBest < 0.01 || tBest > 0.99);
+        nd.diffraction_diag.visibility_from_source = context.scene_query->IsVisible(state.current_point, dp, vc);
+        nd.diffraction_diag.visibility_to_rx = context.scene_query->IsVisible(dp, context.rx_point, vc);
+        // Keller residual: |cos(β_tx) - cos(β_rx)|
+        Vec3 dInc = Normalize(Subtract(dp, state.current_point));
+        Vec3 dOut = Normalize(Subtract(context.rx_point, dp));
+        double cbTx = std::fabs(Dot(dInc, edgeDir));
+        double cbRx = std::fabs(Dot(dOut, edgeDir));
+        nd.diffraction_diag.keller_residual = std::fabs(cbTx - cbRx);
         ns.traversed_nodes.push_back(nd);
         ns.state_signature = BuildStateSignature(ns, *context.config);
         ns.valid = true;
@@ -204,7 +217,8 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
 
     std::sort(accepted.begin(), accepted.end(),
         [](const DCand& a, const DCand& b) { return a.sc < b.sc; });
-    const std::size_t keep = std::min<std::size_t>(accepted.size(), 8U);
+    int lim = context.config->path_search.per_expander_keep_limit;
+    const std::size_t keep = (lim <= 0) ? accepted.size() : std::min<std::size_t>(accepted.size(), static_cast<std::size_t>(lim));
     for (std::size_t i = 0; i < keep; ++i)
         result.next_states.push_back(accepted[i].st);
 
@@ -279,6 +293,18 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
         nd.wedge_id = cand.wedge_id; nd.point = dp; nd.direction = ns.current_direction;
         nd.incident_direction = Normalize(Subtract(dp, state.current_point));
         nd.segment_length_from_previous = seg; nd.valid = true;
+        // v9 StageG: constrained diffraction diagnostics
+        nd.diffraction_diag.edge_parameter_t = tBest;
+        nd.diffraction_diag.s1 = seg;
+        nd.diffraction_diag.s2 = Length(Subtract(context.rx_point, dp));
+        nd.diffraction_diag.fermat_endpoint_warning = (tBest < 0.01 || tBest > 0.99);
+        nd.diffraction_diag.visibility_from_source = context.scene_query->IsVisible(state.current_point, dp, vc);
+        nd.diffraction_diag.visibility_to_rx = context.scene_query->IsVisible(dp, context.rx_point, vc);
+        Vec3 dIncC = Normalize(Subtract(dp, state.current_point));
+        Vec3 dOutC = Normalize(Subtract(context.rx_point, dp));
+        double cbTxC = std::fabs(Dot(dIncC, edgeDir));
+        double cbRxC = std::fabs(Dot(dOutC, edgeDir));
+        nd.diffraction_diag.keller_residual = std::fabs(cbTxC - cbRxC);
         ns.traversed_nodes.push_back(nd);
         ns.state_signature = BuildStateSignature(ns, *context.config); ns.valid = true;
         GeometryValidityResult ev = IsValidExpandedState(context, ns);
@@ -288,7 +314,8 @@ ExpanderResult ExpandDiffraction(const PathSearchContext& context, const PathSta
     }
 
     std::sort(accepted.begin(), accepted.end(), [](auto& a, auto& b) { return a.sc < b.sc; });
-    const size_t keep = std::min(accepted.size(), size_t(8));
+    int lim2 = context.config->path_search.per_expander_keep_limit;
+    const size_t keep = (lim2 <= 0) ? accepted.size() : std::min(accepted.size(), static_cast<size_t>(lim2));
     for (size_t i = 0; i < keep; ++i) result.next_states.push_back(accepted[i].st);
     if (result.next_states.empty() && result.failure_reasons.empty())
         result.failure_reasons.push_back(GeometryValidityReason::NoCandidate);

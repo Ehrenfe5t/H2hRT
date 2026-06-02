@@ -33,6 +33,7 @@ struct EMSolveProfile {
     bool enable_noncoherent_power_sum = false;              ///< If true, also sum powers non-coherently (used in CoverageEM).
     int max_paths_per_receiver = 64;                        ///< Maximum number of paths to process per Rx.
     double min_power_threshold_linear = 0.0;                ///< Minimum linear power to retain a path in results.
+    double delay_bin_s = 0.0;                               ///< v9 step24: delay bin width. 0 = per-path mode (no binning).
 };
 
 /// <summary>
@@ -60,8 +61,11 @@ struct CIRResult {
 /// Single tap in a Power Delay Profile: delay and power only (no phase).
 /// </summary>
 struct PDPTap {
-    double delay_s = 0.0;       ///< Propagation delay in seconds.
-    double power_linear = 0.0;  ///< Linear received power at this delay.
+    double delay_s = 0.0;             ///< Propagation delay in seconds.
+    double power_linear = 0.0;        ///< Linear received power at this delay.
+    // v9 step24: 分bin模式下区分相干/非相干功率
+    double coherent_power_linear = 0.0;   ///< |Σα|² (相干叠加, 体现干涉效果).
+    double incoherent_power_linear = 0.0; ///< Σ|α|² (非相干叠加, 体现能量到达).
 };
 
 /// <summary>
@@ -134,6 +138,37 @@ struct EMAggregateResult {
     ChannelStatistics statistics;    ///< Aggregate channel statistics.
     CoverageResult coverage;         ///< Coverage summary (used in CoverageEM mode).
     ISACFeatureSet isac_features;    ///< ISAC sensing features.
+};
+
+// ── v9 主线C: 宽带信道结果 ──
+
+/// <summary>
+/// Single frequency point in a CFR (Channel Frequency Response).
+/// </summary>
+struct CFRSample {
+    double frequency_hz = 0.0;       ///< Frequency in Hz.
+    double H_real = 0.0;             ///< Real part of H(f).
+    double H_imag = 0.0;             ///< Imaginary part of H(f).
+    double magnitude = 0.0;          ///< |H(f)|.
+    double phase_rad = 0.0;          ///< arg(H(f)).
+    double power_dB = 0.0;           ///< 10*log10(|H(f)|²).
+};
+
+/// <summary>
+/// Broadband channel result: CFR H(f) over frequency, derived CIR, and metadata.
+/// </summary>
+struct BroadbandChannelResult {
+    std::vector<CFRSample> cfr;              ///< Channel Frequency Response samples.
+    std::vector<double> frequencies_hz;      ///< Frequency grid.
+    CIRResult ideal_delta_cir;               ///< Ideal δ CIR from RT paths.
+    CIRResult observed_cir;                  ///< Measurement-equivalent CIR (IFFT).
+    PDPResult observed_pdp;                  ///< Measurement-equivalent PDP.
+    double center_frequency_hz = 0.0;        ///< Center frequency.
+    double bandwidth_hz = 0.0;               ///< Bandwidth.
+    double delay_resolution_s = 0.0;         ///< 1/bandwidth — 可分辨时延.
+    double max_unambiguous_delay_s = 0.0;    ///< N/bandwidth — 最大无模糊时延.
+    std::string window_type;                  ///< Window function used.
+    bool valid = false;
 };
 
 } // namespace rt

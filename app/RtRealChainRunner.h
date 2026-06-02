@@ -12,6 +12,7 @@
 #include "../core/common/log/Logger.h"
 #include "../core/common/material/MaterialDatabase.h"
 #include "../core/em/EMProfile.h"
+#include "../core/em/BuildBroadbandCFR.h"
 #include "../core/result/ExportBundle.h"
 #include "../core/result/RegressionReport.h"
 #include "../core/result/ValidationReport.h"
@@ -38,6 +39,7 @@ struct A1RealChainRunResult {
     EMAggregateResult precise_result;      // Precise-profile聚合 (CIR, PDP, APS, 统计)
     EMAggregateResult coverage_result;     // Coverage-profile聚合
     ExportBundle export_bundle;             // 全部导出文件摘要
+    BroadbandChannelResult broadband_result; // v9 Stage5: 宽带CFR/CIR/PDP
     ValidationReport validation_report;     // 模块6验证结论
     RegressionReport regression_report;     // 模块6回归结论
 };
