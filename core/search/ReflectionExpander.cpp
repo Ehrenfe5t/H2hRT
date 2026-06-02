@@ -19,17 +19,6 @@ namespace rt {
 namespace {
 
 /// <summary>
-/// Reflects a point across a plane defined by planePoint and planeNormal using
-/// the Image Method (mirror-point symmetry), returning the mirrored position.
-/// </summary>
-Point3 MirrorPointAcrossPlane(const Point3& point, const Point3& planePoint, const Vec3& planeNormal)
-{
-    const Vec3 delta = Subtract(point, planePoint);
-    const double signedDistance = Dot(delta, planeNormal);
-    return Add(point, Scale(planeNormal, -2.0 * signedDistance));
-}
-
-/// <summary>
 /// Scores a reflection candidate by combining Euclidean path length with an
 /// angular penalty weighted by the surface-normal alignment of incoming/outgoing rays.
 /// </summary>

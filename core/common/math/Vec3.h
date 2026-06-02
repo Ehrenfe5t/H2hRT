@@ -190,6 +190,17 @@ inline Vec3 Reflect(const Vec3& dir, const Vec3& normal) {
 /// <param name="lo">下限。</param>
 /// <param name="hi">上限。</param>
 /// <returns>钳制后的值。</returns>
+/// <summary>
+/// 关于平面做镜像: 将 point 关于过 planePoint、法向 planeNormal 的平面做镜像。
+/// </summary>
+inline Point3 MirrorPointAcrossPlane(const Point3& point, const Point3& planePoint, const Vec3& planeNormal) {
+    const Vec3 delta = Subtract(point, planePoint);
+    const double signedDistance = Dot(delta, planeNormal);
+    return Add(point, Scale(planeNormal, -2.0 * signedDistance));
+}
+
+/// <summary>
+/// 将值钳制到 [lo, hi] 区间。
 inline double Clamp(double value, double lo, double hi) {
     if (value < lo) return lo;
     if (value > hi) return hi;

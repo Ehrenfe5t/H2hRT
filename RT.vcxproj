@@ -212,6 +212,7 @@
       <Include>$(ProjectDir);$(ProjectDir)tools\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\include;F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(Include)</Include>
     </CudaCompile>
     <ClCompile Include="core\search\DiffractionExpander.cpp" />
+    <ClCompile Include="core\search\CascadeImageMethod.cpp" />
     <ClCompile Include="core\search\GeometryValidity.cpp" />
     <ClCompile Include="core\search\ReflectionExpander.cpp" />
     <ClCompile Include="core\search\ResolveMediumTransition.cpp" />

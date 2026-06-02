@@ -1095,6 +1095,7 @@ if (PathSearchEngineV2::IsEnabled(loadResult.config)) {
 | v1.1 | 2026-06-01 | 同步审查反馈：新增 §4.1.4 (PVS方向性+反向表+fallback)、修正 §4.3.2 (级联镜像法)、新增 §4.3.5 (BFGS罚函数约束)、新增 §4.3.6 (梯度符号验证)、新增 §4.5 (Iter 1 独立验证方案+BFGS初始值)、更新 §7 (实施路线)、更新附录A (新增5篇参考文献) |
 | v2.0 | 2026-06-01 | 整合《分析v2.md》SBR辅助通道方案：更新 §3 架构图(双通道)、新增 §4.6 (SBR辅助候选通道：面元序列提取+BFGS初始值优先级+候选池合并)、更新 §7 实施路线(新增Iter 0/5, 总7个Iter)、更新参考文献 |
 | v2.1 | 2026-06-02 | **Iter 0 完成**：FacePVS.reverse_pvs 反向表实现（`SceneVisibilityData.h` + `SceneVisibilityBuilder.cpp`，~25行），PVS=152289条目，反向表O(152k)<1ms，自测通过 |
+| v2.2 | 2026-06-02 | **Iter 1 完成**：纯反射级联镜像法实现（`CascadeImageMethod.h/cpp`，~80行）+ `MirrorPointAcrossPlane` 提升至 `Vec3.h`（可复用）+ 移除 `ReflectionExpander.cpp` 重复定义。自测: 编译通过, O(k)解析解就绪 |
 
 ---
 
