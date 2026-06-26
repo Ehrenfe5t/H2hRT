@@ -37,8 +37,7 @@ PDPResult BuildPDP(const EMPathResultSet& pathResults, const EMSolveProfile& pro
             auto& bin = bins[binIdx];
             bin.centerDelay = (binIdx + 0.5) * profile.delay_bin_s;
 
-            Complex alpha(item.amplitude_real * std::cos(item.phase_rad),
-                          item.amplitude_real * std::sin(item.phase_rad));
+            Complex alpha(item.amplitude_real, item.amplitude_imag);
             bin.sum = bin.sum + alpha;
             bin.incoherentPwr += alpha.NormSq();
         }

@@ -14,7 +14,7 @@
 #include "../common/config/AppConfig.h"
 #include "../em/EMProfile.h"
 #include "../em/BuildBroadbandCFR.h"
-#include "../search/SearchEngine.h"
+#include "../search/SearchResult.h"
 
 namespace rt {
 

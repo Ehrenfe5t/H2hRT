@@ -15,8 +15,8 @@ namespace rt {
 /// (valid medium_in/out IDs with different values). Sets transmission
 /// completeness flags on the input for diagnostic use.
 /// </summary>
-/// <param name="input">Solver input bundle to validate (mutates completeness flags).</param>
+/// <param name="input">Solver input bundle to validate (v10.2 B6修复: 非const, 回写诊断标志).</param>
 /// <returns>true if path passes all checks; false if any check fails.</returns>
-bool PreparePathForEM(const EMSolverInput& input);
+bool PreparePathForEM(EMSolverInput& input);
 
 } // namespace rt

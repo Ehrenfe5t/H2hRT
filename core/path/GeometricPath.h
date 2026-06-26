@@ -11,6 +11,7 @@
 #include "PathNode.h"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace rt {
@@ -25,6 +26,11 @@ struct GeometricPath {
     bool is_los = false;
     bool contains_transmission = false;
     uint64_t path_signature = 0;
+    double geometry_residual = 0.0;
+    double reflection_residual_m = 0.0;
+    double max_snell_residual = 0.0;
+    double max_keller_residual = 0.0;
+    std::string residual_reject_reason;
     bool valid = false;
 };
 

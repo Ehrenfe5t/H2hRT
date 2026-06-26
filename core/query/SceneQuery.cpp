@@ -1,12 +1,4 @@
-// 文件目标：
-// - 实现模块2统一查询门面的第一版可用逻辑。
-//
-// 主要功能：
-// - 基于批次3的 Face BVH 与 WedgeAcceleration 提供查询能力；
-// - 支持最近命中、全部命中、范围命中、遮挡和可见性查询；
-// - 显式处理自碰撞抑制与查询上下文约束。
-
-#include "SceneQuery.h"
+﻿#include "SceneQuery.h"
 #include "../common/math/Vec3.h"
 
 #include <algorithm>
@@ -215,7 +207,6 @@ void CollectFaceHitsRecursive(
 }
 
 #ifdef __AVX2__
-// v7.3: AVX2向量化 Möller-Trumbore — 4面一批, 同一条射线广播到4通道
 inline void IntersectRayTriangle4_AVX2(
     const Ray& ray, const Point3* v0, const Point3* v1, const Point3* v2,
     double eps, bool* outHit, double* outDist)
@@ -267,7 +258,6 @@ inline void IntersectRayTriangle4_AVX2(
 }
 #endif
 
-// v7.3 SBR专用: 近远遍历+提前终止 (不改变仿真结果, 仅加速)
 bool CollectClosestFaceHit(
     const Scene& scene, const FaceBVH& bvh, int nodeIndex,
     const Ray& ray, const FaceQueryContext& context, double eps,
@@ -340,11 +330,7 @@ bool CollectClosestFaceHit(
 
 } // namespace
 
-/// <summary>
-/// 使用场景对象与配置构造查询门面。
-/// </summary>
-/// <param name="scene">静态场景对象引用。</param>
-/// <param name="config">统一应用配置对象引用。</param>
+// Construct a query facade over the preprocessed scene and runtime config.
 SceneQuery::SceneQuery(const Scene& scene, const AppConfig& config)
     : scene_(scene), config_(config)
 {
@@ -356,20 +342,13 @@ SceneQuery::SceneQuery(const Scene& scene, const AppConfig& config,
 {
 }
 
-/// <summary>
-/// 查询射线正向最近面元命中。
-/// </summary>
-/// <param name="ray">输入射线。</param>
-/// <param name="context">局部查询约束。</param>
-/// <returns>最近有效面元命中结果。</returns>
+// Query the closest valid face hit along a ray.
 FaceHit SceneQuery::QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& context) const
 {
-    // v9 F-1: 路由到快速路径 (BVH早停, 非all-hits→min)
-    // GPU single-ray overhead > CPU BVH; batch queries use GPU.
+    // Current v11 P2P baseline uses the CPU FaceBVH path for single-ray queries.
     if (scene_.acceleration.face_acceleration.face_bvh.valid) {
         return QueryClosestFaceHitFast(ray, context);
     }
-    // BVH不可用: fallback到all-hits
     std::vector<FaceHit> hits = QueryAllFaceHits(ray, context);
     if (hits.empty()) return FaceHit{};
 
@@ -383,7 +362,7 @@ FaceHit SceneQuery::QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& 
 
 FaceHit SceneQuery::QueryClosestFaceHitFast(const Ray& ray, const FaceQueryContext& context) const
 {
-    // Note: GPU single-ray overhead > CPU BVH. Batch queries use GPU.
+    // Fast path: traverse the prebuilt CPU FaceBVH.
     if(!scene_.acceleration.face_acceleration.face_bvh.valid) return FaceHit{};
     FaceHit closest; double closestDist=1e100;
     CollectClosestFaceHit(scene_,scene_.acceleration.face_acceleration.face_bvh,0,
@@ -391,12 +370,7 @@ FaceHit SceneQuery::QueryClosestFaceHitFast(const Ray& ray, const FaceQueryConte
     return closest;
 }
 
-/// <summary>
-/// 查询射线正向全部面元命中。
-/// </summary>
-/// <param name="ray">输入射线。</param>
-/// <param name="context">局部查询约束。</param>
-/// <returns>按距离升序排列的全部有效命中。</returns>
+// Query all valid face hits along a ray, sorted by distance.
 std::vector<FaceHit> SceneQuery::QueryAllFaceHits(const Ray& ray, const FaceQueryContext& context) const
 {
     std::vector<FaceHit> hits;
@@ -422,14 +396,7 @@ std::vector<FaceHit> SceneQuery::QueryAllFaceHits(const Ray& ray, const FaceQuer
     return hits;
 }
 
-/// <summary>
-/// 查询指定距离区间内的全部面元命中。
-/// </summary>
-/// <param name="ray">输入射线。</param>
-/// <param name="minDistance">最小距离。</param>
-/// <param name="maxDistance">最大距离。</param>
-/// <param name="context">局部查询约束。</param>
-/// <returns>区间内有效命中集合。</returns>
+// Query all valid face hits within the requested distance range.
 std::vector<FaceHit> SceneQuery::QueryFaceHitsInRange(
     const Ray& ray,
     double minDistance,
@@ -448,16 +415,10 @@ std::vector<FaceHit> SceneQuery::QueryFaceHitsInRange(
     return rangeHits;
 }
 
-/// <summary>
-/// 判断两点开区间是否被有效面阻挡。
-/// </summary>
-/// <param name="start">线段起点。</param>
-/// <param name="end">线段终点。</param>
-/// <param name="context">可见性查询上下文。</param>
-/// <returns>true 表示存在阻挡；false 表示无遮挡。</returns>
+// Return true when the open segment between two points is blocked by a face.
 bool SceneQuery::IsOccluded(const Point3& start, const Point3& end, const VisibilityQueryContext& context) const
 {
-    // Note: GPU single-ray overhead > CPU. Batch queries use GPU.
+    // Current v11 P2P baseline uses CPU visibility queries.
     const Vec3 delta = Subtract(end, start);
     const double length = Length(delta);
     if (length <= config_.numeric_tolerance.eps_length)
@@ -498,24 +459,13 @@ bool SceneQuery::IsOccluded(const Point3& start, const Point3& end, const Visibi
     return !hits.empty();
 }
 
-/// <summary>
-/// 判断两点是否可见。
-/// </summary>
-/// <param name="start">起点。</param>
-/// <param name="end">终点。</param>
-/// <param name="context">可见性查询上下文。</param>
-/// <returns>true 表示可见；false 表示不可见。</returns>
+// Return true when the open segment between two points is not blocked.
 bool SceneQuery::IsVisible(const Point3& start, const Point3& end, const VisibilityQueryContext& context) const
 {
     return !IsOccluded(start, end, context);
 }
 
-/// <summary>
-/// 查询楔边候选集合。
-/// </summary>
-/// <param name="origin">当前参考点。</param>
-/// <param name="context">楔边查询上下文。</param>
-/// <returns>候选楔边集合。</returns>
+// Query candidate diffraction wedges around an origin point.
 std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origin, const WedgeQueryContext& context) const
 {
     std::vector<WedgeCandidate> candidates;
@@ -523,17 +473,17 @@ std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origi
     const auto& records = wa.wedge_query_records;
     const double maxDist = config_.path_search.wedge_max_distance_m;
 
-    // v9 step26: 使用均匀网格空间索引, 仅查询origin附近的cell
+    // Use the wedge uniform grid when available; query only cells near origin.
     if (wa.grid.nx > 0 && wa.grid.cell_size > 0.0) {
-        // 找到origin所在cell
+        // Locate the origin cell.
         int cx = static_cast<int>((origin.x - wa.grid.bounds.min.x) / wa.grid.cell_size);
         int cy = static_cast<int>((origin.y - wa.grid.bounds.min.y) / wa.grid.cell_size);
         int cz = static_cast<int>((origin.z - wa.grid.bounds.min.z) / wa.grid.cell_size);
 
-        // 搜索半径 (cell数) — 至少1, 覆盖maxDist范围
+        // Search radius in cells, covering the configured max wedge distance.
         int searchRad = std::max(1, static_cast<int>(maxDist / wa.grid.cell_size) + 1);
 
-        // 遍历邻域cells
+        // Visit neighboring cells.
         for (int dz = -searchRad; dz <= searchRad; ++dz) {
             int nz = cz + dz;
             if (nz < 0 || nz >= wa.grid.nz) continue;
@@ -576,8 +526,7 @@ std::vector<WedgeCandidate> SceneQuery::QueryCandidateWedges(const Point3& origi
             }
         }
     } else {
-        // grid不可用 → fallback线性扫描
-        for (const WedgeQueryRecord& record : records) {
+        for (const auto& record : records) {
             if (record.wedge_id == context.ignored_wedge_id) continue;
             if (context.avoid_recent_wedge && record.wedge_id == context.recent_wedge_id) continue;
             if (context.avoid_adjacent_wedge_to_recent_face &&

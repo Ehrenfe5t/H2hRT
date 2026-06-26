@@ -9,12 +9,9 @@
 #include "SceneQueryBuilder.h"
 
 #include "../../core/query/SceneQuery.h"
-#include "../../core/query/CpuFaceBvhAccelerator.h"
-#include "../../core/query/OptiXSceneAccelerator.h"
 #include "../cache/SceneCache.h"
 
 #include <memory>
-#include <cstdio>
 
 namespace rt {
 
@@ -22,31 +19,12 @@ namespace {
 
 /// <summary>
 /// 为场景重新绑定当前生命周期有效的查询门面。
-/// 根据 config.acceleration.backend 选择 CPU/GPU 加速器。
+/// v11 主链固定使用 CPU SceneQuery，底层依赖预处理阶段构建的 FaceBVH/WedgeAcceleration。
 /// </summary>
 void AttachSceneQuery(Scene& scene, const AppConfig& config)
 {
     scene.query.reset();
-
-    std::unique_ptr<ISceneAccelerator> accelerator;
-
-    if (config.acceleration.backend == "GPU_OptiX") {
-        std::fprintf(stdout, "[SceneQueryBuilder] Creating GPU OptiX accelerator...\n");
-        try {
-            accelerator = std::make_unique<OptiXSceneAccelerator>(scene, config);
-            std::fprintf(stdout, "[SceneQueryBuilder] GPU OptiX accelerator ready. Backend: %s\n",
-                accelerator->BackendName().c_str());
-        } catch (const std::exception& e) {
-            std::fprintf(stderr, "[SceneQueryBuilder] GPU accelerator failed: %s\nFalling back to CPU.\n", e.what());
-            accelerator.reset();
-        }
-    }
-
-    if (accelerator) {
-        scene.query = std::make_shared<SceneQuery>(scene, config, std::move(accelerator));
-    } else {
-        scene.query = std::make_shared<SceneQuery>(scene, config);
-    }
+    scene.query = std::make_shared<SceneQuery>(scene, config);
 }
 
 } // namespace

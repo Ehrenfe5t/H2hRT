@@ -9,6 +9,7 @@
 #include "AppConfigLoader.h"
 
 #include "AppConfigJsonCodec.h"
+#include "V11UserConfigAdapter.h"
 
 #include <fstream>
 
@@ -48,6 +49,25 @@ AppConfigLoadResult LoadAppConfigFromJsonFile(const std::string& filePath)
             filePath,
             "Check whether the JSON config path exists.",
             true));
+        return result;
+    }
+
+    const V11UserConfigDecodeResult v11Result = DecodeV11UserConfigFromJsonFile(filePath);
+    if (v11Result.recognized)
+    {
+        result.config = v11Result.config;
+        if (!v11Result.succeeded)
+        {
+            result.errors.push_back(RtError::Create(
+                ErrorCode::JsonParseError,
+                "Module1",
+                "Failed to parse v11 user config file.",
+                filePath,
+                v11Result.error_message,
+                true));
+            return result;
+        }
+        result.load_succeeded = true;
         return result;
     }
 

@@ -1,0 +1,39 @@
+{
+  "tx_list": [
+    {
+      "id": "Tx01",
+      "position_m": [10.0, 1.5, -10.0],
+      "power_dBm": 0.0,
+      "pattern_file": "",
+      "polarization_file": "",
+      "forward": [1.0, 0.0, 0.0],
+      "up": [0.0, 0.0, 1.0]
+    }
+  ],
+  "rx_list": [
+    {
+      "id": "Rx01",
+      "position_m": [ 7.0, 1.5, -12.0 ],
+      "pattern_file": "",
+      "polarization_file": "",
+      "forward": [ 1.0, 0.0, 0.0 ],
+      "up": [ 0.0, 0.0, 1.0 ]
+    },
+    {
+      "id": "Rx02",
+      "position_m": [ 10.0, 1.5, -6.0 ],
+      "pattern_file": "",
+      "polarization_file": "",
+      "forward": [ 1.0, 0.0, 0.0 ],
+      "up": [ 0.0, 0.0, 1.0 ]
+    },
+    {
+      "id": "Rx03",
+      "position_m": [ 15.0, 1.5, -14.0 ],
+      "pattern_file": "",
+      "polarization_file": "",
+      "forward": [ 1.0, 0.0, 0.0 ],
+      "up": [ 0.0, 0.0, 1.0 ]
+    }
+  ]
+}

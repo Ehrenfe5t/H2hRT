@@ -17,7 +17,7 @@
 #include "../core/result/RegressionReport.h"
 #include "../core/result/ValidationReport.h"
 #include "../core/scene/Scene.h"
-#include "../core/search/SearchEngine.h"
+#include "../core/search/SearchResult.h"
 
 namespace rt { struct GeometricPath; struct EMPathResult; struct EMSolverInput; }
 
@@ -28,6 +28,14 @@ namespace rt {
 /// </summary>
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
                        EMPathResult& result, const MaterialDatabase* matDb);
+
+/// <summary>
+/// v10.2: 单路径EM求解 (支持 per-Rx 天线覆盖)。
+/// 若 rxTarget 非空且有天线覆盖字段，优先使用；否则回退到全局 rx_antenna/antenna。
+/// </summary>
+bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
+                       EMPathResult& result, const MaterialDatabase* matDb,
+                       const RxTarget* rxTarget);
 
 /// <summary>
 /// 单次 A1 真实生产链运行的完整结果。

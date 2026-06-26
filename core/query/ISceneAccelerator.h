@@ -1,14 +1,13 @@
-// v8 Phase 1: ISceneAccelerator — unified CPU/GPU acceleration interface
-// Forward declarations enable .cu compilation without heavy C++ headers
+﻿// ISceneAccelerator
+// Optional acceleration extension point. The v11 P2P baseline uses SceneQuery CPU FaceBVH directly.
+// GPU/OptiX implementations are not active in the current main chain.
 #pragma once
 
 #include <vector>
 #include <memory>
 #include <string>
 
-// Vec3.h defines Point3 via typedef — include full header
-// The .cu file uses a different translation unit; this header is included
-// by both .cpp (MSVC) and .cu (nvcc). For nvcc, we provide compatible stubs.
+// Vec3.h defines Point3 via typedef, so include the full header here.
 #include "../common/math/Vec3.h"
 
 namespace rt {
@@ -22,14 +21,14 @@ struct Scene;
 struct AppConfig;
 
 /// <summary>
-/// Scene acceleration abstract interface.
-/// Implementations: CpuFaceBvhAccelerator (default), OptiXSceneAccelerator (GPU)
+/// Optional scene acceleration interface.
+/// The active v11 P2P chain uses SceneQuery's CPU FaceBVH path directly.
 /// </summary>
 class ISceneAccelerator {
 public:
     virtual ~ISceneAccelerator() = default;
 
-    // ── Single ray queries (CPU + GPU common) ──
+    // Single ray queries.
 
     virtual FaceHit QueryClosestFaceHit(const Ray& ray, const FaceQueryContext& ctx) const = 0;
     virtual FaceHit QueryClosestFaceHitFast(const Ray& ray, const FaceQueryContext& ctx) const = 0;
@@ -40,13 +39,13 @@ public:
         return !IsOccluded(start, end, ctx);
     }
 
-    // ── Batch ray queries (GPU-optimized entry points) ──
+    // Batch query extension points. Current v11 P2P does not require them.
 
     virtual std::vector<FaceHit> QueryClosestFaceHitBatch(const std::vector<Ray>& rays, const FaceQueryContext& ctx) const;
     virtual std::vector<bool> IsOccludedBatch(const std::vector<Point3>& starts, const std::vector<Point3>& ends,
                                                const VisibilityQueryContext& ctx) const;
 
-    // ── v8 GPU: batch segment-Rx collision query ──
+    // Batch segment-Rx collision query extension point for future coverage work.
     struct RxGridQueryParams {
         const Point3* rx_positions;     // CPU Rx positions [rx_count]
         const int* flat_cell_data;      // flat cell contents (Rx indices)
@@ -62,17 +61,17 @@ public:
         const std::vector<double>& seg_ends_flat,
         const RxGridQueryParams& grid) const;
 
-    // ── Accelerator metadata ──
+    // Accelerator metadata.
 
     virtual std::string BackendName() const = 0;
     virtual bool SupportsBatchQuery() const { return false; }
     virtual size_t MaxBatchSize() const { return 1; }
-    // v9 step29: capability flags for GPU→CPU fallback decisions
-    virtual bool SupportsAllHits() const { return true; }      // GPU=false
-    virtual bool SupportsObjectFilter() const { return true; }  // GPU=false
-    virtual bool UsesDoublePrecision() const { return true; }   // GPU=false (float)
+    // Capability flags for optional accelerator fallback decisions.
+    virtual bool SupportsAllHits() const { return true; }
+    virtual bool SupportsObjectFilter() const { return true; }
+    virtual bool UsesDoublePrecision() const { return true; }
 
-    // v9 F-2: 后端查询统计 — 用于性能诊断
+    // Backend query counters for diagnostics.
     mutable size_t closest_hit_queries = 0;
     mutable size_t all_hits_queries = 0;
     mutable size_t occlusion_queries = 0;
@@ -80,7 +79,7 @@ public:
         closest_hit_queries = all_hits_queries = occlusion_queries = 0;
     }
 
-    // ── Scene data lifecycle ──
+    // Scene data lifecycle.
 
     virtual void BuildFromScene(const Scene& scene) = 0;
     virtual void UpdateSceneFaces(const Scene& scene) {}  // incremental (optional)

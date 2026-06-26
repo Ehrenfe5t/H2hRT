@@ -79,10 +79,35 @@ struct AntennaConfig {
 
 /// <summary>
 /// v8: 多 Rx 目标位置。
+/// v10.2: 增加 per-Rx 独立天线覆盖字段，支持每个Rx独立天线模型和姿态。
+///         若天线字段为空，回退到全局 rx_antenna 或 antenna 配置。
 /// </summary>
 struct RxTarget {
     std::string id;
     double x = 0.0, y = 0.0, z = 0.0;
+    // v10.2: per-Rx 天线覆盖 (可选, 空值表示使用全局配置)
+    std::string rx_source_type;          // 覆盖全局 rx_antenna.source_type
+    std::string rx_pattern_file;         // 覆盖增益方向图CSV
+    std::string rx_polarization_file;    // 覆盖极化CSV
+    double rx_forward_x = 0.0, rx_forward_y = 0.0, rx_forward_z = 0.0;  // 覆盖姿态 (0向量=使用全局)
+    double rx_up_x = 0.0, rx_up_y = 0.0, rx_up_z = 0.0;
+};
+
+struct TxTarget {
+    std::string id;
+    double x = 0.0, y = 0.0, z = 0.0;
+    double power_dBm = 0.0;
+    std::string tx_source_type;
+    std::string tx_pattern_file;
+    std::string tx_polarization_file;
+    double tx_forward_x = 1.0, tx_forward_y = 0.0, tx_forward_z = 0.0;
+    double tx_up_x = 0.0, tx_up_y = 0.0, tx_up_z = 1.0;
+};
+
+struct P2PLinkTask {
+    std::string id;
+    TxTarget tx;
+    RxTarget rx;
 };
 
 /// <summary>
@@ -121,6 +146,7 @@ struct PathSearchConfig {
 /// </summary>
 struct SbrConfig {
     bool enabled = false;
+    std::string trace_profile = "Coverage";        // v10: Coverage | FineChannel | DebugValidation
     int ray_count = 10000;
     int max_ray_depth = 6;
     int max_reflection_count = 6;
@@ -144,15 +170,43 @@ struct SbrConfig {
     bool store_paths = false;
     double wedge_max_distance_m = 5.0;
     int wedge_max_candidates = 8;  // v6: was wedge_sample_count
+    bool deterministic_interaction_split = false; // v10: keep reflection and transmission branches instead of Monte Carlo choice
+    bool disable_no_new_hit_early_stop = false;   // v10: FineChannel can continue tracing even if no Rx is hit for two steps
+    int max_paths_per_ray = 8;                    // v10: <=0 means no per-ray path record cap
+    int max_paths_per_rx = 0;                     // v10: <=0 means no per-Rx path record cap
+    bool enable_dynamic_rx_radius = false;        // v10: effective Rx radius follows ray-tube radius
+    double ray_tube_angle_rad = 0.0;              // v10: <=0 estimates angular spacing from ray_count
+    double ray_tube_radius_scale = 0.5;           // v10: radius = distance * angle * scale
+    double ray_tube_min_radius_m = 0.0;           // v10: lower bound before max(base rx radius)
+    double ray_tube_max_radius_m = 0.0;           // v10: <=0 means no upper bound
+    bool enable_wedge_tube_coupling = false;      // v10: query wedges by segment-to-edge tube coupling
+    double wedge_tube_radius_scale = 1.0;         // v10: multiplier applied to ray-tube radius for wedge coupling
+    int diffraction_rays_per_event = 4;           // v10: Keller cone samples spawned per coupled wedge
+    bool enable_path_dedup = true;                // v10: suppress duplicate path signatures while recording/postprocessing
+    bool enable_path_similarity_pruning = true;   // v10: merge near-equivalent SBR paths after tracing
+    double path_similarity_length_tol_m = 0.05;   // v10: length bin for similar-path pruning
+    int path_top_n_per_rx = 0;                    // v10: <=0 disables final top-N pruning
+    bool enable_path_residual_filter = false;     // v10: FineChannel enables this automatically
+    double path_geometry_residual_tol = 0.25;     // v10: max accepted combined geometry residual
+    double reflection_residual_tol_m = 0.25;      // v10: single-reflection mirror-point tolerance
+    double snell_residual_tol = 1.0e-3;           // v10: path-level Snell diagnostic tolerance
+    double keller_residual_tol = 1.0e-3;          // v10: path-level Keller cone tolerance
 };
 
 /// <summary>
 /// 电磁求解配置。
+/// v10.2: 增加 APS 二维网格分辨率和 MEG 计算配置。
 /// </summary>
 struct EMSolverConfig {
     double frequency_hz = 2.4e9;
     std::string solver_mode = "Precise";
     // v6: enable_polarization removed
+    // v10.2: APS 二维角功率谱网格配置
+    int aps_theta_bins = 36;       // theta维度分bin数 (默认36 → 5°分辨率, 0-180°)
+    int aps_phi_bins = 72;         // phi维度分bin数 (默认72 → 5°分辨率, 0-360°)
+    bool aps_export_2d_grid = true; // 是否导出二维网格数据 (供热图)
+    // v10.2: MEG 计算配置
+    bool compute_meg = true;        // 是否计算Mean Effective Gain
 };
 
 /// <summary>
@@ -199,8 +253,6 @@ struct ValidationConfig {
     bool enable_basic_validation = true;
     bool enable_reference_compare = false;
     bool run_module1_self_check = true;
-    std::string module1_invalid_transmission_case_file = "configs/app/invalid_transmission_missing_mapping.json";
-    std::string module1_invalid_diffraction_case_file = "configs/app/invalid_diffraction_without_wedge.json";
     double power_tolerance_db = 0.1;
 };
 
@@ -220,31 +272,14 @@ struct PipelineConfig {
     bool enable_pvs = true;
     bool enable_edge_adjacency = true;
     bool enable_angular_grid = true;
-    bool enable_stage1_coarse_sbr = false;     // Phase 2实现
-    bool enable_stage2_constrained_search = false; // Phase 3实现
-    bool enable_stage3_path_reuse = false;     // Phase 4实现
     bool enable_stage4_precise_em = true;
-    bool enable_legacy_sbr_power = true;
-    int seed_rx_count = 2000;
-    double seed_spatial_stride = 0.5;
-    int bidirectional_split_depth = 5;
     int max_paths_per_rx = 256;
-    double reuse_max_distance = 2.0;
-    bool reuse_verify_last_hop = true;
-};
-
-/// <summary>
-/// v8: 加速器后端配置
-/// </summary>
-struct AccelerationConfig {
-    std::string backend = "CPU_FaceBVH";
-    int gpu_device_id = 0;
-    int gpu_batch_size = 1000000;
-    bool gpu_use_rt_core = true;
 };
 
 /// <summary>
 /// RT 系统统一顶层配置对象。
+/// v10.2: 新增 tx_antenna / rx_antenna 支持收发天线独立配置。
+///        若 tx_antenna/rx_antenna 的 source_type 为空，回退到全局 antenna 配置。
 /// </summary>
 /// <remarks>
 /// 该结构是当前系统唯一高层配置真源。
@@ -255,7 +290,9 @@ struct AppConfig {
     SceneImportConfig scene_import;
     ScenePreprocessConfig scene_preprocess;
     MaterialConfig material;
-    AntennaConfig antenna;
+    AntennaConfig antenna;              // v10.2: 全局天线回退配置 (向后兼容)
+    AntennaConfig tx_antenna;           // v10.2: 发射天线独立配置 (source_type非空时优先)
+    AntennaConfig rx_antenna;           // v10.2: 接收天线独立配置 (source_type非空时优先)
     PathSearchConfig path_search;
     SbrConfig sbr;
     EMSolverConfig em_solver;
@@ -263,10 +300,12 @@ struct AppConfig {
     ValidationConfig validation;
     ExperimentConfig experiment;
     PipelineConfig pipeline;            // v8: 管线阶段控制
-    AccelerationConfig acceleration;    // v8: 加速器后端选择
     NumericToleranceConfig numeric_tolerance;
     FrequencySweepConfig frequency_sweep;       // v9 C: 宽带扫频
     ChannelObservationConfig channel_observation; // v9 C: 信道观测
+    bool v11_user_config_enabled = false;
+    std::string v11_antenna_file;
+    std::vector<P2PLinkTask> v11_p2p_tasks;
 };
 
 /// <summary>

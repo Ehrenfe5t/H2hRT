@@ -1,18 +1,16 @@
-// ───────────────────────────────────────────────────────────────────
-// 文件: RtPipeline.cpp
-// 用途: 管线编排器实现。串联配置加载、场景构建(批次2-4)、遗留批次5-9自检链、
-//       A1真实生产链(搜索→EM→导出)及可选SBR覆盖通道。
-// 所属模块: 应用层
-// ───────────────────────────────────────────────────────────────────
+﻿// RtPipeline.cpp
+// v11 P2P 主链编排器：配置 -> 场景/材质 -> SceneQuery -> SBR P2P -> EM -> 导出。
 
 #include "RtPipeline.h"
 
 #include <fstream>
 #include <filesystem>
-#ifdef _WIN32
-#define NOMINMAX
-#include <windows.h>
-#endif
+#include <iomanip>
+#include <cmath>
+#include <algorithm>
+#include <chrono>
+#include <map>
+#include <set>
 
 #include "RtRealChainRunner.h"
 #include "../core/search/SbrEngine.h"
@@ -24,21 +22,486 @@
 #include "../core/common/log/Logger.h"
 #include "../core/common/material/MaterialDatabase.h"
 #include "../core/common/version/VersionInfo.h"
-#include "../core/search/SearchEngine.h"
-#include "../core/path/PathSearchContext.h"
+#include "../core/search/SearchResult.h"
 #include "../preprocess/build/SceneImporter.h"
 #include "../preprocess/build/SceneTopologyBuilder.h"
 #include "../preprocess/build/SceneQueryBuilder.h"
-#include "../preprocess/accel/SceneVisibilityBuilder.h"  // v8: PVS precompute
-#include "../core/search/PathReuseEngine.h"              // v8: path reuse
-#include "../core/search/RxSeedSampler.h"                // v8: seed Rx selection
-#include <set>                                           // v8: PVS 2-hop expansion
+#include "../preprocess/accel/SceneVisibilityBuilder.h"
 
 #include <sstream>
 
 namespace rt {
 
 namespace {
+
+const char* InteractionTypeLabel(InteractionType type)
+{
+    switch (type)
+    {
+    case InteractionType::None: return "None";
+    case InteractionType::Tx: return "Tx";
+    case InteractionType::Rx: return "Rx";
+    case InteractionType::Los: return "Los";
+    case InteractionType::Reflection: return "Reflection";
+    case InteractionType::Transmission: return "Transmission";
+    case InteractionType::Diffraction: return "Diffraction";
+    case InteractionType::Scattering: return "Scattering";
+    default: return "Unknown";
+    }
+}
+
+std::string JsonEscape(const std::string& value)
+{
+    std::ostringstream out;
+    for (char c : value)
+    {
+        switch (c)
+        {
+        case '\\': out << "\\\\"; break;
+        case '"': out << "\\\""; break;
+        case '\n': out << "\\n"; break;
+        case '\r': out << "\\r"; break;
+        case '\t': out << "\\t"; break;
+        default: out << c; break;
+        }
+    }
+    return out.str();
+}
+
+std::string PathSignatureHex(uint64_t signature)
+{
+    std::ostringstream out;
+    out << "0x" << std::hex << signature;
+    return out.str();
+}
+
+using RtClock = std::chrono::steady_clock;
+
+double ElapsedSeconds(RtClock::time_point start, RtClock::time_point end)
+{
+    return std::chrono::duration<double>(end - start).count();
+}
+
+std::string FormatSeconds(double seconds)
+{
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(seconds < 10.0 ? 3 : 2) << seconds << " s";
+    return out.str();
+}
+
+std::string FormatFrequencyGHz(double frequencyHz)
+{
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(3) << (frequencyHz / 1.0e9) << " GHz";
+    return out.str();
+}
+
+void NormalizeRuntimeOutputPaths(AppConfig& config)
+{
+    const std::string runRoot = "output/" + config.app_runtime.run_id;
+    config.app_runtime.log_file_path = runRoot + "/logs/rt.log";
+    config.app_runtime.config_snapshot_directory = runRoot + "/config";
+    config.app_runtime.cache_directory = runRoot + "/cache";
+}
+
+std::string InteractionShortName(InteractionType type)
+{
+    switch (type)
+    {
+    case InteractionType::Tx: return "Tx";
+    case InteractionType::Rx: return "Rx";
+    case InteractionType::Los: return "LOS";
+    case InteractionType::Reflection: return "R";
+    case InteractionType::Transmission: return "T";
+    case InteractionType::Diffraction: return "D";
+    case InteractionType::Scattering: return "S";
+    default: return "N";
+    }
+}
+
+std::string BuildPathSequenceLabel(const GeometricPath& path)
+{
+    std::ostringstream out;
+    bool first = true;
+    for (const PathNode& node : path.nodes)
+    {
+        if (!first) out << "-";
+        first = false;
+        out << InteractionShortName(node.interaction_type);
+    }
+    return out.str();
+}
+
+struct PathSummaryStats {
+    int los_paths = 0;
+    int reflection_paths = 0;
+    int transmission_paths = 0;
+    int diffraction_paths = 0;
+    long long reflection_nodes = 0;
+    long long transmission_nodes = 0;
+    long long diffraction_nodes = 0;
+    std::vector<std::pair<std::string, int>> top_sequences;
+};
+
+PathSummaryStats BuildPathSummaryStats(const std::vector<GeometricPath>& paths)
+{
+    PathSummaryStats stats;
+    std::map<std::string, int> sequenceCounts;
+    for (const GeometricPath& path : paths)
+    {
+        bool hasReflection = false;
+        bool hasTransmission = false;
+        bool hasDiffraction = false;
+        for (const PathNode& node : path.nodes)
+        {
+            if (node.interaction_type == InteractionType::Reflection) {
+                hasReflection = true;
+                ++stats.reflection_nodes;
+            } else if (node.interaction_type == InteractionType::Transmission) {
+                hasTransmission = true;
+                ++stats.transmission_nodes;
+            } else if (node.interaction_type == InteractionType::Diffraction) {
+                hasDiffraction = true;
+                ++stats.diffraction_nodes;
+            }
+        }
+        if (path.is_los) ++stats.los_paths;
+        if (hasReflection) ++stats.reflection_paths;
+        if (hasTransmission) ++stats.transmission_paths;
+        if (hasDiffraction) ++stats.diffraction_paths;
+        ++sequenceCounts[BuildPathSequenceLabel(path)];
+    }
+
+    stats.top_sequences.assign(sequenceCounts.begin(), sequenceCounts.end());
+    std::sort(stats.top_sequences.begin(), stats.top_sequences.end(),
+        [](const auto& a, const auto& b) {
+            if (a.second != b.second) return a.second > b.second;
+            return a.first < b.first;
+        });
+    if (stats.top_sequences.size() > 5) stats.top_sequences.resize(5);
+    return stats;
+}
+
+std::string FormatTopSequences(const std::vector<std::pair<std::string, int>>& topSequences)
+{
+    if (topSequences.empty()) return "无";
+    std::ostringstream out;
+    for (std::size_t i = 0; i < topSequences.size(); ++i)
+    {
+        if (i > 0) out << "；";
+        out << topSequences[i].first << ": " << topSequences[i].second;
+    }
+    return out.str();
+}
+
+void LogSbrKeyParameters(Logger& logger, const AppConfig& config)
+{
+    std::ostringstream out;
+    out << "SBR 参数：射线数 " << config.sbr.ray_count
+        << "，最大深度 " << config.sbr.max_ray_depth
+        << "，R/T/D=" << config.sbr.max_reflection_count
+        << "/" << config.sbr.max_transmission_count
+        << "/" << config.sbr.max_diffraction_count
+        << "，接收球半径 " << config.sbr.rx_sphere_radius_m << " m"
+        << "，功率阈值 " << config.sbr.ray_power_threshold_dB << " dB";
+    logger.Log(LogLevel::Info, "寻径", out.str());
+}
+
+std::string BuildTaskListText(const std::vector<P2PLinkTask>& tasks)
+{
+    std::ostringstream out;
+    for (std::size_t i = 0; i < tasks.size(); ++i)
+    {
+        if (i > 0) out << "，";
+        out << tasks[i].id;
+    }
+    return out.str();
+}
+
+bool IsNonZeroVector(double x, double y, double z)
+{
+    return std::fabs(x) > 1.0e-12 || std::fabs(y) > 1.0e-12 || std::fabs(z) > 1.0e-12;
+}
+
+AntennaConfig BuildTxAntennaConfigForTask(const TxTarget& tx)
+{
+    AntennaConfig antenna;
+    antenna.source_type = tx.tx_source_type.empty() ? "Ideal" : tx.tx_source_type;
+    antenna.pattern_file = tx.tx_pattern_file;
+    antenna.polarization_file = tx.tx_polarization_file;
+    if (IsNonZeroVector(tx.tx_forward_x, tx.tx_forward_y, tx.tx_forward_z)) {
+        antenna.forward_x = tx.tx_forward_x;
+        antenna.forward_y = tx.tx_forward_y;
+        antenna.forward_z = tx.tx_forward_z;
+    }
+    if (IsNonZeroVector(tx.tx_up_x, tx.tx_up_y, tx.tx_up_z)) {
+        antenna.up_x = tx.tx_up_x;
+        antenna.up_y = tx.tx_up_y;
+        antenna.up_z = tx.tx_up_z;
+    }
+    return antenna;
+}
+
+AntennaConfig BuildRxAntennaConfigForTask(const RxTarget& rx)
+{
+    AntennaConfig antenna;
+    antenna.source_type = rx.rx_source_type.empty() ? "Ideal" : rx.rx_source_type;
+    antenna.pattern_file = rx.rx_pattern_file;
+    antenna.polarization_file = rx.rx_polarization_file;
+    if (IsNonZeroVector(rx.rx_forward_x, rx.rx_forward_y, rx.rx_forward_z)) {
+        antenna.forward_x = rx.rx_forward_x;
+        antenna.forward_y = rx.rx_forward_y;
+        antenna.forward_z = rx.rx_forward_z;
+    }
+    if (IsNonZeroVector(rx.rx_up_x, rx.rx_up_y, rx.rx_up_z)) {
+        antenna.up_x = rx.rx_up_x;
+        antenna.up_y = rx.rx_up_y;
+        antenna.up_z = rx.rx_up_z;
+    }
+    return antenna;
+}
+
+AppConfig BuildConfigForP2PTask(const AppConfig& baseConfig,
+                                const P2PLinkTask& task,
+                                const std::string& baseRunId)
+{
+    AppConfig config = baseConfig;
+    config.app_runtime.run_id = baseRunId + "/" + task.id;
+    config.path_search.tx_x = task.tx.x;
+    config.path_search.tx_y = task.tx.y;
+    config.path_search.tx_z = task.tx.z;
+    config.path_search.rx_x = task.rx.x;
+    config.path_search.rx_y = task.rx.y;
+    config.path_search.rx_z = task.rx.z;
+    config.path_search.rx_list.clear();
+    config.sbr.tx_power_dBm = task.tx.power_dBm;
+    config.tx_antenna = BuildTxAntennaConfigForTask(task.tx);
+    config.rx_antenna = BuildRxAntennaConfigForTask(task.rx);
+    return config;
+}
+
+bool ExportSbrGeometryPaths(
+    const std::string& runId,
+    const SbrCoverageResult& result,
+    const SbrContext& context,
+    Logger& logger)
+{
+    const std::string root = "output/" + runId + "/paths";
+    std::error_code ec;
+    std::filesystem::create_directories(root, ec);
+    if (ec)
+    {
+        logger.Log(LogLevel::Error, "导出", "几何路径导出目录创建失败：" + root);
+        return false;
+    }
+
+    int fileCount = 0;
+    long long exportedPathCount = 0;
+    std::vector<std::string> files;
+
+    for (const RxCoverageRecord& rec : result.rx_records)
+    {
+        if (rec.paths.empty())
+        {
+            continue;
+        }
+
+        const std::string fileName = "rx_" + std::to_string(rec.rx_index) + "_sbr_paths.json";
+        const std::string filePath = root + "/" + fileName;
+        std::ofstream out(filePath);
+        if (!out.is_open())
+        {
+            logger.Log(LogLevel::Error, "导出", "几何路径文件打开失败：" + filePath);
+            return false;
+        }
+
+        out << "{\n"
+            << "  \"source\": \"sbr_v11_p2p_geometry_paths\",\n"
+            << "  \"trace_profile\": \"" << JsonEscape(result.trace_profile) << "\",\n"
+            << "  \"rx_index\": " << rec.rx_index << ",\n"
+            << "  \"tx_position\": [" << context.tx_point.x << ", " << context.tx_point.y << ", " << context.tx_point.z << "],\n"
+            << "  \"rx_position\": [" << rec.rx_position.x << ", " << rec.rx_position.y << ", " << rec.rx_position.z << "],\n"
+            << "  \"path_count\": " << rec.paths.size() << ",\n"
+            << "  \"paths\": [\n";
+
+        for (std::size_t pi = 0; pi < rec.paths.size(); ++pi)
+        {
+            const GeometricPath& path = rec.paths[pi];
+            out << "    {\n"
+                << "      \"path_id\": " << path.path_id << ",\n"
+                << "      \"path_signature\": \"" << PathSignatureHex(path.path_signature) << "\",\n"
+                << "      \"valid\": " << (path.valid ? "true" : "false") << ",\n"
+                << "      \"is_los\": " << (path.is_los ? "true" : "false") << ",\n"
+                << "      \"contains_transmission\": " << (path.contains_transmission ? "true" : "false") << ",\n"
+                << "      \"total_length_m\": " << path.total_length << ",\n"
+                << "      \"geometry_residual\": " << path.geometry_residual << ",\n"
+                << "      \"reflection_residual_m\": " << path.reflection_residual_m << ",\n"
+                << "      \"max_snell_residual\": " << path.max_snell_residual << ",\n"
+                << "      \"max_keller_residual\": " << path.max_keller_residual << ",\n"
+                << "      \"residual_reject_reason\": \"" << JsonEscape(path.residual_reject_reason) << "\",\n"
+                << "      \"nodes\": [\n";
+
+            for (std::size_t ni = 0; ni < path.nodes.size(); ++ni)
+            {
+                const PathNode& node = path.nodes[ni];
+                out << "        {"
+                    << "\"interaction_type\": " << static_cast<int>(node.interaction_type)
+                    << ", \"interaction_name\": \"" << InteractionTypeLabel(node.interaction_type) << "\""
+                    << ", \"object_id\": " << node.object_id
+                    << ", \"face_id\": " << node.face_id
+                    << ", \"wedge_id\": " << node.wedge_id
+                    << ", \"x\": " << node.point.x
+                    << ", \"y\": " << node.point.y
+                    << ", \"z\": " << node.point.z
+                    << ", \"segment_length_m\": " << node.segment_length_from_previous
+                    << ", \"incident_direction\": [" << node.incident_direction.x << ", " << node.incident_direction.y << ", " << node.incident_direction.z << "]"
+                    << ", \"outgoing_direction\": [" << node.direction.x << ", " << node.direction.y << ", " << node.direction.z << "]"
+                    << ", \"surface_normal\": [" << node.surface_normal.x << ", " << node.surface_normal.y << ", " << node.surface_normal.z << "]"
+                    << ", \"snell_residual\": " << node.snell_residual
+                    << ", \"keller_residual\": " << node.diffraction_diag.keller_residual
+                    << "}";
+                if (ni + 1U < path.nodes.size())
+                {
+                    out << ",";
+                }
+                out << "\n";
+            }
+
+            out << "      ]\n"
+                << "    }";
+            if (pi + 1U < rec.paths.size())
+            {
+                out << ",";
+            }
+            out << "\n";
+        }
+
+        out << "  ]\n"
+            << "}\n";
+        out.close();
+
+        files.push_back(fileName);
+        ++fileCount;
+        exportedPathCount += static_cast<long long>(rec.paths.size());
+    }
+
+    const std::string manifestPath = root + "/sbr_paths_manifest.json";
+    std::ofstream manifest(manifestPath);
+    if (!manifest.is_open())
+    {
+        logger.Log(LogLevel::Error, "导出", "几何路径清单导出失败：" + manifestPath);
+        return false;
+    }
+    manifest << "{\n"
+             << "  \"source\": \"sbr_v11_p2p_geometry_paths\",\n"
+             << "  \"trace_profile\": \"" << JsonEscape(result.trace_profile) << "\",\n"
+             << "  \"rx_file_count\": " << fileCount << ",\n"
+             << "  \"path_count\": " << exportedPathCount << ",\n"
+             << "  \"files\": [";
+    for (std::size_t i = 0; i < files.size(); ++i)
+    {
+        if (i > 0)
+        {
+            manifest << ", ";
+        }
+        manifest << "\"" << JsonEscape(files[i]) << "\"";
+    }
+    manifest << "]\n}\n";
+    manifest.close();
+
+    logger.Log(LogLevel::Info, "导出",
+        "几何路径已导出：" + root + "（" +
+        std::to_string(exportedPathCount) + " 条）");
+    return true;
+}
+
+SearchEngineResult BuildSearchResultFromSbrRecord(
+    const SbrCoverageResult& sbrResult,
+    const RxCoverageRecord& record)
+{
+    SearchEngineResult result;
+    result.succeeded = !record.paths.empty();
+    result.source_tag = "sbr_v11_p2p_geometry_output";
+    result.uses_real_scene_query = true;
+    result.path_set.paths = record.paths;
+    result.generated_state_count = static_cast<int>(sbrResult.rx_paths_recorded);
+    result.candidate_state_count = static_cast<int>(sbrResult.paths_after_postprocess);
+    result.accepted_state_count = static_cast<int>(result.path_set.paths.size());
+    result.deduplicated_path_count = static_cast<int>(
+        sbrResult.rx_paths_deduplicated +
+        sbrResult.paths_pruned_by_post_dedup +
+        sbrResult.paths_pruned_by_similarity +
+        sbrResult.paths_pruned_by_top_n +
+        sbrResult.paths_pruned_by_residual);
+    result.trace_lines = sbrResult.trace_lines;
+    return result;
+}
+
+SearchEngineResult RunSbrPointToPointSearch(
+    const AppConfig& config,
+    const Scene& scene,
+    const MaterialDatabase* matDb,
+    const Point3& rxPoint,
+    Logger& logger,
+    const std::string& taskLabel)
+{
+    SbrContext sbrCtx;
+    sbrCtx.config = &config;
+    sbrCtx.scene = &scene;
+    sbrCtx.scene_query = scene.query.get();
+    sbrCtx.material_db = matDb;
+    sbrCtx.tx_point = MakeVec3(config.path_search.tx_x,
+                               config.path_search.tx_y,
+                               config.path_search.tx_z);
+    sbrCtx.rx_grid.push_back(rxPoint);
+    sbrCtx.store_paths = true;
+    sbrCtx.tx_power_dBm = config.sbr.tx_power_dBm;
+
+    SbrEngine sbrEngine;
+    const RtClock::time_point searchStart = RtClock::now();
+    SbrCoverageResult sbrResult = sbrEngine.RunPointToPoint(sbrCtx);
+    const double searchSeconds = ElapsedSeconds(searchStart, RtClock::now());
+
+    if (sbrResult.succeeded)
+    {
+        ExportSbrGeometryPaths(config.app_runtime.run_id, sbrResult, sbrCtx, logger);
+    }
+
+    if (!sbrResult.succeeded || sbrResult.rx_records.empty())
+    {
+        SearchEngineResult failed;
+        failed.source_tag = "sbr_v11_p2p_geometry_output";
+        failed.trace_lines = sbrResult.trace_lines;
+        return failed;
+    }
+
+    SearchEngineResult result = BuildSearchResultFromSbrRecord(sbrResult, sbrResult.rx_records.front());
+    const PathSummaryStats pathStats = BuildPathSummaryStats(result.path_set.paths);
+
+    std::ostringstream summary;
+    summary << taskLabel << " 寻径完成：原始路径 " << sbrResult.rx_paths_recorded
+            << "，严格去重后 " << sbrResult.paths_after_postprocess
+            << "，EM 可用路径 " << result.path_set.paths.size()
+            << "，耗时 " << FormatSeconds(searchSeconds);
+    logger.Log(result.succeeded ? LogLevel::Info : LogLevel::Error, "寻径", summary.str());
+
+    std::ostringstream typeSummary;
+    typeSummary << taskLabel << " 路径类型：LOS " << pathStats.los_paths
+                << "，含反射 " << pathStats.reflection_paths
+                << "，含透射 " << pathStats.transmission_paths
+                << "，含绕射 " << pathStats.diffraction_paths;
+    logger.Log(LogLevel::Info, "寻径", typeSummary.str());
+
+    std::ostringstream nodeSummary;
+    nodeSummary << taskLabel << " 交互节点：反射节点 " << pathStats.reflection_nodes
+                << "，透射节点 " << pathStats.transmission_nodes
+                << "，绕射节点 " << pathStats.diffraction_nodes;
+    logger.Log(LogLevel::Info, "寻径", nodeSummary.str());
+
+    logger.Log(LogLevel::Info, "寻径",
+        taskLabel + " 主要交互序列：" + FormatTopSequences(pathStats.top_sequences));
+    return result;
+}
 
 /// <summary>
 /// Writes every warning and error from a ConfigValidationResult into the unified logger.
@@ -49,44 +512,20 @@ void LogValidationResult(Logger& logger, const ConfigValidationResult& validatio
 {
     for (const std::string& warning : validation.warnings)
     {
-        logger.Log(LogLevel::Warn, "Module1", warning);
+        logger.Log(LogLevel::Warn, "配置", warning);
     }
 
     for (const std::string& error : validation.errors)
     {
-        logger.Log(LogLevel::Error, "Module1", error);
+        logger.Log(LogLevel::Error, "配置", error);
     }
-}
-
-/// <summary>
-/// Constructs the minimal PathSearchContext for Batch-5 from config, scene, and material DB.
-/// Copies TX/RX debug positions and wires the scene query pointer.
-/// </summary>
-/// <param name="config">Application configuration.</param>
-/// <param name="scene">Static scene with geometry and query facade.</param>
-/// <param name="matDb">Material database (dielectric constants).</param>
-/// <returns>Populated PathSearchContext ready for the SearchEngine.</returns>
-PathSearchContext BuildBatch5SearchContext(const AppConfig& config, const Scene& scene, const MaterialDatabase* matDb)
-{
-    PathSearchContext context;
-    context.config = &config;
-    context.scene = &scene;
-    context.scene_query = scene.query.get();
-    context.material_db = matDb;
-    context.tx_point.x = config.path_search.tx_x;
-    context.tx_point.y = config.path_search.tx_y;
-    context.tx_point.z = config.path_search.tx_z;
-    context.rx_point.x = config.path_search.rx_x;
-    context.rx_point.y = config.path_search.rx_y;
-    context.rx_point.z = config.path_search.rx_z;
-    return context;
 }
 
 } // namespace
 
 /// <summary>
-/// Runs the full pipeline: config load/validation, scene batches 2-4, Batch-5 search,
-/// A1 real chain, and optional SBR coverage sweep.
+/// Runs the v11 main pipeline: config load/validation, scene import/preprocess/query,
+/// SBR P2P geometry search, EM calculation, and result export.
 /// </summary>
 /// <param name="configPath">Path to the JSON configuration file.</param>
 /// <returns>Structured result with success flag, exit code, and completed batch number.</returns>
@@ -94,508 +533,320 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
 {
     PipelineRunResult runResult;
 
-    // --- Batch 0/1: Config loading, validation, and module-1 self-check ---
+    const RtClock::time_point pipelineStart = RtClock::now();
+    const RtClock::time_point configLoadStart = RtClock::now();
     const AppConfigLoadResult loadResult = LoadAppConfigFromJsonFile(configPath);
+    AppConfig config = loadResult.config;
+    NormalizeRuntimeOutputPaths(config);
 
     Logger logger;
-    logger.Initialize(loadResult.config.app_runtime);
+    logger.Initialize(config.app_runtime);
 
     const VersionInfo versionInfo = VersionInfo::Current();
-    logger.Log(LogLevel::Info, "App", "RT 流水线启动。");
-    logger.Log(LogLevel::Info, "App", "配置文件: " + configPath);
-    logger.Log(LogLevel::Info, "App", "程序版本: " + versionInfo.program_version);
-    logger.Log(LogLevel::Info, "App", "配置架构版本: " + versionInfo.config_schema_version);
-    logger.Log(LogLevel::Info, "App", "运行标识: " + loadResult.config.app_runtime.run_id);
+    static_cast<void>(versionInfo);
+    logger.Log(LogLevel::Info, "运行时", "开始仿真：" + config.app_runtime.run_id);
+    logger.Log(LogLevel::Info, "配置", "配置文件：" + configPath);
+    logger.Log(LogLevel::Info, "配置", "日志文件：" + config.app_runtime.log_file_path);
 
-    for (const RtError& error : loadResult.errors)
-    {
-        logger.LogError("Module1", error);
+    for (const RtError& error : loadResult.errors) {
+        logger.LogError("配置", error);
     }
-
-    if (!loadResult.load_succeeded)
-    {
-        logger.Log(LogLevel::Fatal, "App", "配置加载失败，无法继续。");
+    if (!loadResult.load_succeeded) {
+        logger.Log(LogLevel::Fatal, "配置", "配置读取失败。");
         return runResult;
     }
 
-    const ConfigValidationResult validation = ValidateAppConfig(loadResult.config);
+    const ConfigValidationResult validation = ValidateAppConfig(config);
     LogValidationResult(logger, validation);
-
-    if (!validation.passed)
-    {
-        logger.Log(LogLevel::Fatal, "App", "配置校验不通过。");
+    if (!validation.passed) {
+        logger.Log(LogLevel::Fatal, "配置", "配置检查失败。");
         return runResult;
     }
 
-    std::ostringstream summary;
-    summary << "校验通过。模式=" << loadResult.config.app_runtime.mode
-            << ", 日志级别=" << loadResult.config.app_runtime.log_level
-            << ", 频率=" << loadResult.config.em_solver.frequency_hz << " Hz";
-    logger.Log(LogLevel::Info, "App", summary.str());
+    logger.Log(LogLevel::Info, "配置",
+        "配置检查通过，耗时 " + FormatSeconds(ElapsedSeconds(configLoadStart, RtClock::now())) + "。");
 
-    if (loadResult.config.output.export_config_snapshot)
-    {
-        const AppConfigSnapshotWriteResult snapshotWriteResult = WriteAppConfigSnapshot(loadResult.config);
-        if (!snapshotWriteResult.succeeded)
-        {
-            logger.LogError("Module1", snapshotWriteResult.error);
-            logger.Log(LogLevel::Fatal, "App", "配置快照导出失败。");
+    if (config.output.export_config_snapshot) {
+        const AppConfigSnapshotWriteResult snapshotWriteResult = WriteAppConfigSnapshot(config);
+        if (!snapshotWriteResult.succeeded) {
+            logger.LogError("配置", snapshotWriteResult.error);
+            logger.Log(LogLevel::Fatal, "配置", "配置快照导出失败。");
             return runResult;
         }
-
-        logger.Log(LogLevel::Info, "App", "配置快照已导出: " + snapshotWriteResult.output_file_path);
+        logger.Log(LogLevel::Info, "配置", "配置快照：" + snapshotWriteResult.output_file_path);
     }
 
-    if (loadResult.config.validation.run_module1_self_check) {
-        const ConfigSelfCheckResult selfCheckResult = RunModule1SelfCheck(loadResult.config);
-        for (const std::string& detail : selfCheckResult.details)
-            logger.Log(LogLevel::Info, "模块1", "自检: " + detail);
+    if (config.validation.run_module1_self_check) {
+        const ConfigSelfCheckResult selfCheckResult = RunModule1SelfCheck(config);
+        for (const std::string& detail : selfCheckResult.details) {
+            logger.Log(LogLevel::Info, "配置", "自检：" + detail);
+        }
         if (!selfCheckResult.succeeded) {
-            logger.LogError("模块1", selfCheckResult.error);
-            logger.Log(LogLevel::Fatal, "App", "模块1自检未通过。");
+            logger.LogError("配置", selfCheckResult.error);
+            logger.Log(LogLevel::Fatal, "配置", "配置自检失败。");
             return runResult;
         }
-        logger.Log(LogLevel::Info, "模块1", "模块1自检通过。");
+        logger.Log(LogLevel::Info, "配置", "配置自检通过。");
     }
 
-    logger.Log(LogLevel::Info, "App", "批次0/1: 启动闭环完成。");
-
-    // Batch2: 场景导入与语义恢复
-    const SceneBatch2BuildResult batch2Result = BuildSceneForBatch2(loadResult.config);
-    for (const RtError& error : batch2Result.errors) logger.LogError("模块2", error);
+    const RtClock::time_point sceneImportStart = RtClock::now();
+    const SceneBatch2BuildResult batch2Result = BuildSceneForBatch2(config);
+    for (const RtError& error : batch2Result.errors) logger.LogError("场景", error);
     if (!batch2Result.succeeded) {
-        logger.Log(LogLevel::Fatal, "App", "批次2: 场景导入与语义恢复失败。");
+        logger.Log(LogLevel::Fatal, "场景", "场景导入或材质绑定失败。");
         return runResult;
     }
-    logger.Log(LogLevel::Info, "App", "批次2: 场景导入与语义恢复完成。");
+    {
+        std::ostringstream out;
+        out << "场景导入完成：顶点 " << batch2Result.scene.vertices.size()
+            << "，面元 " << batch2Result.scene.faces.size()
+            << "，物体 " << batch2Result.scene.objects.size()
+            << "，材质绑定 " << batch2Result.scene.material_bindings.size()
+            << "，耗时 " << FormatSeconds(ElapsedSeconds(sceneImportStart, RtClock::now())) << "。";
+        logger.Log(LogLevel::Info, "场景", out.str());
+    }
 
-    const SceneBatch3BuildResult batch3Result = BuildSceneForBatch3(loadResult.config, batch2Result.scene);
-    for (const RtError& error : batch3Result.errors) logger.LogError("模块2", error);
+    const RtClock::time_point preprocessStart = RtClock::now();
+    const SceneBatch3BuildResult batch3Result = BuildSceneForBatch3(config, batch2Result.scene);
+    for (const RtError& error : batch3Result.errors) logger.LogError("预处理", error);
     if (!batch3Result.succeeded) {
-        logger.Log(LogLevel::Fatal, "App", "批次3: 拓扑、诊断与加速结构构建失败。");
+        logger.Log(LogLevel::Fatal, "预处理", "场景拓扑或预处理失败。");
         return runResult;
     }
-    logger.Log(LogLevel::Info, "App", "批次3: 拓扑、诊断与加速结构完成。");
+    {
+        const auto& acc = batch3Result.scene.acceleration;
+        std::ostringstream out;
+        out << "场景预处理完成：边 " << batch3Result.scene.edges.size()
+            << "，楔边 " << batch3Result.scene.wedges.size()
+            << "，FaceBVH 节点 " << acc.face_acceleration.bvh_node_count
+            << "，叶节点 " << acc.face_acceleration.leaf_node_count
+            << "，最大深度 " << acc.diagnostics.face_bvh_max_depth
+            << "，BVH 构建耗时 " << acc.diagnostics.face_bvh_build_time_ms << " ms"
+            << "，总耗时 " << FormatSeconds(ElapsedSeconds(preprocessStart, RtClock::now())) << "。";
+        logger.Log(LogLevel::Info, "预处理", out.str());
+        if (config.sbr.max_diffraction_count > 0) {
+            logger.Log(LogLevel::Info, "预处理",
+                "绕射棱边构建完成：满足 UTD 条件棱边 " +
+                std::to_string(acc.wedge_acceleration.diffractable_wedge_count) + "。");
+        }
+    }
 
-    SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(loadResult.config, batch3Result.scene);
-    for (const RtError& error : batch4Result.errors) logger.LogError("模块2", error);
+    const RtClock::time_point queryStart = RtClock::now();
+    SceneBatch4BuildResult batch4Result = BuildSceneForBatch4(config, batch3Result.scene);
+    for (const RtError& error : batch4Result.errors) logger.LogError("预处理", error);
     if (!batch4Result.succeeded) {
-        logger.Log(LogLevel::Fatal, "App", "批次4: 查询门面与场景缓存构建失败。");
+        logger.Log(LogLevel::Fatal, "预处理", "SceneQuery 构建失败。");
         return runResult;
     }
-    logger.Log(LogLevel::Info, "App", "批次4: 查询门面与场景缓存完成。");
-    if (batch4Result.scene.query) {
-        logger.Log(LogLevel::Info, "BackendDiag", batch4Result.scene.query->GetBackendDiagnostics());
-    }
+    logger.Log(LogLevel::Info, "预处理",
+        "SceneQuery 构建完成，耗时 " + FormatSeconds(ElapsedSeconds(queryStart, RtClock::now())) + "。");
 
-    // 材质数据库: 加载介电常数
     MaterialDatabase matDb;
-    if (!loadResult.config.material.material_database_file.empty()) {
-        const bool loaded = matDb.LoadFromCsv(loadResult.config.material.material_database_file);
-        // v9 step4: 加载失败不再静默继续 — CSV文件路径存在但无法读取或为空时中止
+    if (!config.material.material_database_file.empty()) {
+        const bool loaded = matDb.LoadFromCsv(config.material.material_database_file);
         if (!loaded) {
-            logger.Log(LogLevel::Error, "App",
-                "Material database failed to load: " + loadResult.config.material.material_database_file);
+            logger.Log(LogLevel::Error, "材料",
+                "材料数据库读取失败：" + config.material.material_database_file);
             runResult.succeeded = false;
             runResult.exit_code = static_cast<int>(ErrorCode::FileNotFound);
             return runResult;
         }
-        logger.Log(LogLevel::Info, "App", "材质数据库已加载: " + loadResult.config.material.material_database_file);
+        const std::vector<double> frequencySamples = matDb.FrequencySamplesHz();
+        std::ostringstream matLog;
+        matLog << "材料数据库读取完成：" << config.material.material_database_file
+               << "，材料 " << matDb.MaterialCount() << " 类";
+        if (!frequencySamples.empty()) {
+            matLog << "，表内频点 ";
+            const std::size_t showCount = std::min<std::size_t>(frequencySamples.size(), 8U);
+            for (std::size_t i = 0; i < showCount; ++i) {
+                if (i > 0) matLog << "/";
+                matLog << FormatFrequencyGHz(frequencySamples[i]);
+            }
+            if (frequencySamples.size() > showCount) matLog << "/...";
+        }
+        logger.Log(LogLevel::Info, "材料", matLog.str());
+
+        if (matDb.IsFrequencyInTabulatedRange(config.em_solver.frequency_hz)) {
+            logger.Log(LogLevel::Info, "材料",
+                "当前仿真频点 " + FormatFrequencyGHz(config.em_solver.frequency_hz) +
+                " 位于材料表范围内，材料查询使用对数-对数幂律插值。");
+        } else {
+            logger.Log(LogLevel::Warn, "材料",
+                "当前仿真频点 " + FormatFrequencyGHz(config.em_solver.frequency_hz) +
+                " 超出材料表范围；材料查询将使用 ITU-R P.2040 幂律模型进行表外外推。");
+        }
     }
 
-    // v7.3: 预查所有面元电参数 + v9 G-3: 材质绑定诊断
     if (!matDb.empty()) {
-        const double fq = loadResult.config.em_solver.frequency_hz;
-        int matMissingCount = 0, matSameCount = 0;
+        const double fq = config.em_solver.frequency_hz;
+        int matMissingCount = 0;
+        int matSameCount = 0;
         for (Face& face : batch4Result.scene.faces) {
             if (!face.surface_material_name.empty()) {
                 MaterialProps sp = matDb.QueryByName(face.surface_material_name, fq);
                 face.surface_eps_r = sp.epsilon_r;
                 face.surface_sigma = sp.sigma;
-                // v9 G-3: 材质缺失诊断
                 if (sp.name.empty() && face.surface_material_name != "vacuum") {
-                    matMissingCount++;
+                    ++matMissingCount;
                     if (matMissingCount <= 10) {
-                        logger.Log(LogLevel::Warn, "MaterialCheck",
-                            "Face #" + std::to_string(face.face_id) + " material '" +
-                            face.surface_material_name + "' not in DB → vacuum");
+                        logger.Log(LogLevel::Warn, "材料",
+                            "面元 #" + std::to_string(face.face_id) + " 的材料 '" +
+                            face.surface_material_name + "' 不在数据库中，临时按真空处理。");
                     }
-                }
-            }
-            // v9 G-3: 透射面前后介质相同警告
-            if (face.transmission_enabled && face.dual_side_material_resolved &&
-                !face.front_material_name.empty() &&
-                face.front_material_name == face.back_material_name) {
-                matSameCount++;
-            }
-        }
-        // v9 StageH: strict material policy enforcement
-        std::string policy = loadResult.config.material.missing_material_policy;
-        if (matMissingCount > 0) {
-            if (policy == "strict") {
-                logger.Log(LogLevel::Fatal, "MaterialCheck",
-                    std::to_string(matMissingCount) + " faces have materials not in DB. Policy=strict → abort.");
-                runResult.succeeded = false;
-                runResult.exit_code = static_cast<int>(ErrorCode::ValidationFailed);
-                return runResult;
-            }
-            logger.Log(LogLevel::Warn, "MaterialCheck",
-                std::to_string(matMissingCount) + " faces have materials not found in database");
-        }
-        if (matSameCount > 0) {
-            logger.Log(LogLevel::Warn, "MaterialCheck",
-                std::to_string(matSameCount) + " transmission faces have front==back material");
-        }
-    }
-
-    // v8 Phase 1: 场景可见性预计算 (PVS + Edge Adjacency + Angular Grid)
-    if (loadResult.config.pipeline.enable_stage0_precompute && batch4Result.scene.query) {
-        SceneVisibilityBuilder::BuildAll(batch4Result.scene, *batch4Result.scene.query, loadResult.config);
-        std::ostringstream pvsLog;
-        pvsLog << "预计算完成: PVS=" << batch4Result.scene.visibility.face_pvs.total_entries
-               << " entries, EdgeAdj=" << batch4Result.scene.visibility.edge_adjacency.total_edges
-               << " pairs, AngularGrid=" << batch4Result.scene.visibility.angular_grid.CellCount()
-               << " cells, time=" << batch4Result.scene.visibility.build_time_seconds << "s";
-        logger.Log(LogLevel::Info, "S0", pvsLog.str());
-    }
-
-    // v9 StageH: Scene preflight report
-    {
-        std::ostringstream preflight;
-        preflight << "{\n  \"scene\": \"" << loadResult.config.scene_import.source_file << "\",\n"
-                  << "  \"faces\": " << batch4Result.scene.faces.size() << ",\n"
-                  << "  \"vertices\": " << batch4Result.scene.vertices.size() << ",\n"
-                  << "  \"wedges\": " << batch4Result.scene.wedges.size() << ",\n"
-                  << "  \"diffractable_wedges\": " << batch4Result.scene.acceleration.wedge_acceleration.diffractable_wedge_count << ",\n"
-                  << "  \"material_policy\": \"" << loadResult.config.material.missing_material_policy << "\",\n"
-                  << "  \"material_db\": \"" << loadResult.config.material.material_database_file << "\",\n"
-                  << "  \"normals_from_file\": " << (batch4Result.scene.normals.size() > 0 ? "true" : "false") << ",\n"
-                  << "  \"wedge_build_enabled\": " << (loadResult.config.scene_preprocess.enable_wedge_build ? "true" : "false") << ",\n"
-                  << "  \"material_issues\": [\n";
-        // List faces with material issues
-        bool firstIssue = true;
-        for (const auto& face : batch4Result.scene.faces) {
-            bool hasIssue = false;
-            std::string issue;
-            if (!face.surface_material_name.empty() && face.surface_eps_r <= 1.01 && face.surface_sigma <= 0.0) {
-                // surface material likely not found (vacuum fallback)
-                if (face.surface_material_name != "vacuum") {
-                    hasIssue = true; issue = "surface material '" + face.surface_material_name + "' may be missing";
                 }
             }
             if (face.transmission_enabled && face.dual_side_material_resolved &&
                 !face.front_material_name.empty() && face.front_material_name == face.back_material_name) {
-                hasIssue = true; issue = "front==back material on transmission face";
-            }
-            if (hasIssue) {
-                if (!firstIssue) preflight << ",\n";
-                preflight << "    {\"face_id\": " << face.face_id << ", \"issue\": \"" << issue << "\"}";
-                firstIssue = false;
+                ++matSameCount;
             }
         }
-        preflight << "\n  ]\n}\n";
-        std::string dir = "output/" + loadResult.config.app_runtime.run_id + "/reports";
-        std::string preflightPath = dir + "/scene_preflight_report.json";
-        std::error_code ec;
-        std::filesystem::create_directories(dir, ec);
-        std::ofstream pf(preflightPath);
-        if (pf.is_open()) { pf << preflight.str(); pf.close(); }
-    }
-
-    // v8 Phase 2: SBR粗扫 + Rx种子采样 (收集活跃面元集)
-    SbrCoarseResult coarseResult;
-    if (loadResult.config.pipeline.enable_stage1_coarse_sbr && batch4Result.scene.query) {
-        SbrEngine sbrEngine;
-        SbrCoarseContext coarseCtx;
-        coarseCtx.config = &loadResult.config;
-        coarseCtx.scene = &batch4Result.scene;
-        coarseCtx.scene_query = batch4Result.scene.query.get();
-        coarseCtx.tx_point = MakeVec3(loadResult.config.path_search.tx_x,
-                                       loadResult.config.path_search.tx_y,
-                                       loadResult.config.path_search.tx_z);
-        coarseCtx.rx_grid = {}; // 从path_search单Rx创建
-        coarseCtx.rx_grid.push_back(MakeVec3(loadResult.config.path_search.rx_x,
-                                              loadResult.config.path_search.rx_y,
-                                              loadResult.config.path_search.rx_z));
-        coarseCtx.coarse_ray_count = 200000;
-        coarseCtx.coarse_max_depth = 5;
-        coarseCtx.coarse_rx_sphere_radius = 2.0;
-        coarseCtx.expand_pvs = batch4Result.scene.visibility.face_pvs.valid;
-        coarseResult = sbrEngine.RunCoarsePass(coarseCtx);
-        for (auto& line : coarseResult.trace_lines)
-            logger.Log(LogLevel::Info, "S1", line);
-
-        // RxSeedSampler
-        RxSeedSamplerConfig seedCfg;
-        seedCfg.target_seed_count = loadResult.config.pipeline.seed_rx_count;
-        seedCfg.uniform_stride_m = loadResult.config.pipeline.seed_spatial_stride;
-        auto seeds = RxSeedSampler::Sample(coarseCtx.rx_grid, coarseResult.rx_active_mask,
-                                            coarseResult.rx_active_faces, seedCfg);
-        std::ostringstream seedLog;
-        seedLog << "种子Rx: " << seeds.seed_count << " seeds, avg "
-                << seeds.avg_rx_per_seed << " Rx/seed, max " << seeds.max_rx_per_seed;
-        logger.Log(LogLevel::Info, "S1", seedLog.str());
-    }
-
-    // --- Search context setup: build the minimal PathSearchContext for Batch 5 ---
-    const PathSearchContext batch5SearchContext = BuildBatch5SearchContext(loadResult.config, batch4Result.scene, &matDb);
-    SearchEngine searchEngine;
-    SearchEngineResult batch5Result;
-
-    // v8 hybrid: AngularGrid方向查询 + 2-hop PVS扩展 → 全量约束搜索
-    if (coarseResult.succeeded && loadResult.config.pipeline.enable_stage2_constrained_search
-        && batch4Result.scene.visibility.face_pvs.valid
-        && batch4Result.scene.visibility.angular_grid.valid) {
-        const auto& pvs = batch4Result.scene.visibility.face_pvs;
-        const auto& ag = batch4Result.scene.visibility.angular_grid;
-
-        for (auto& kv : coarseResult.rx_active_faces) {
-            std::set<int> expanded;
-            // 从AngularGrid收集: 对Tx位置的各方向查询可见面元
-            Point3 txPt = MakeVec3(loadResult.config.path_search.tx_x,
-                                    loadResult.config.path_search.tx_y,
-                                    loadResult.config.path_search.tx_z);
-            const int nAzi=ag.n_azimuth, nZen=ag.n_zenith;
-            for (int azi=0; azi<nAzi; azi+=4) {    // 降采样加速
-                for (int zen=0; zen<nZen; zen+=2) {
-                    int ci = ag.CellIndex(azi, zen);
-                    if (ci>=0 && ci<static_cast<int>(ag.cells.size())) {
-                        for (int fid : ag.cells[ci]) expanded.insert(fid);
-                    }
-                }
+        if (matMissingCount > 0) {
+            if (config.material.missing_material_policy == "strict") {
+                logger.Log(LogLevel::Fatal, "材料",
+                    std::to_string(matMissingCount) + " 个面元材料不在数据库中，当前策略为 strict。");
+                runResult.exit_code = static_cast<int>(ErrorCode::ValidationFailed);
+                return runResult;
             }
-            // 2-hop PVS扩展
-            for (int hop=0; hop<2; ++hop) {
-                std::vector<int> cur(expanded.begin(), expanded.end());
-                for (int fid : cur) if (pvs.HasEntry(fid))
-                    for (int pf : pvs.GetVisibleFaces(fid)) expanded.insert(pf);
-            }
-            size_t sz0 = kv.second.size();
-            kv.second.assign(expanded.begin(), expanded.end());
-            std::sort(kv.second.begin(), kv.second.end());
-            logger.Log(LogLevel::Info, "S1", "Rx"+std::to_string(kv.first)+": "
-                +std::to_string(sz0)+"→"+std::to_string(kv.second.size())+" faces (AngularGrid+PVS2-hop)");
+            logger.Log(LogLevel::Warn, "材料",
+                std::to_string(matMissingCount) + " 个面元材料未在数据库中找到。");
+        }
+        if (matSameCount > 0) {
+            logger.Log(LogLevel::Warn, "材料",
+                std::to_string(matSameCount) + " 个透射面元的 front/back 材料相同。");
         }
     }
-    bool usedConstrainedSearch = false;
-    if (loadResult.config.pipeline.enable_stage2_constrained_search
-        && coarseResult.succeeded && !coarseResult.rx_active_faces.empty())
-    {
-        int rxIdx = 0;
-        ConstrainedSearchConfig csc;
-        auto itFaces = coarseResult.rx_active_faces.find(rxIdx);
-        auto itWedges = coarseResult.rx_active_wedges.find(rxIdx);
-        if (itFaces != coarseResult.rx_active_faces.end() && !itFaces->second.empty()) {
-            csc.candidate_faces = &itFaces->second;
-            logger.Log(LogLevel::Info, "S2", "约束搜索: candidate_faces="
-                + std::to_string(itFaces->second.size()) + " faces");
-        }
-        if (itWedges != coarseResult.rx_active_wedges.end() && !itWedges->second.empty()) {
-            csc.candidate_wedges = &itWedges->second;
-            logger.Log(LogLevel::Info, "S2", "约束搜索: candidate_wedges="
-                + std::to_string(itWedges->second.size()) + " wedges");
-        }
-        batch5Result = searchEngine.Run(batch5SearchContext, csc);
-        usedConstrainedSearch = true;
-    }
-    else
-    {
-        batch5Result = searchEngine.Run(batch5SearchContext);  // full search
+
+    if (config.pipeline.enable_stage0_precompute && batch4Result.scene.query) {
+        SceneVisibilityBuilder::BuildAll(batch4Result.scene, *batch4Result.scene.query, config);
+        std::ostringstream pvsLog;
+        pvsLog << "可见性预计算完成：PVS " << batch4Result.scene.visibility.face_pvs.total_entries
+               << " 条，EdgeAdj " << batch4Result.scene.visibility.edge_adjacency.total_edges
+               << " 对，AngularGrid " << batch4Result.scene.visibility.angular_grid.CellCount()
+               << " 个单元，耗时 " << batch4Result.scene.visibility.build_time_seconds << " s。";
+        logger.Log(LogLevel::Info, "预处理", pvsLog.str());
     }
 
-    // ── Phase 4: 路径复用验证 (有种子Rx时) ──
-    if (loadResult.config.pipeline.enable_stage3_path_reuse
-        && usedConstrainedSearch && batch5Result.succeeded
-        && !batch5Result.path_set.paths.empty())
-    {
-        Point3 refRx = MakeVec3(loadResult.config.path_search.rx_x,
-                                 loadResult.config.path_search.rx_y,
-                                 loadResult.config.path_search.rx_z);
-        Point3 neighborRx = MakeVec3(refRx.x + 0.5, refRx.y, refRx.z);  // 50cm offset
-        PathReuseConfig reuseCfg;
-        reuseCfg.max_reuse_distance_m = loadResult.config.pipeline.reuse_max_distance;
-        reuseCfg.verify_last_hop = loadResult.config.pipeline.reuse_verify_last_hop;
-        PathReuseResult reuseResult = PathReuseEngine::ReusePaths(
-            refRx, batch5Result.path_set.paths, neighborRx,
-            *batch4Result.scene.query, loadResult.config, reuseCfg);
-        std::ostringstream reuseLog;
-        reuseLog << "路径复用: " << reuseResult.reused_count << " reused, "
-                 << reuseResult.rejected_visibility << " rejected (visibility), "
-                 << reuseResult.rejected_distance << " rejected (distance)";
-        logger.Log(LogLevel::Info, "S3", reuseLog.str());
+    const std::string reportDir = "output/" + config.app_runtime.run_id + "/reports";
+    std::error_code ec;
+    std::filesystem::create_directories(reportDir, ec);
+    std::ofstream pf(reportDir + "/scene_preflight_report.json");
+    if (pf.is_open()) {
+        pf << "{\n"
+           << "  \"scene\": \"" << JsonEscape(config.scene_import.source_file) << "\",\n"
+           << "  \"faces\": " << batch4Result.scene.faces.size() << ",\n"
+           << "  \"vertices\": " << batch4Result.scene.vertices.size() << ",\n"
+           << "  \"wedges\": " << batch4Result.scene.wedges.size() << ",\n"
+           << "  \"diffractable_wedges\": " << batch4Result.scene.acceleration.wedge_acceleration.diffractable_wedge_count << ",\n"
+           << "  \"material_policy\": \"" << JsonEscape(config.material.missing_material_policy) << "\",\n"
+           << "  \"material_db\": \"" << JsonEscape(config.material.material_database_file) << "\"\n"
+           << "}\n";
     }
 
-    if (usedConstrainedSearch) {
-        logger.Log(LogLevel::Info, "S2", "约束搜索完成: " + std::to_string(batch5Result.path_set.paths.size()) + " paths");
-    }
-
-    if (!batch5Result.succeeded || batch5Result.path_set.paths.empty()) {
-        logger.Log(LogLevel::Fatal, "App", "搜索器未能建立基本LOS闭环。");
+    const bool preciseEnabled = config.pipeline.enable_stage4_precise_em
+        && config.em_solver.solver_mode != "Coverage";
+    if (!preciseEnabled) {
+        logger.Log(LogLevel::Fatal, "仿真",
+            "v11 主链要求启用 P2P 精确仿真：请开启 precise EM，并使用非 Coverage 求解模式。");
         return runResult;
     }
-    logger.Log(LogLevel::Info, "App", "批次5~9: 搜索/扩展器/EM/汇总/导出 全部完成。");
+    logger.Log(LogLevel::Info, "仿真", "P2P 点对点仿真已启用。");
+    logger.Log(LogLevel::Info, "仿真", "当前仿真频点：" + FormatFrequencyGHz(config.em_solver.frequency_hz) + "。");
+    LogSbrKeyParameters(logger, config);
 
-    // --- A1 chain execution: the real production Search->EM->Export pipeline ---
-    const bool isCoverageOnly = loadResult.config.sbr.enabled
-        && loadResult.config.em_solver.solver_mode == "Coverage";
-
-    A1RealChainRunResult a1Result;
-    if (!isCoverageOnly && loadResult.config.path_search.rx_list.empty()) {
-        // Single Rx: only run if no rx_list is specified
-        a1Result = RunA1RealChain(loadResult.config, batch4Result.scene, batch5Result, logger, &matDb);
-        if (!a1Result.succeeded)
-        {
-            logger.Log(LogLevel::Fatal, "App", "A1真实生产链执行失败。");
-            return runResult;
+    if (!config.v11_p2p_tasks.empty()) {
+        const std::string baseRunId = config.app_runtime.run_id;
+        std::set<std::string> txIds;
+        std::set<std::string> rxIds;
+        for (const P2PLinkTask& task : config.v11_p2p_tasks) {
+            txIds.insert(task.tx.id);
+            rxIds.insert(task.rx.id);
         }
-        logger.Log(LogLevel::Info, "App", "A1真实生产链闭环完成。");
-    } else if (isCoverageOnly) {
-        logger.Log(LogLevel::Info, "App", "Coverage-only: 跳过precise IM搜索, 直接进入SBR");
-    }
+        logger.Log(LogLevel::Info, "仿真",
+            "天线任务：Tx " + std::to_string(txIds.size()) +
+            " 个，Rx " + std::to_string(rxIds.size()) +
+            " 个，共 " + std::to_string(config.v11_p2p_tasks.size()) + " 条链路。");
+        logger.Log(LogLevel::Info, "仿真", "任务列表：" + BuildTaskListText(config.v11_p2p_tasks));
 
-    // v8 multi-Rx: loop over rx_list, each runs SearchEngine + A1 chain independently
-    if (!isCoverageOnly && !loadResult.config.path_search.rx_list.empty()) {
-        logger.Log(LogLevel::Info, "App", "多Rx批量Precise: " +
-            std::to_string(loadResult.config.path_search.rx_list.size()) + " targets");
-        for (const auto& rxTarget : loadResult.config.path_search.rx_list) {
-            std::string origRunId = loadResult.config.app_runtime.run_id;
-            const_cast<AppConfig&>(loadResult.config).app_runtime.run_id =
-                origRunId + "/" + rxTarget.id;
+        bool anyTaskSucceeded = false;
+        int succeededTasks = 0;
+        for (const P2PLinkTask& task : config.v11_p2p_tasks) {
+            logger.Log(LogLevel::Info, "任务", task.id + " 开始。");
+            const RtClock::time_point taskStart = RtClock::now();
+            AppConfig taskConfig = BuildConfigForP2PTask(config, task, baseRunId);
+            const Point3 rxPoint = MakeVec3(task.rx.x, task.rx.y, task.rx.z);
 
-            // Build Rx-specific search context (copy baseline, override Rx position)
-            PathSearchContext rxCtx = BuildBatch5SearchContext(loadResult.config, batch4Result.scene, &matDb);
-            rxCtx.rx_point = MakeVec3(rxTarget.x, rxTarget.y, rxTarget.z);
-
-            SearchEngine rxEngine;
-            SearchEngineResult rxResult = rxEngine.Run(rxCtx);
-
-            if (!rxResult.succeeded || rxResult.path_set.paths.empty()) {
-                logger.Log(LogLevel::Error, "App", "Rx " + rxTarget.id + " search failed, skip");
-                const_cast<AppConfig&>(loadResult.config).app_runtime.run_id = origRunId;
+            SearchEngineResult searchResult =
+                RunSbrPointToPointSearch(taskConfig, batch4Result.scene, &matDb, rxPoint, logger, task.id);
+            if (!searchResult.succeeded || searchResult.path_set.paths.empty()) {
+                logger.Log(LogLevel::Error, "任务", task.id + " 寻径失败，跳过后续电磁计算。");
                 continue;
             }
 
-            A1RealChainRunResult rxA1 = RunA1RealChain(loadResult.config, batch4Result.scene, rxResult, logger, &matDb);
-            logger.Log(LogLevel::Info, "App", "Rx " + rxTarget.id +
-                (rxA1.succeeded ? " done" : " EM failed") +
-                " -> output/" + loadResult.config.app_runtime.run_id);
-
-            const_cast<AppConfig&>(loadResult.config).app_runtime.run_id = origRunId;
-        }
-    }
-
-    // SBR覆盖仿真(可选)
-    if (loadResult.config.sbr.enabled) {
-        logger.Log(LogLevel::Info, "App", "SBR覆盖模式已启用，构建Rx网格...");
-
-        SbrContext sbrCtx;
-        sbrCtx.config = &loadResult.config;
-        sbrCtx.scene = &batch4Result.scene;
-        sbrCtx.scene_query = batch4Result.scene.query.get();
-        sbrCtx.tx_point.x = loadResult.config.path_search.tx_x;
-        sbrCtx.tx_point.y = loadResult.config.path_search.tx_y;
-        sbrCtx.tx_point.z = loadResult.config.path_search.tx_z;
-
-        const auto& sc = loadResult.config.sbr;
-        double gxMin = sc.rx_grid_min_x, gxMax = sc.rx_grid_max_x;
-        double gyMin = sc.rx_grid_min_y, gyMax = sc.rx_grid_max_y;
-        double gzMin = sc.rx_grid_min_z, gzMax = sc.rx_grid_max_z;
-
-        // 自动从场景AABB推导网格范围
-        if (sc.auto_grid_bounds && batch4Result.scene.acceleration.face_acceleration.valid) {
-            const auto& sb = batch4Result.scene.acceleration.face_acceleration.scene_bounds;
-            if (sb.valid) {
-                double m = std::max({sc.rx_grid_step_x, sc.rx_grid_step_y, sc.rx_grid_step_z}); // v6: auto
-                gxMin = sb.min.x + m; gxMax = sb.max.x - m;
-                gyMin = sb.min.y + m; gyMax = sb.max.y - m;
-                gzMin = sb.min.z + m; gzMax = sb.max.z - m;
-            }
+            const RtClock::time_point emStart = RtClock::now();
+            A1RealChainRunResult a1Result =
+                RunA1RealChain(taskConfig, batch4Result.scene, searchResult, logger, &matDb);
+            logger.Log(LogLevel::Info, "电磁计算",
+                task.id + " 电磁计算耗时 " + FormatSeconds(ElapsedSeconds(emStart, RtClock::now())) + "。");
+            logger.Log(LogLevel::Info, "任务", task.id +
+                (a1Result.succeeded ? " 完成" : " 电磁计算失败") +
+                "，输出目录：output/" + taskConfig.app_runtime.run_id +
+                "，任务耗时 " + FormatSeconds(ElapsedSeconds(taskStart, RtClock::now())) + "。");
+            anyTaskSucceeded = anyTaskSucceeded || a1Result.succeeded;
+            if (a1Result.succeeded) ++succeededTasks;
         }
 
-        for (double rx = gxMin; rx <= gxMax + 1e-9; rx += sc.rx_grid_step_x)
-            for (double ry = gyMin; ry <= gyMax + 1e-9; ry += sc.rx_grid_step_y)
-                for (double rz = gzMin; rz <= gzMax + 1e-9; rz += sc.rx_grid_step_z)
-                    sbrCtx.rx_grid.push_back(MakeVec3(rx, ry, rz));
-        sbrCtx.store_paths = sc.store_paths;
-        sbrCtx.tx_power_dBm = sc.tx_power_dBm;
-        sbrCtx.material_db = &matDb;
-
-        SbrEngine sbrEngine;
-        SbrCoverageResult sbrResult = sbrEngine.Run(sbrCtx);
-
-        for (const auto& line : sbrResult.trace_lines)
-            logger.Log(LogLevel::Info, "SBR", line);
-
-        std::ostringstream sbrSum;
-        sbrSum << "SBR coverage completed: rays=" << sbrResult.total_rays
-               << ", activeRx=" << sbrResult.active_rx_count
-               << "/" << sbrCtx.rx_grid.size();
-        logger.Log(LogLevel::Info, "SBR", sbrSum.str());
-
-        // 导出SBR覆盖结果JSON
-        std::string sbrOutDir = "output/" + loadResult.config.app_runtime.run_id + "/coverage";
-        std::string sbrJsonPath = sbrOutDir + "/sbr_coverage.json";
-        // 确保输出目录存在
-        { std::string cur; for (char c : sbrOutDir) { cur+=c; if (c=='/') CreateDirectoryA(cur.c_str(), nullptr); }
-          CreateDirectoryA(sbrOutDir.c_str(), nullptr); }
-        std::ofstream sbrFile(sbrJsonPath);
-        if (sbrFile.is_open()) {
-            sbrFile << "{\n";
-            sbrFile << "  \"total_rays\": " << sbrResult.total_rays << ",\n";
-            sbrFile << "  \"active_rx_count\": " << sbrResult.active_rx_count << ",\n";
-            sbrFile << "  \"rx_grid_count\": " << sbrCtx.rx_grid.size() << ",\n";
-            sbrFile << "  \"tx_power_dBm\": " << loadResult.config.sbr.tx_power_dBm << ",\n";
-            sbrFile << "  \"rx_sphere_radius_m\": " << loadResult.config.sbr.rx_sphere_radius_m << ",\n";
-            sbrFile << "  \"tx_position\": [" << sbrCtx.tx_point.x << ", " << sbrCtx.tx_point.y << ", " << sbrCtx.tx_point.z << "],\n";
-            if (!sbrCtx.rx_grid.empty()) {
-                sbrFile << "  \"rx_positions\": [[" << sbrCtx.rx_grid[0].x << ", " << sbrCtx.rx_grid[0].y << ", " << sbrCtx.rx_grid[0].z << "]],\n";
-            }
-            sbrFile << "  \"records\": [\n";
-            for (size_t i = 0; i < sbrResult.rx_records.size(); ++i) {
-                const auto& rec = sbrResult.rx_records[i];
-                sbrFile << "    {";
-                sbrFile << "\"rx_index\": " << rec.rx_index << ", ";
-                sbrFile << "\"x\": " << rec.rx_position.x << ", ";
-                sbrFile << "\"y\": " << rec.rx_position.y << ", ";
-                sbrFile << "\"z\": " << rec.rx_position.z << ", ";
-                sbrFile << "\"power_dBm\": " << rec.total_power_dBm << ", ";
-                sbrFile << "\"power_linear\": " << rec.total_power_linear << ", ";
-                sbrFile << "\"ray_hit_count\": " << rec.ray_hit_count << ", ";
-                sbrFile << "\"path_count\": " << rec.paths.size();
-                sbrFile << "}";
-                if (i < sbrResult.rx_records.size() - 1) sbrFile << ",";
-                sbrFile << "\n";
-            }
-            sbrFile << "  ]\n";
-            sbrFile << "}\n";
-            sbrFile.close();
-            logger.Log(LogLevel::Info, "SBR", "SBR coverage exported: " + sbrJsonPath);
+        if (!anyTaskSucceeded) {
+            logger.Log(LogLevel::Fatal, "仿真", "没有任何 P2P 链路完成。");
+            return runResult;
+        }
+        logger.Log(LogLevel::Info, "完成",
+            "全部 P2P 仿真完成：成功 " + std::to_string(succeededTasks) +
+            "/" + std::to_string(config.v11_p2p_tasks.size()) +
+            "，总耗时 " + FormatSeconds(ElapsedSeconds(pipelineStart, RtClock::now())) + "。");
+    } else if (config.path_search.rx_list.empty()) {
+        const std::string taskLabel = "Tx-Rx";
+        logger.Log(LogLevel::Info, "任务", taskLabel + " 开始。");
+        const Point3 rxPoint = MakeVec3(config.path_search.rx_x,
+                                        config.path_search.rx_y,
+                                        config.path_search.rx_z);
+        SearchEngineResult searchResult =
+            RunSbrPointToPointSearch(config, batch4Result.scene, &matDb, rxPoint, logger, taskLabel);
+        if (!searchResult.succeeded || searchResult.path_set.paths.empty()) {
+            logger.Log(LogLevel::Fatal, "寻径", "SBR P2P 未产生几何路径。");
+            return runResult;
         }
 
-        // v8: SBR→Precise EM — 将SBR记录的几何路径送入精确电场求解器
-        if (sbrResult.succeeded && sbrCtx.store_paths && sbrResult.active_rx_count > 0) {
-            int totalPaths=0, validEM=0;
-            for (auto& rec : sbrResult.rx_records) {
-                if (rec.paths.empty()) continue;
-                totalPaths += static_cast<int>(rec.paths.size());
-                double complexSumRe=0.0, complexSumIm=0.0;
-                for (GeometricPath& gp : rec.paths) {
-                    if (!gp.valid) continue;
-                    EMPathResult em;
-                    if (SolveSinglePathEM(loadResult.config, batch4Result.scene, gp, em, &matDb)) {
-                        complexSumRe += em.amplitude_real;
-                        complexSumIm += em.amplitude_imag;
-                        validEM++;
-                    }
-                }
-                // 相干叠加功率覆盖原有标量功率
-                rec.total_power_linear = complexSumRe*complexSumRe + complexSumIm*complexSumIm;
-                rec.total_power_dBm = 10.0 * std::log10(std::max(1e-30, rec.total_power_linear * std::pow(10.0, loadResult.config.sbr.tx_power_dBm/10.0)));
+        const RtClock::time_point emStart = RtClock::now();
+        A1RealChainRunResult a1Result =
+            RunA1RealChain(config, batch4Result.scene, searchResult, logger, &matDb);
+        if (!a1Result.succeeded) {
+            logger.Log(LogLevel::Fatal, "电磁计算", "P2P 电磁计算失败。");
+            return runResult;
+        }
+        logger.Log(LogLevel::Info, "电磁计算",
+            taskLabel + " 电磁计算耗时 " + FormatSeconds(ElapsedSeconds(emStart, RtClock::now())) + "。");
+    } else {
+        logger.Log(LogLevel::Info, "仿真", "多 Rx P2P 批处理：" +
+            std::to_string(config.path_search.rx_list.size()) + " 个 Rx。");
+        const std::string origRunId = config.app_runtime.run_id;
+        for (const auto& rxTarget : config.path_search.rx_list) {
+            AppConfig taskConfig = config;
+            taskConfig.app_runtime.run_id = origRunId + "/" + rxTarget.id;
+
+            const Point3 rxPoint = MakeVec3(rxTarget.x, rxTarget.y, rxTarget.z);
+            logger.Log(LogLevel::Info, "任务", rxTarget.id + " 开始。");
+            SearchEngineResult searchResult =
+                RunSbrPointToPointSearch(taskConfig, batch4Result.scene, &matDb, rxPoint, logger, rxTarget.id);
+            if (!searchResult.succeeded || searchResult.path_set.paths.empty()) {
+                logger.Log(LogLevel::Error, "任务", rxTarget.id + " 寻径失败，跳过。");
+                continue;
             }
-            std::ostringstream emLog;
-            emLog << "SBR→Precise EM: " << validEM << "/" << totalPaths
-                  << " paths solved, " << sbrResult.active_rx_count << " Rx coherent-summed";
-            logger.Log(LogLevel::Info, "SBR-EM", emLog.str());
+
+            A1RealChainRunResult a1Result =
+                RunA1RealChain(taskConfig, batch4Result.scene, searchResult, logger, &matDb);
+            logger.Log(LogLevel::Info, "任务", rxTarget.id +
+                (a1Result.succeeded ? " 完成" : " 电磁计算失败") +
+                "，输出目录：output/" + taskConfig.app_runtime.run_id);
         }
     }
 

@@ -57,9 +57,7 @@
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <!-- v8 GPU: CUDA 12.6 build integration -->
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.props" Condition="exists('$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.props')" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -109,7 +107,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)tools\include;$(CUDA_PATH)\include;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMPSupport>true</OpenMPSupport>
@@ -118,7 +116,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\lib\x64;F:\Windows Kits\10\Lib\10.0.22621.0\um\x64;F:\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>F:\Windows Kits\10\Lib\10.0.22621.0\um\x64;F:\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -128,7 +126,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)tools\include;$(CUDA_PATH)\include;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMPSupport>true</OpenMPSupport>
@@ -139,32 +137,12 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProfileGuidedDatabase>$(OutDir)$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalDependencies>cuda.lib;cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>cudart64_126.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
-      <AdditionalLibraryDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\lib\x64;F:\Windows Kits\10\Lib\10.0.22621.0\um\x64;F:\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>F:\Windows Kits\10\Lib\10.0.22621.0\um\x64;F:\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
-  </ItemDefinitionGroup>
-  <!-- v8 GPU: CUDA 12.6 compilation settings (RTX 3060: compute_86,sm_86) -->
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <CudaCompile>
-      <TargetMachinePlatform>64</TargetMachinePlatform>
-      <CodeGeneration>compute_86,sm_86</CodeGeneration>
-      <FastMath>true</FastMath>
-      <MaxRegCount>128</MaxRegCount>
-      <AdditionalOptions>-DNDEBUG -O3 -use_fast_math --expt-relaxed-constexpr --ptxas-options=-v %(AdditionalOptions)</AdditionalOptions>
-    </CudaCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <CudaCompile>
-      <TargetMachinePlatform>64</TargetMachinePlatform>
-      <CodeGeneration>compute_86,sm_86</CodeGeneration>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalOptions>-G -D_DEBUG --expt-relaxed-constexpr %(AdditionalOptions)</AdditionalOptions>
-    </CudaCompile>
   </ItemDefinitionGroup>
   <!-- v7.3 PGO: 两步编译.
        Step1: msbuild /p:Configuration=Release /p:Platform=x64
-              运行 training: RT.exe configs/app/meeting_coverage_hires.json
+              运行 training: RT.exe configs/app/v11_ptp_412.json
        Step2: msbuild /p:Configuration=Release /p:Platform=x64 /p:UsePGOTrain=done
               需要手动将 <Profile>true</Profile> 加入 ClCompile -->
   <ItemGroup>
@@ -176,6 +154,7 @@
     <ClCompile Include="core\common\config\ConfigSelfCheck.cpp" />
     <ClCompile Include="core\common\config\AppConfigSnapshotWriter.cpp" />
     <ClCompile Include="core\common\config\AppConfigValidator.cpp" />
+    <ClCompile Include="core\common\config\V11UserConfigAdapter.cpp" />
     <ClCompile Include="core\antenna\AntennaModel.cpp" />
     <ClCompile Include="core\antenna\AntennaFactory.cpp" />
     <ClCompile Include="core\em\BuildBroadbandCFR.cpp" />
@@ -195,33 +174,12 @@
     <ClCompile Include="preprocess\accel\SceneAcceleration.cpp" />
     <ClCompile Include="preprocess\cache\SceneCache.cpp" />
     <ClCompile Include="preprocess\import\OBJImporter.cpp" />
-    <ClCompile Include="core\query\CpuFaceBvhAccelerator.cpp" />
     <ClCompile Include="core\query\ISceneAccelerator.cpp" />
-    <ClCompile Include="core\query\OptiXSceneAccelerator.cpp" />
-    <ClCompile Include="core\query\SbrGpuPipeline.cpp" />
     <ClCompile Include="core\query\SceneQuery.cpp" />
-    <!-- v8 GPU: CUDA + OptiX accelerator backend -->
-    <CudaCompile Include="core\query\SbrGpuPipeline.cu">
-      <AdditionalOptions>-std=c++17 -I"$(ProjectDir)tools\include" -I"F:\Windows Kits\10\Include\10.0.22621.0\um" -I"F:\Windows Kits\10\Include\10.0.22621.0\ucrt" -I"F:\Windows Kits\10\Include\10.0.22621.0\shared" -I"F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include" %(AdditionalOptions)</AdditionalOptions>
-    </CudaCompile>
-    <CudaCompile Include="core\query\rxgrid_kernel.cu">
-      <AdditionalOptions>-std=c++17 -I"$(ProjectDir)tools\include" -I"F:\Windows Kits\10\Include\10.0.22621.0\um" -I"F:\Windows Kits\10\Include\10.0.22621.0\ucrt" -I"F:\Windows Kits\10\Include\10.0.22621.0\shared" -I"F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include" %(AdditionalOptions)</AdditionalOptions>
-    </CudaCompile>
-    <CudaCompile Include="core\query\OptiXSceneAccelerator.cu">
-      <AdditionalOptions>-std=c++17 -I"$(ProjectDir)tools\include" -I"F:\Windows Kits\10\Include\10.0.22621.0\um" -I"F:\Windows Kits\10\Include\10.0.22621.0\ucrt" -I"F:\Windows Kits\10\Include\10.0.22621.0\shared" -I"F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include" --expt-relaxed-constexpr %(AdditionalOptions)</AdditionalOptions>
-      <Include>$(ProjectDir);$(ProjectDir)tools\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\include;F:\vs2022\ide\VC\Tools\MSVC\14.40.33807\include;F:\Windows Kits\10\Include\10.0.22621.0\ucrt;F:\Windows Kits\10\Include\10.0.22621.0\um;F:\Windows Kits\10\Include\10.0.22621.0\shared;%(Include)</Include>
-    </CudaCompile>
-    <ClCompile Include="core\search\DiffractionExpander.cpp" />
-    <ClCompile Include="core\search\GeometryValidity.cpp" />
-    <ClCompile Include="core\search\ReflectionExpander.cpp" />
-    <ClCompile Include="core\search\ResolveMediumTransition.cpp" />
-    <ClCompile Include="core\search\SearchEngine.cpp" />
     <ClCompile Include="core\search\SbrEngine.cpp" />
-    <ClCompile Include="core\search\TransmissionExpander.cpp" />
-    <ClCompile Include="core\search\StateSignatureBuilder.cpp" />
-    <ClCompile Include="core\search\PathReuseEngine.cpp" />
-    <ClCompile Include="core\search\PathSignatureBuilder.cpp" />
-    <ClCompile Include="core\search\RxSeedSampler.cpp" />
+    <ClCompile Include="core\search\SbrPathDeduplicator.cpp" />     <!-- v11: strict path dedup & post-process -->
+    <ClCompile Include="core\search\SbrPathValidator.cpp" />         <!-- v11: EM-ready path validation -->
+    <ClCompile Include="core\search\SbrDiffractionTracer.cpp" />     <!-- v11: analytical Fermat diffraction -->
     <ClCompile Include="core\em\PreparePathForEM.cpp" />
     <ClCompile Include="core\em\InitializeTxField.cpp" />
     <ClCompile Include="core\em\ApplyFreeSpaceSegment.cpp" />
@@ -262,6 +220,7 @@
     <ClInclude Include="core\common\config\ConfigSelfCheck.h" />
     <ClInclude Include="core\common\config\AppConfigSnapshotWriter.h" />
     <ClInclude Include="core\common\config\AppConfigValidator.h" />
+    <ClInclude Include="core\common\config\V11UserConfigAdapter.h" />
     <ClInclude Include="core\antenna\AntennaModel.h" />
     <ClInclude Include="core\antenna\AntennaFactory.h" />
     <ClInclude Include="core\antenna\AntennaResponse.h" />
@@ -291,24 +250,15 @@
     <ClInclude Include="preprocess\cache\SceneCacheContent.h" />
     <ClInclude Include="preprocess\import\OBJImporter.h" />
     <ClInclude Include="core\query\ISceneAccelerator.h" />
-    <ClInclude Include="core\query\CpuFaceBvhAccelerator.h" />
-    <ClInclude Include="core\query\OptiXSceneAccelerator.h" />
-    <ClInclude Include="core\query\SbrGpuPipeline.h" />
     <ClInclude Include="core\query\SceneQuery.h" />
     <ClInclude Include="core\path\InteractionType.h" />
     <ClInclude Include="core\path\PathNode.h" />
     <ClInclude Include="core\path\GeometricPath.h" />
-    <ClInclude Include="core\path\PathState.h" />
-    <ClInclude Include="core\path\PathSearchContext.h" />
-    <ClInclude Include="core\search\DiffractionExpander.h" />
-    <ClInclude Include="core\search\GeometryValidity.h" />
-    <ClInclude Include="core\search\ReflectionExpander.h" />
-    <ClInclude Include="core\search\ResolveMediumTransition.h" />
-    <ClInclude Include="core\search\SearchEngine.h" />
+    <ClInclude Include="core\search\SearchResult.h" />
     <ClInclude Include="core\search\SbrEngine.h" />
-    <ClInclude Include="core\search\TransmissionExpander.h" />
-    <ClInclude Include="core\search\StateSignatureBuilder.h" />
-    <ClInclude Include="core\search\PathSignatureBuilder.h" />
+    <ClInclude Include="core\search\SbrPathDeduplicator.h" />       <!-- v11 -->
+    <ClInclude Include="core\search\SbrPathValidator.h" />           <!-- v11 -->
+    <ClInclude Include="core\search\SbrDiffractionTracer.h" />       <!-- v11 -->
     <ClInclude Include="core\em\EMSolverInput.h" />
     <ClInclude Include="core\em\FieldAccumulator.h" />
     <ClInclude Include="core\em\EMPathResult.h" />
@@ -355,6 +305,5 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.targets" Condition="exists('$(CUDA_PATH)\extras\visual_studio_integration\MSBuildExtensions\CUDA 12.6.targets')" />
   </ImportGroup>
 </Project>

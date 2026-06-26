@@ -1,16 +1,14 @@
-#pragma once
+﻿#pragma once
 
 #include "../common/config/AppConfig.h"
 #include "../common/material/MaterialDatabase.h"
 #include "../path/GeometricPath.h"
 #include "../scene/Scene.h"
 #include "../query/SceneQuery.h"
-#include <unordered_map>
+#include <string>
 #include <vector>
 
 namespace rt {
-
-// ── 原有 SBR coverage 模式 (保持兼容) ──
 
 struct RxCoverageRecord {
     Point3 rx_position;
@@ -23,17 +21,51 @@ struct RxCoverageRecord {
 
 struct SbrCoverageResult {
     bool succeeded = false;
+    std::string trace_profile = "P2P-SBR";
     int total_rays = 0;
     int active_rx_count = 0;
     std::vector<RxCoverageRecord> rx_records;
     std::vector<std::string> trace_lines;
-    // v9 Stage8: SBR diagnostics
-    int total_bounces = 0;              // 总反射次数
-    int total_transmissions = 0;        // 总透射次数
-    int total_diffractions = 0;         // 总绕射次数
-    int rays_below_threshold = 0;       // 功率低于阈值的射线数
-    int rays_terminated_early = 0;      // 无交互提前终止的射线
-    std::string convergence_notes;       // 收敛性说明
+    int total_bounces = 0;
+    int total_transmissions = 0;
+    int total_diffractions = 0;
+    int rays_below_threshold = 0;
+    int rays_terminated_early = 0;
+    long long generated_reflection_branches = 0;    // v10: generated reflection successor states
+    long long generated_transmission_branches = 0;  // v10: generated transmission successor states
+    long long rejected_tir_transmissions = 0;        // v10: transmission candidates rejected by TIR precheck
+    long long pruned_power_branches = 0;             // v10: successor states below the SBR power threshold
+    long long rx_paths_recorded = 0;                 // v10: paths kept after per-ray cap and signature dedup
+    long long rx_paths_skipped_by_cap = 0;           // v10: path records skipped by max_paths_per_ray
+    long long rx_paths_skipped_by_rx_cap = 0;        // v10: path records skipped by max_paths_per_rx
+    long long rx_paths_deduplicated = 0;             // v10: duplicate path signatures suppressed
+    int peak_active_rays = 0;                        // v10: maximum active wavefront size
+    bool dynamic_rx_radius_enabled = false;          // v10: main-ray Rx hit radius followed ray-tube estimate
+    double ray_tube_angle_rad = 0.0;                 // v10: effective angular spacing used for ray-tube radius
+    double max_effective_rx_radius_m = 0.0;          // v10: maximum effective radius observed on main-ray Rx queries
+    long long dynamic_rx_queries = 0;                // v10: main-ray dynamic Rx radius checks
+    long long dynamic_rx_hits = 0;                   // v10: Rx hits returned by dynamic checks
+    bool wedge_tube_coupling_enabled = false;        // v10: diffraction wedge candidates from ray-tube coupling
+    long long wedge_tube_queries = 0;                // v10: main-ray segments checked against wedge tubes
+    long long wedge_tube_candidates = 0;             // v10: wedge couplings accepted by segment-segment distance
+    long long wedge_tube_rejected = 0;               // v10: wedge candidates considered but outside tube radius
+    long long wedge_edge_fallback_hits = 0;          // v10: legacy edge-hit diffraction fallback count
+    int diffraction_rays_per_event = 4;              // v10: Keller cone samples requested per event
+    long long diffraction_events = 0;                // v10: coupled wedge events expanded into Keller samples
+    long long generated_diffraction_branches = 0;    // v10: diffraction successor states inserted into wavefront
+    long long rejected_keller_diffractions = 0;      // v10: Keller samples rejected by degeneracy/residual guards
+    bool path_dedup_enabled = true;                  // v10: signature dedup active during/post tracing
+    bool path_similarity_pruning_enabled = true;     // v10: near-equivalent path merge active
+    int path_top_n_per_rx = 0;                       // v10: final top-N retained per Rx; <=0 disabled
+    long long paths_pruned_by_post_dedup = 0;        // v10: duplicates removed after thread-local recording
+    long long paths_pruned_by_similarity = 0;        // v10: near-equivalent paths removed by length/sequence key
+    long long paths_pruned_by_top_n = 0;             // v10: paths dropped by final top-N
+    long long paths_after_postprocess = 0;           // v10: final recorded path count after pruning
+    bool path_residual_filter_enabled = false;       // v10: reject paths above residual thresholds
+    long long paths_evaluated_for_residual = 0;      // v10: paths with geometry residual diagnostics computed
+    long long paths_pruned_by_residual = 0;          // v10: paths rejected by geometry residual thresholds
+    double max_path_geometry_residual = 0.0;         // v10: maximum residual observed after evaluation
+    std::string convergence_notes;
 };
 
 struct SbrContext {
@@ -47,45 +79,10 @@ struct SbrContext {
     double tx_power_dBm = 0.0;
 };
 
-// ── v8 Phase 2: SBR 粗扫模式 (面元可见性收集, 非功率累加) ──
-
-struct SbrCoarseContext {
-    const AppConfig* config = nullptr;
-    const Scene* scene = nullptr;
-    const SceneQuery* scene_query = nullptr;
-    Point3 tx_point;
-    std::vector<Point3> rx_grid;
-    int coarse_ray_count = 50000;            // 粗扫射线数 (vs 200万 full SBR)
-    int coarse_max_depth = 3;                // 粗扫深度 (仅收集低阶可见性)
-    double coarse_rx_sphere_radius = 2.0;    // 放大接收球 (5-15x full SBR)
-    bool expand_pvs = true;                  // 是否将 PVS 扩展到活跃集
-};
-
-struct SbrCoarseResult {
-    bool succeeded = false;
-    int total_coarse_rays = 0;
-    int active_rx_count = 0;
-    // Per-Rx 活跃面元/楔边 (稀疏: 仅存储活跃 Rx)
-    std::unordered_map<int, std::vector<int>> rx_active_faces;
-    std::unordered_map<int, std::vector<int>> rx_active_wedges;
-    // 活跃 Rx 掩码 (true = 此 Rx 被至少一条粗扫射线命中)
-    std::vector<bool> rx_active_mask;
-    std::vector<std::string> trace_lines;
-};
-
 class SbrEngine {
 public:
-    // 原有: 标量功率 coverage (v8 GPU: wavefront 批量处理)
-    SbrCoverageResult Run(const SbrContext& context) const;
-
-    // v8 Phase 2: 粗扫 — 收集 Rx 活跃面元/楔边
-    SbrCoarseResult RunCoarsePass(const SbrCoarseContext& context) const;
-
-private:
-    // v8 GPU wavefront: 按深度分波的批量射线处理
-    SbrCoverageResult RunWavefront(const SbrContext& context) const;
-    // v8 GPU megakernel: end-to-end single-launch SBR
-    SbrCoverageResult RunMegakernel(const SbrContext& context) const;
+    // Current v11 geometry pathfinding entry: independent-SBR-style deterministic P2P tracing.
+    SbrCoverageResult RunPointToPoint(const SbrContext& context) const;
 };
 
 } // namespace rt

@@ -76,7 +76,7 @@ struct PDPResult {
 };
 
 /// <summary>
-/// Single entry in an Angular Power Spectrum.
+/// Single entry in an Angular Power Spectrum (1D, backward compatible).
 /// </summary>
 struct APSEntry {
     double angle_metric = 0.0;  ///< Placeholder angle metric (currently uses polarization_vector.x).
@@ -85,14 +85,32 @@ struct APSEntry {
 
 /// <summary>
 /// Angular Power Spectrum: angle-domain power distribution.
+/// v10.2: 增加二维 theta-phi 网格字段，支撑 APS 热图和 MEG 计算。
 /// </summary>
 struct APSResult {
-    std::vector<APSEntry> entries;  ///< Ordered set of angle entries.
+    std::vector<APSEntry> entries;  ///< 1D entries (backward compatible).
+
+    // ── v10.2: 二维 AoA theta-phi 功率谱网格 ──
+    bool has_2d_grid = false;
+    double theta_min_deg = 0.0, theta_max_deg = 180.0, theta_step_deg = 5.0;
+    double phi_min_deg = 0.0, phi_max_deg = 360.0, phi_step_deg = 5.0;
+    int n_theta = 36, n_phi = 72;
+    std::vector<double> power_grid_linear;    ///< n_theta × n_phi, row-major (theta outer, phi inner)
+    std::vector<double> power_grid_dB;        ///< same shape, dB scale (10*log10 with -200dB floor)
+
+    /// Helper: grid index from (theta_deg, phi_deg).
+    int GridIndex(int iTheta, int iPhi) const { return iTheta * n_phi + iPhi; }
+    /// Helper: linear power at grid (iTheta, iPhi).
+    double PowerAt(int iTheta, int iPhi) const {
+        int idx = GridIndex(iTheta, iPhi);
+        return (idx >= 0 && idx < (int)power_grid_linear.size()) ? power_grid_linear[idx] : 0.0;
+    }
 };
 
 /// <summary>
 /// Aggregate channel statistics: path count, total/strongest power, mean delay,
 /// mean phase, transmission path count.
+/// v10.2: 增加 RMS delay spread, K-factor, MEG, effective path count。
 /// </summary>
 struct ChannelStatistics {
     int valid_path_count = 0;               ///< Number of valid paths contributing to the statistics.
@@ -101,6 +119,27 @@ struct ChannelStatistics {
     double mean_delay_s = 0.0;               ///< Arithmetic mean of path delays.
     double mean_abs_phase_rad = 0.0;         ///< Arithmetic mean of absolute phase (placeholder, currently unset).
     int transmission_path_count = 0;         ///< Count of paths that contain at least one transmission.
+    // v10.2 additions:
+    double rms_delay_spread_s = 0.0;         ///< RMS delay spread (power-weighted).
+    double k_factor_dB = 0.0;                ///< K-factor: 10*log10(P_LoS / P_NLoS), -inf if no NLoS.
+    int effective_path_count = 0;            ///< Number of paths above -20dB from strongest.
+    double strongest_path_delay_s = 0.0;     ///< Delay of the strongest path.
+};
+
+/// <summary>
+/// v10.2: 交叉极化比 (XPR) 统计指标。
+/// 从路径级 co/cross-pol 功率聚合计算。
+/// </summary>
+struct XPRStatistics {
+    double mean_dB = 0.0;                    ///< Arithmetic mean of per-path XPR (dB).
+    double median_dB = 0.0;                  ///< Median of per-path XPR (dB).
+    double p10_dB = 0.0;                     ///< 10th percentile XPR.
+    double p90_dB = 0.0;                     ///< 90th percentile XPR.
+    double power_weighted_mean_dB = 0.0;     ///< Power-weighted mean XPR (dB) — 强路径权重更大.
+    double min_dB = 0.0;                     ///< Minimum XPR.
+    double max_dB = 0.0;                     ///< Maximum XPR.
+    int valid_path_count = 0;                ///< Number of paths with valid XPR (excluded inf/nan).
+    std::vector<double> xpr_values_dB;       ///< All valid XPR values (for CDF plot).
 };
 
 /// <summary>
@@ -114,8 +153,9 @@ struct CoverageResult {
 };
 
 /// <summary>
-/// Integrated Sensing and Communication (ISAC) basic feature set extracted
+/// Integrated Sensing and Communication (ISAC) feature set extracted
 /// from the multipath channel.
+/// v10.2: 扩展为包含 range profile, angle profile, dominant paths, clutter ratio, XPR。
 /// </summary>
 struct ISACFeatureSet {
     int path_count = 0;                         ///< Total number of valid paths.
@@ -123,11 +163,19 @@ struct ISACFeatureSet {
     double strongest_path_power_linear = 0.0;   ///< Maximum per-path linear power.
     double average_polarization_magnitude = 0.0;///< Arithmetic mean of polarization magnitude across paths.
     int transmission_path_count = 0;            ///< Count of paths that contain at least one transmission.
+    // v10.2 additions:
+    std::vector<double> range_profile;          ///< Delay→distance bins (from PDP delay axis × c).
+    std::vector<double> angle_profile_aoa;      ///< AoA theta power distribution (1D projection of 2D APS).
+    std::vector<int> dominant_path_indices;     ///< Top-5 strongest path IDs.
+    double clutter_power_ratio = 0.0;           ///< (totalPower - LoSPower) / LoSPower; inf if no LoS.
+    double xpr_mean_dB = 0.0;                   ///< Mean XPR across all valid paths.
+    int los_path_count = 0;                     ///< Number of LoS paths (0 or 1 for SISO).
 };
 
 /// <summary>
 /// Top-level aggregate result from the EM solver pipeline, bundling all
 /// derived products (CIR, PDP, APS, statistics, coverage, ISAC features).
+/// v10.2: 增加 XPR 统计和 MEG 指标。
 /// </summary>
 struct EMAggregateResult {
     EMSolveProfile profile;          ///< The profile that produced this result.
@@ -138,6 +186,10 @@ struct EMAggregateResult {
     ChannelStatistics statistics;    ///< Aggregate channel statistics.
     CoverageResult coverage;         ///< Coverage summary (used in CoverageEM mode).
     ISACFeatureSet isac_features;    ///< ISAC sensing features.
+    // v10.2 additions:
+    XPRStatistics xpr_stats;        ///< Cross-polarization ratio statistics.
+    double meg_linear = 0.0;         ///< Mean Effective Gain (linear), = ∫G(θ,φ)×APS(θ,φ) dΩ.
+    double meg_dB = 0.0;             ///< MEG in dB.
 };
 
 // ── v9 主线C: 宽带信道结果 ──

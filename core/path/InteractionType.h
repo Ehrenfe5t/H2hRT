@@ -3,7 +3,7 @@
 //
 // 主要功能：
 // - 统一表达发射、接收、直达、反射、透射、绕射等节点类型；
-// - 为 PathNode、PathState 与后续扩展器提供稳定类型源；
+// - 为 PathNode、GeometricPath 与后续 EM 模块提供稳定类型源；
 // - 避免模块4内部到处散落字符串型交互判断。
 
 #pragma once

@@ -3,7 +3,7 @@
 //
 // 主要功能：
 // - 承载每个路径节点的交互类型、几何点与交互对象引用；
-// - 为 PathState 运行历史和 GeometricPath 稳定输出提供统一节点格式；
+// - 为 SBR P2P tracing history and GeometricPath output提供统一节点格式；
 // - 为后续模块5消费路径级几何结果保留基础字段。
 
 #pragma once

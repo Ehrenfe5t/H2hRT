@@ -62,6 +62,51 @@ struct AntennaPattern {
     std::vector<double> polThetaRe, polThetaIm, polPhiRe, polPhiIm;
     bool polarization_loaded = false;
 
+    // v10.2 B7修复: 辅助函数 — 按(theta, phi)排序并验证矩形网格
+    struct ThetaPhiRow { double theta, phi; int origIdx; };
+    static bool BuildSortedGrid(const std::vector<double>& tT, const std::vector<double>& pP,
+                                 std::vector<double>& outTheta, std::vector<double>& outPhi,
+                                 int& nTheta, int& nPhi, std::vector<int>& sortedIdx)
+    {
+        int total = (int)tT.size();
+        if (total < 4) return false;
+        sortedIdx.resize(total);
+        // 构建带原始索引的排序数组: 先按theta, theta相同时按phi
+        std::vector<ThetaPhiRow> rows(total);
+        for (int i = 0; i < total; ++i) {
+            rows[i].theta = tT[i]; rows[i].phi = pP[i]; rows[i].origIdx = i;
+        }
+        std::sort(rows.begin(), rows.end(), [](const ThetaPhiRow& a, const ThetaPhiRow& b) {
+            if (std::fabs(a.theta - b.theta) > 0.001) return a.theta < b.theta;
+            return a.phi < b.phi;
+        });
+        // 提取唯一theta值
+        outTheta.clear(); outTheta.push_back(rows[0].theta);
+        for (int i = 1; i < total; ++i) {
+            if (std::fabs(rows[i].theta - outTheta.back()) > 0.01)
+                outTheta.push_back(rows[i].theta);
+        }
+        nTheta = (int)outTheta.size();
+        if (nTheta < 1) return false;
+        nPhi = total / nTheta;
+        if (nPhi < 1 || nTheta * nPhi != total) {
+            // 网格不是严格矩形: 尝试容差检测
+            return false;
+        }
+        // 验证每个theta面的phi值一致
+        outPhi.clear();
+        for (int j = 0; j < nPhi; ++j) outPhi.push_back(rows[j].phi);
+        // 验证phi单调性
+        for (int j = 1; j < nPhi; ++j) {
+            if (outPhi[j] <= outPhi[j-1]) return false;
+        }
+        // 验证phi覆盖[0, 360) — 至少首尾相接
+        if (outPhi.front() < 0.0 || outPhi.back() > 360.0) return false;
+        // 填充排序索引
+        for (int i = 0; i < total; ++i) sortedIdx[i] = rows[i].origIdx;
+        return true;
+    }
+
     bool LoadCsv(const std::string& path) {
         std::ifstream f(path);
         if (!f.is_open()) return false;
@@ -79,16 +124,31 @@ struct AntennaPattern {
             if (row.size() >= 3) { tT.push_back(row[0]); pP.push_back(row[1]); gG.push_back(row[2]); }
         }
         if (tT.empty()) return false;
-        for (auto& v : tT) {
-            if (thetaDeg.empty() || std::fabs(v - thetaDeg.back()) > 0.01)
-                thetaDeg.push_back(v);
+
+        // v10.2 B7修复: 排序+验证矩形网格 (替代旧脆弱的顺序依赖推断)
+        std::vector<double> sortedPhi;
+        std::vector<int> sortedIdx;
+        if (!BuildSortedGrid(tT, pP, thetaDeg, sortedPhi, Ntheta, Nphi, sortedIdx)) {
+            // 网格推断失败 — 回退到旧方法作为兼容fallback
+            thetaDeg.clear();
+            for (auto& v : tT) {
+                if (thetaDeg.empty() || std::fabs(v - thetaDeg.back()) > 0.01)
+                    thetaDeg.push_back(v);
+            }
+            Ntheta = (int)thetaDeg.size();
+            Nphi = (int)tT.size() / Ntheta;
+            if (Nphi < 1) return false;
+            sortedPhi.resize(Nphi);
+            for (int j = 0; j < Nphi; ++j) sortedPhi.push_back(pP[j]);
+            sortedIdx.resize(tT.size());
+            for (size_t i = 0; i < sortedIdx.size(); ++i) sortedIdx[i] = (int)i;
         }
-        Ntheta = (int)thetaDeg.size();
-        Nphi = (int)tT.size() / Ntheta;
-        if (Nphi < 1) return false;
-        for (int j = 0; j < Nphi; ++j) phiDeg.push_back(pP[j]);
+        phiDeg = sortedPhi;
         gainDBi.resize(Ntheta * Nphi, 0.0);
-        for (size_t i = 0; i < tT.size(); ++i) gainDBi[i] = gG[i];
+        for (int i = 0; i < (int)tT.size(); ++i) {
+            int idx = (i < (int)sortedIdx.size()) ? sortedIdx[i] : i;
+            if (idx < (int)gainDBi.size()) gainDBi[idx] = gG[i];
+        }
         loaded = true;
         return true;
     }
@@ -96,6 +156,7 @@ struct AntennaPattern {
     // v8: Load per-angle complex polarization CSV.
     // Format: Theta[deg],Phi[deg],Gain_dBi,PolTheta_re,PolTheta_im,PolPhi_re,PolPhi_im
     // Ludwig-3 definition: polTheta = E·theta_hat, polPhi = E·phi_hat (both complex, normalized to unity max)
+    // v10.2 B7修复: 排序+验证矩形网格, 替代旧脆弱的顺序依赖推断
     bool LoadPolarizationCsv(const std::string& path) {
         std::ifstream f(path);
         if (!f.is_open()) return false;
@@ -118,21 +179,36 @@ struct AntennaPattern {
         }
         if (tT.empty()) return false;
         thetaDeg.clear(); phiDeg.clear(); gainDBi.clear();
-        for (auto& v : tT) {
-            if (thetaDeg.empty() || std::fabs(v - thetaDeg.back()) > 0.01)
-                thetaDeg.push_back(v);
+
+        // v10.2 B7修复: 排序+验证
+        std::vector<double> sortedPhi;
+        std::vector<int> sortedIdx;
+        int nTh, nPh;
+        if (!BuildSortedGrid(tT, pP, thetaDeg, sortedPhi, nTh, nPh, sortedIdx)) {
+            // fallback to old method
+            for (auto& v : tT) {
+                if (thetaDeg.empty() || std::fabs(v - thetaDeg.back()) > 0.01)
+                    thetaDeg.push_back(v);
+            }
+            nTh = (int)thetaDeg.size();
+            nPh = (int)tT.size() / nTh;
+            if (nPh < 1) return false;
+            sortedPhi.resize(nPh);
+            for (int j = 0; j < nPh; ++j) sortedPhi.push_back(pP[j]);
+            sortedIdx.resize(tT.size());
+            for (size_t i = 0; i < sortedIdx.size(); ++i) sortedIdx[i] = (int)i;
         }
-        Ntheta = (int)thetaDeg.size();
-        Nphi = (int)tT.size() / Ntheta;
-        if (Nphi < 1) return false;
-        for (int j = 0; j < Nphi; ++j) phiDeg.push_back(pP[j]);
+        Ntheta = nTh; Nphi = nPh; phiDeg = sortedPhi;
         int N = Ntheta * Nphi;
         gainDBi.resize(N, 0.0); polThetaRe.resize(N, 0.0); polThetaIm.resize(N, 0.0);
         polPhiRe.resize(N, 0.0); polPhiIm.resize(N, 0.0);
-        for (size_t i = 0; i < tT.size() && (int)i < N; ++i) {
-            gainDBi[i] = gG[i];
-            polThetaRe[i] = ptR[i]; polThetaIm[i] = ptI[i];
-            polPhiRe[i] = ppR[i];   polPhiIm[i] = ppI[i];
+        for (int i = 0; i < (int)tT.size() && i < N; ++i) {
+            int idx = (i < (int)sortedIdx.size()) ? sortedIdx[i] : i;
+            if (idx < N) {
+                gainDBi[idx] = gG[i];
+                polThetaRe[idx] = ptR[i]; polThetaIm[idx] = ptI[i];
+                polPhiRe[idx] = ppR[i];   polPhiIm[idx] = ppI[i];
+            }
         }
         loaded = true;
         polarization_loaded = true;

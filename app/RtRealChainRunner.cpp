@@ -1,10 +1,5 @@
-// ───────────────────────────────────────────────────────────────────
-// 文件: RtRealChainRunner.cpp
-// 用途: RT真实生产链运行器实现。将SearchEngine的真实路径集送入逐路径EM求解，
-//       构建Precise和Coverage双profile聚合结果，执行导出/验证/回归闭环。
-//       这是主生产链，不依赖手工参考路径。
-// 所属模块: 应用层
-// ───────────────────────────────────────────────────────────────────
+﻿// RtRealChainRunner.cpp
+// v11 EM handoff: consume SBR GeometricPath results, solve each path, aggregate CIR/PDP/APS/channel outputs.
 
 #include "RtRealChainRunner.h"
 
@@ -42,13 +37,17 @@ namespace {
 
 } // namespace
 
-/// <summary>
-/// v8: 公开的单路径EM求解 — 消费GeometricPath, 产出EMPathResult
-/// </summary>
-/// <param name="result">[out] 该路径的EM结果 (场、时延、功率等)。</param>
-/// <param name="materialDb">可选材质数据库, 供介电常数查询。</param>
-/// <returns>EM求解完成并产出有效结果时返回true。</returns>
+// Public single-path EM solve entry. It consumes one GeometricPath and returns
+// the corresponding EMPathResult.
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result, const MaterialDatabase* materialDb)
+{
+    return SolveSinglePathEM(config, scene, path, result, materialDb, nullptr);
+}
+
+// Variant used when the caller provides a per-Rx antenna override.
+bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
+                       EMPathResult& result, const MaterialDatabase* materialDb,
+                       const RxTarget* rxTarget)
 {
     EMSolverInput input;
     input.config = &config;
@@ -58,11 +57,15 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
     const Point3 txPosition = !path.nodes.empty() ? path.nodes.front().point : Point3{};
     const Point3 rxPosition = !path.nodes.empty() ? path.nodes.back().point : Point3{};
     const AntennaModel tx = BuildTxAntennaModel(config, txPosition, "a1-realchain-tx");
-    const AntennaModel rx = BuildRxAntennaModel(config, rxPosition, "a1-realchain-rx");
+    AntennaModel rx;
+    if (rxTarget) {
+        rx = BuildRxAntennaModelWithOverride(config, *rxTarget, rxPosition, "a1-realchain-rx");
+    } else {
+        rx = BuildRxAntennaModel(config, rxPosition, "a1-realchain-rx");
+    }
     input.tx_antenna = &tx;
     input.rx_antenna = &rx;
 
-    // EM管线: 路径准备 → 初始化Tx场 → 沿路径遍历各交互节点
     if (!PreparePathForEM(input))
     {
         return false;
@@ -74,7 +77,6 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
         return false;
     }
 
-    // 遍历每个路径段: 先施加自由空间衰减, 再处理交互类型
     for (std::size_t i = 1; i < path.nodes.size(); ++i)
     {
         const PathNode& node = path.nodes[i];
@@ -113,11 +115,8 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
 
 namespace {
 
-/// <summary>
-/// 对搜索引擎的全部路径执行EM求解, 构建完整的EM路径结果集。
-/// 对每条EM求解失败的路径记录警告日志。
-/// </summary>
-EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& scene, const SearchEngineResult& searchResult, Logger& logger, const MaterialDatabase* materialDb)
+// Solve all geometric paths independently and collect valid EM path results.
+EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& scene, const SearchEngineResult& searchResult, Logger& logger, const MaterialDatabase* materialDb, const RxTarget* rxTarget = nullptr)
 {
     EMPathResultSet set;
     set.from_search_engine = true;
@@ -125,7 +124,6 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     set.input_path_count = nPaths;
     set.source_tag = searchResult.source_tag;
 
-    // v5 D7: 逐路径EM求解可完全并行 (各路径独立)
     const auto& paths = searchResult.path_set.paths;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic)
@@ -133,8 +131,9 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     for (int i = 0; i < nPaths; ++i)
     {
         EMPathResult result;
-        if (SolveSinglePathEM(config, scene, paths[i], result, materialDb))
+        if (SolveSinglePathEM(config, scene, paths[i], result, materialDb, rxTarget))
         {
+            result.source_tag = searchResult.source_tag;
 #ifdef _OPENMP
 #pragma omp critical
 #endif
@@ -146,9 +145,7 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     return set;
 }
 
-/// <summary>
-/// 将逐路径EM结果聚合为CIR/PDP/APS/信道统计/覆盖/ISAC特征集。
-/// </summary>
+// Aggregate per-path EM results into CIR/PDP/APS/channel/coverage/ISAC outputs.
 EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
 {
     EMAggregateResult result;
@@ -173,26 +170,22 @@ A1RealChainRunResult RunA1RealChain(
     const MaterialDatabase* materialDb)
 {
     A1RealChainRunResult runResult;
-    // 守卫: SearchEngine必须产出非空的真实路径集
     if (!searchResult.succeeded || searchResult.path_set.paths.empty())
     {
         logger.Log(LogLevel::Error, "A1", "A1 real chain aborted because SearchEngine produced no real path set.");
         return runResult;
     }
 
-    // 步骤1: 逐路径EM求解 (模块5真实链)
-    runResult.path_result_set = BuildRealPathResultSet(config, scene, searchResult, logger, materialDb);
+    runResult.path_result_set = BuildRealPathResultSet(config, scene, searchResult, logger, materialDb, nullptr);
     if (runResult.path_result_set.results.empty())
     {
         logger.Log(LogLevel::Error, "A1", "A1 real chain aborted because real path set could not produce any valid EMPathResult.");
         return runResult;
     }
 
-    // 步骤2: 构建Precise和Coverage双EM profile的聚合结果
     runResult.precise_result = BuildAggregateResult(runResult.path_result_set, BuildPreciseEMProfile());
     runResult.coverage_result = BuildAggregateResult(runResult.path_result_set, BuildCoverageEMProfile());
 
-    // v9 Stage5: 宽带CFR构建 (主线C主链路接入)
     if (config.frequency_sweep.enabled) {
         if (config.frequency_sweep.mode == "frequency_sweep_em") {
             runResult.broadband_result = BuildBroadbandCFR_FrequencySweep(
@@ -209,7 +202,7 @@ A1RealChainRunResult RunA1RealChain(
         }
         if (runResult.broadband_result.valid) {
             logger.Log(LogLevel::Info, "A1",
-                "宽带CFR构建完成: " + std::to_string(runResult.broadband_result.cfr.size()) +
+                "宽带 CFR 构建完成：" + std::to_string(runResult.broadband_result.cfr.size()) +
                 " freq points, " + std::to_string(runResult.broadband_result.observed_cir.taps.size()) +
                 " CIR taps");
         }
@@ -222,7 +215,7 @@ A1RealChainRunResult RunA1RealChain(
     context.coverage_result = &runResult.coverage_result;
     context.broadband_result = &runResult.broadband_result; // v9 Stage5
     context.real_chain_enabled = true;
-    context.primary_input_source = "search_engine_real_output";
+    context.primary_input_source = searchResult.source_tag;
     context.export_root_directory = "output/" + config.app_runtime.run_id;
 
     runResult.export_bundle.root_directory = context.export_root_directory;
@@ -231,7 +224,6 @@ A1RealChainRunResult RunA1RealChain(
     runResult.export_bundle.em_path_result_count = static_cast<int>(runResult.path_result_set.results.size());
     runResult.export_bundle.used_reference_path_fallback = false;
 
-    // 步骤3: 模块6真实导出: 路径/信道/覆盖/ISAC/可视化
     bool exportSucceeded = true;
     exportSucceeded = ExportPaths(context, runResult.export_bundle) && exportSucceeded;
     exportSucceeded = ExportChannel(context, runResult.export_bundle) && exportSucceeded;
@@ -239,7 +231,6 @@ A1RealChainRunResult RunA1RealChain(
     exportSucceeded = ExportISAC(context, runResult.export_bundle) && exportSucceeded;
     exportSucceeded = ExportVisualization(context, runResult.export_bundle) && exportSucceeded;
 
-    // 步骤4: 验证与回归闭环
     runResult.validation_report = BuildValidationReport(runResult.export_bundle, context);
     exportSucceeded = ExportValidationReport(runResult.validation_report, context, runResult.export_bundle) && exportSucceeded;
     runResult.regression_report = BuildRegressionReport(context);
@@ -249,12 +240,12 @@ A1RealChainRunResult RunA1RealChain(
     runResult.succeeded = !runResult.path_result_set.results.empty();
 
     std::ostringstream stream;
-    stream << "A1RealChainSummary: search_paths=" << runResult.export_bundle.search_path_count
-           << ", em_results=" << runResult.export_bundle.em_path_result_count
-           << ", exported_files=" << runResult.export_bundle.exported_files.size()
-           << ", validation_passed=" << (runResult.validation_report.passed ? "true" : "false")
-           << ", regression_blocking=" << (runResult.regression_report.has_blocking_diff ? "true" : "false");
-    logger.Log(runResult.succeeded ? LogLevel::Info : LogLevel::Error, "A1", stream.str());
+    stream << "电磁计算与结果导出完成：输入路径 " << runResult.export_bundle.search_path_count
+           << "，有效电磁结果 " << runResult.export_bundle.em_path_result_count
+           << "，导出文件 " << runResult.export_bundle.exported_files.size()
+           << "，验证" << (runResult.validation_report.passed ? "通过" : "未通过")
+           << "，回归阻塞=" << (runResult.regression_report.has_blocking_diff ? "是" : "否");
+    logger.Log(runResult.succeeded ? LogLevel::Info : LogLevel::Error, "电磁计算", stream.str());
 
     return runResult;
 }

@@ -96,14 +96,8 @@ BroadbandChannelResult BuildBroadbandCFR_FixedGain(
         // IFFT: h[k] = (1/N) Σ H(f_i) · W(f_i) · exp(+j·2π·i·k/N)
         // 时延轴: tau[k] = k · Δτ, where Δτ = 1/B (delay resolution)
         int nBins = std::min(N, 2048); // max 2048 delay bins
-        std::vector<Complex> h(nBins, Complex(0.0, 0.0));
-        for (int k = 0; k < nBins; ++k) {
-            Complex sum(0.0, 0.0);
-            for (int i = 0; i < N; ++i) {
-                double phase = kTwoPi * i * k / N;
-                Complex expTerm(std::cos(phase), std::sin(phase));
-            }
-        }
+
+        // v10.2 B2修复: 移除死代码块 (lines 100-105, 原计算expTerm但未累积到sum)
 
         std::vector<Complex> H_windowed(N);
         for (int i = 0; i < N; ++i) {
@@ -111,6 +105,7 @@ BroadbandChannelResult BuildBroadbandCFR_FixedGain(
                                      result.cfr[i].H_imag * window[i]);
         }
 
+        std::vector<Complex> h(nBins, Complex(0.0, 0.0));
         for (int k = 0; k < nBins; ++k) {
             Complex sum(0.0, 0.0);
             for (int i = 0; i < N; ++i) {

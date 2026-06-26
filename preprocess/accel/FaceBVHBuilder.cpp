@@ -123,7 +123,7 @@ int BuildBVHNodeRecursive(
     if (node.is_leaf)
     {
         // v7.3 A4: 叶节点内按面元面积降序排列 (大面更可能先命中→提前终止更早)
-        std::sort(&primitiveFaceIds[begin], &primitiveFaceIds[end],
+        std::sort(primitiveFaceIds.begin() + begin, primitiveFaceIds.begin() + end,
             [&faces](int a, int b) { return faces[a].area > faces[b].area; });
         ++leafNodeCount;
         return nodeIndex;

@@ -12,6 +12,17 @@
 
 #include <sstream>
 
+namespace {
+
+// v9 B-8: Guard against NaN/inf in JSON output (replace with valid numeric sentinels)
+double SafeJsonDouble(double v) {
+    if (std::isnan(v)) return 0.0;
+    if (std::isinf(v)) return (v > 0.0) ? 300.0 : -300.0;
+    return v;
+}
+
+} // namespace
+
 namespace rt {
 
 /// <summary>
@@ -69,12 +80,20 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << ", \"first_transmission_medium_out_id\": " << item.first_transmission_medium_out_id
              << ", \"aod_theta_deg\": " << item.aod_theta_deg << ", \"aod_phi_deg\": " << item.aod_phi_deg
              << ", \"aoa_theta_deg\": " << item.aoa_theta_deg << ", \"aoa_phi_deg\": " << item.aoa_phi_deg
+             << ", \"co_pol_power_linear\": " << SafeJsonDouble(item.co_pol_power_linear)
+             << ", \"cross_pol_power_linear\": " << SafeJsonDouble(item.cross_pol_power_linear)
+             << ", \"xpr_dB\": " << SafeJsonDouble(item.xpr_dB)
              << ", \"source_tag\": \"" << item.source_tag << "\""
              << ", \"tx_antenna_id\": \"" << item.tx_antenna_id << "\""
              << ", \"tx_antenna_source_type\": \"" << item.tx_antenna_source_type << "\""
              << ", \"rx_antenna_id\": \"" << item.rx_antenna_id << "\""
              << ", \"rx_antenna_source_type\": \"" << item.rx_antenna_source_type << "\""
              << ", \"source_path_signature\": \"0x" << std::hex << item.source_path_signature << std::dec << "\""
+             << ", \"geometry_residual\": " << (sourcePath ? sourcePath->geometry_residual : 0.0)
+             << ", \"reflection_residual_m\": " << (sourcePath ? sourcePath->reflection_residual_m : 0.0)
+             << ", \"max_snell_residual\": " << (sourcePath ? sourcePath->max_snell_residual : 0.0)
+             << ", \"max_keller_residual\": " << (sourcePath ? sourcePath->max_keller_residual : 0.0)
+             << ", \"residual_reject_reason\": \"" << (sourcePath ? sourcePath->residual_reject_reason : std::string()) << "\""
              << ", \"interaction_types\": [";
 
         if (sourcePath != nullptr)
@@ -166,16 +185,18 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
     };
 
     std::ostringstream csv;
-    csv << "path_id,delay_s,phase_rad,power_linear,free_space_loss_db,polarization_magnitude,is_los,contains_transmission,transmission_semantic_consumed,first_transmission_medium_in_id,first_transmission_medium_out_id,source_tag,tx_antenna_id,tx_antenna_source_type,rx_antenna_id,rx_antenna_source_type,source_path_signature,node_count\n";
+    csv << "path_id,delay_s,phase_rad,power_linear,free_space_loss_db,polarization_magnitude,is_los,contains_transmission,transmission_semantic_consumed,first_transmission_medium_in_id,first_transmission_medium_out_id,source_tag,tx_antenna_id,tx_antenna_source_type,rx_antenna_id,rx_antenna_source_type,source_path_signature,geometry_residual,reflection_residual_m,max_snell_residual,max_keller_residual,residual_reject_reason,co_pol_power_linear,cross_pol_power_linear,xpr_dB,node_count\n";
     for (const EMPathResult& item : context.precise_result->path_results.results)
     {
         std::size_t nodeCount = 0;
+        const GeometricPath* sourcePath = nullptr;
         if (context.search_result != nullptr)
         {
             for (const GeometricPath& candidatePath : context.search_result->path_set.paths)
             {
                 if (candidatePath.path_signature == item.source_path_signature || item.source_path_signature == 0)
                 {
+                    sourcePath = &candidatePath;
                     nodeCount = candidatePath.nodes.size();
                     break;
                 }
@@ -192,7 +213,14 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
             << csvEscape(item.tx_antenna_source_type) << ","
             << csvEscape(item.rx_antenna_id) << ","
             << csvEscape(item.rx_antenna_source_type) << ","
-            << item.source_path_signature << "," << nodeCount << "\n";
+            << item.source_path_signature << ","
+            << (sourcePath ? sourcePath->geometry_residual : 0.0) << ","
+            << (sourcePath ? sourcePath->reflection_residual_m : 0.0) << ","
+            << (sourcePath ? sourcePath->max_snell_residual : 0.0) << ","
+            << (sourcePath ? sourcePath->max_keller_residual : 0.0) << ","
+            << csvEscape(sourcePath ? sourcePath->residual_reject_reason : std::string()) << ","
+            << item.co_pol_power_linear << "," << item.cross_pol_power_linear << "," << item.xpr_dB << ","
+            << nodeCount << "\n";
     }
 
     std::ostringstream manifest;

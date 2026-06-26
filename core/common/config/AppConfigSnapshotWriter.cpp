@@ -76,7 +76,7 @@ void EnsureDirectoryForFile(const std::string& filePath)
 AppConfigSnapshotWriteResult WriteAppConfigSnapshot(const AppConfig& config)
 {
     AppConfigSnapshotWriteResult result;
-    result.output_file_path = config.app_runtime.config_snapshot_directory + "/" + config.app_runtime.run_id + "_app_config_snapshot.json";
+    result.output_file_path = config.app_runtime.config_snapshot_directory + "/config_snapshot.json";
 
     EnsureDirectoryForFile(result.output_file_path);
 
@@ -85,7 +85,7 @@ AppConfigSnapshotWriteResult WriteAppConfigSnapshot(const AppConfig& config)
     {
         result.error = RtError::Create(
             ErrorCode::InternalError,
-            "Module1",
+            "配置",
             "Failed to open config snapshot output file.",
             result.output_file_path,
             "Check snapshot directory existence and write permissions.",
@@ -100,7 +100,7 @@ AppConfigSnapshotWriteResult WriteAppConfigSnapshot(const AppConfig& config)
     {
         result.error = RtError::Create(
             ErrorCode::InternalError,
-            "Module1",
+            "配置",
             "Failed while writing config snapshot output file.",
             result.output_file_path,
             "Check disk availability and output path permissions.",

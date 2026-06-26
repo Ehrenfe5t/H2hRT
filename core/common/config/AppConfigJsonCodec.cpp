@@ -76,7 +76,7 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "material_database_file", result.config.material.material_database_file);
         ReadJsonField(o, "missing_material_policy", result.config.material.missing_material_policy);
     }
-    // antenna
+    // antenna (v10.2: 全局回退配置, 向后兼容)
     if (root.find("antenna") != root.end()) {
         auto& o = root["antenna"];
         ReadJsonField(o, "source_type", result.config.antenna.source_type);
@@ -88,6 +88,32 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "up_x", result.config.antenna.up_x);
         ReadJsonField(o, "up_y", result.config.antenna.up_y);
         ReadJsonField(o, "up_z", result.config.antenna.up_z);
+    }
+    // v10.2: tx_antenna 独立发射天线配置
+    if (root.find("tx_antenna") != root.end()) {
+        auto& o = root["tx_antenna"];
+        ReadJsonField(o, "source_type", result.config.tx_antenna.source_type);
+        ReadJsonField(o, "pattern_file", result.config.tx_antenna.pattern_file);
+        ReadJsonField(o, "polarization_file", result.config.tx_antenna.polarization_file);
+        ReadJsonField(o, "forward_x", result.config.tx_antenna.forward_x);
+        ReadJsonField(o, "forward_y", result.config.tx_antenna.forward_y);
+        ReadJsonField(o, "forward_z", result.config.tx_antenna.forward_z);
+        ReadJsonField(o, "up_x", result.config.tx_antenna.up_x);
+        ReadJsonField(o, "up_y", result.config.tx_antenna.up_y);
+        ReadJsonField(o, "up_z", result.config.tx_antenna.up_z);
+    }
+    // v10.2: rx_antenna 独立接收天线配置
+    if (root.find("rx_antenna") != root.end()) {
+        auto& o = root["rx_antenna"];
+        ReadJsonField(o, "source_type", result.config.rx_antenna.source_type);
+        ReadJsonField(o, "pattern_file", result.config.rx_antenna.pattern_file);
+        ReadJsonField(o, "polarization_file", result.config.rx_antenna.polarization_file);
+        ReadJsonField(o, "forward_x", result.config.rx_antenna.forward_x);
+        ReadJsonField(o, "forward_y", result.config.rx_antenna.forward_y);
+        ReadJsonField(o, "forward_z", result.config.rx_antenna.forward_z);
+        ReadJsonField(o, "up_x", result.config.rx_antenna.up_x);
+        ReadJsonField(o, "up_y", result.config.rx_antenna.up_y);
+        ReadJsonField(o, "up_z", result.config.rx_antenna.up_z);
     }
     // path_search
     if (root.find("path_search") != root.end()) {
@@ -116,7 +142,7 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "rx_x", result.config.path_search.rx_x);
         ReadJsonField(o, "rx_y", result.config.path_search.rx_y);
         ReadJsonField(o, "rx_z", result.config.path_search.rx_z);
-        // rx_list array
+        // rx_list array (v10.2: 增加 per-Rx 天线覆盖字段)
         if (o.find("rx_list") != o.end() && o["rx_list"].is_array()) {
             for (auto& rxObj : o["rx_list"]) {
                 RxTarget rx;
@@ -124,6 +150,16 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
                 ReadJsonField(rxObj, "x", rx.x);
                 ReadJsonField(rxObj, "y", rx.y);
                 ReadJsonField(rxObj, "z", rx.z);
+                // v10.2: per-Rx 天线覆盖 (可选)
+                ReadJsonField(rxObj, "rx_source_type", rx.rx_source_type);
+                ReadJsonField(rxObj, "rx_pattern_file", rx.rx_pattern_file);
+                ReadJsonField(rxObj, "rx_polarization_file", rx.rx_polarization_file);
+                ReadJsonField(rxObj, "rx_forward_x", rx.rx_forward_x);
+                ReadJsonField(rxObj, "rx_forward_y", rx.rx_forward_y);
+                ReadJsonField(rxObj, "rx_forward_z", rx.rx_forward_z);
+                ReadJsonField(rxObj, "rx_up_x", rx.rx_up_x);
+                ReadJsonField(rxObj, "rx_up_y", rx.rx_up_y);
+                ReadJsonField(rxObj, "rx_up_z", rx.rx_up_z);
                 if (!rx.id.empty()) result.config.path_search.rx_list.push_back(rx);
             }
         }
@@ -132,6 +168,7 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
     if (root.find("sbr") != root.end()) {
         auto& o = root["sbr"];
         ReadJsonField(o, "enabled", result.config.sbr.enabled);
+        ReadJsonField(o, "trace_profile", result.config.sbr.trace_profile);
         ReadJsonField(o, "ray_count", result.config.sbr.ray_count);
         ReadJsonField(o, "max_ray_depth", result.config.sbr.max_ray_depth);
         ReadJsonField(o, "max_reflection_count", result.config.sbr.max_reflection_count);
@@ -153,12 +190,37 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "store_paths", result.config.sbr.store_paths);
         ReadJsonField(o, "wedge_max_distance_m", result.config.sbr.wedge_max_distance_m);
         ReadJsonField(o, "wedge_max_candidates", result.config.sbr.wedge_max_candidates);
+        ReadJsonField(o, "deterministic_interaction_split", result.config.sbr.deterministic_interaction_split);
+        ReadJsonField(o, "disable_no_new_hit_early_stop", result.config.sbr.disable_no_new_hit_early_stop);
+        ReadJsonField(o, "max_paths_per_ray", result.config.sbr.max_paths_per_ray);
+        ReadJsonField(o, "max_paths_per_rx", result.config.sbr.max_paths_per_rx);
+        ReadJsonField(o, "enable_dynamic_rx_radius", result.config.sbr.enable_dynamic_rx_radius);
+        ReadJsonField(o, "ray_tube_angle_rad", result.config.sbr.ray_tube_angle_rad);
+        ReadJsonField(o, "ray_tube_radius_scale", result.config.sbr.ray_tube_radius_scale);
+        ReadJsonField(o, "ray_tube_min_radius_m", result.config.sbr.ray_tube_min_radius_m);
+        ReadJsonField(o, "ray_tube_max_radius_m", result.config.sbr.ray_tube_max_radius_m);
+        ReadJsonField(o, "enable_wedge_tube_coupling", result.config.sbr.enable_wedge_tube_coupling);
+        ReadJsonField(o, "wedge_tube_radius_scale", result.config.sbr.wedge_tube_radius_scale);
+        ReadJsonField(o, "diffraction_rays_per_event", result.config.sbr.diffraction_rays_per_event);
+        ReadJsonField(o, "enable_path_dedup", result.config.sbr.enable_path_dedup);
+        ReadJsonField(o, "enable_path_similarity_pruning", result.config.sbr.enable_path_similarity_pruning);
+        ReadJsonField(o, "path_similarity_length_tol_m", result.config.sbr.path_similarity_length_tol_m);
+        ReadJsonField(o, "path_top_n_per_rx", result.config.sbr.path_top_n_per_rx);
+        ReadJsonField(o, "enable_path_residual_filter", result.config.sbr.enable_path_residual_filter);
+        ReadJsonField(o, "path_geometry_residual_tol", result.config.sbr.path_geometry_residual_tol);
+        ReadJsonField(o, "reflection_residual_tol_m", result.config.sbr.reflection_residual_tol_m);
+        ReadJsonField(o, "snell_residual_tol", result.config.sbr.snell_residual_tol);
+        ReadJsonField(o, "keller_residual_tol", result.config.sbr.keller_residual_tol);
     }
-    // em_solver
+    // em_solver (v10.2: 增加 APS 网格和 MEG 配置)
     if (root.find("em_solver") != root.end()) {
         auto& o = root["em_solver"];
         ReadJsonField(o, "frequency_hz", result.config.em_solver.frequency_hz);
         ReadJsonField(o, "solver_mode", result.config.em_solver.solver_mode);
+        ReadJsonField(o, "aps_theta_bins", result.config.em_solver.aps_theta_bins);
+        ReadJsonField(o, "aps_phi_bins", result.config.em_solver.aps_phi_bins);
+        ReadJsonField(o, "aps_export_2d_grid", result.config.em_solver.aps_export_2d_grid);
+        ReadJsonField(o, "compute_meg", result.config.em_solver.compute_meg);
     }
     // output
     if (root.find("output") != root.end()) {
@@ -175,8 +237,6 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "enable_basic_validation", result.config.validation.enable_basic_validation);
         ReadJsonField(o, "enable_reference_compare", result.config.validation.enable_reference_compare);
         ReadJsonField(o, "run_module1_self_check", result.config.validation.run_module1_self_check);
-        ReadJsonField(o, "module1_invalid_transmission_case_file", result.config.validation.module1_invalid_transmission_case_file);
-        ReadJsonField(o, "module1_invalid_diffraction_case_file", result.config.validation.module1_invalid_diffraction_case_file);
         ReadJsonField(o, "power_tolerance_db", result.config.validation.power_tolerance_db);
     }
     // experiment
@@ -192,25 +252,8 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         ReadJsonField(o, "enable_pvs", result.config.pipeline.enable_pvs);
         ReadJsonField(o, "enable_edge_adjacency", result.config.pipeline.enable_edge_adjacency);
         ReadJsonField(o, "enable_angular_grid", result.config.pipeline.enable_angular_grid);
-        ReadJsonField(o, "enable_stage1_coarse_sbr", result.config.pipeline.enable_stage1_coarse_sbr);
-        ReadJsonField(o, "enable_stage2_constrained_search", result.config.pipeline.enable_stage2_constrained_search);
-        ReadJsonField(o, "enable_stage3_path_reuse", result.config.pipeline.enable_stage3_path_reuse);
         ReadJsonField(o, "enable_stage4_precise_em", result.config.pipeline.enable_stage4_precise_em);
-        ReadJsonField(o, "enable_legacy_sbr_power", result.config.pipeline.enable_legacy_sbr_power);
-        ReadJsonField(o, "seed_rx_count", result.config.pipeline.seed_rx_count);
-        ReadJsonField(o, "seed_spatial_stride", result.config.pipeline.seed_spatial_stride);
-        ReadJsonField(o, "bidirectional_split_depth", result.config.pipeline.bidirectional_split_depth);
         ReadJsonField(o, "max_paths_per_rx", result.config.pipeline.max_paths_per_rx);
-        ReadJsonField(o, "reuse_max_distance", result.config.pipeline.reuse_max_distance);
-        ReadJsonField(o, "reuse_verify_last_hop", result.config.pipeline.reuse_verify_last_hop);
-    }
-    // acceleration (v8)
-    if (root.find("acceleration") != root.end()) {
-        auto& o = root["acceleration"];
-        ReadJsonField(o, "backend", result.config.acceleration.backend);
-        ReadJsonField(o, "gpu_device_id", result.config.acceleration.gpu_device_id);
-        ReadJsonField(o, "gpu_batch_size", result.config.acceleration.gpu_batch_size);
-        ReadJsonField(o, "gpu_use_rt_core", result.config.acceleration.gpu_use_rt_core);
     }
     // v9 C: frequency_sweep
     if (root.find("frequency_sweep") != root.end()) {
@@ -370,6 +413,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
     // sbr
     root["sbr"] = {
         {"enabled", config.sbr.enabled},
+        {"trace_profile", config.sbr.trace_profile},
         {"ray_count", config.sbr.ray_count},
         {"max_ray_depth", config.sbr.max_ray_depth},
         {"max_reflection_count", config.sbr.max_reflection_count},
@@ -390,13 +434,38 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
         {"tx_power_dBm", config.sbr.tx_power_dBm},
         {"store_paths", config.sbr.store_paths},
         {"wedge_max_distance_m", config.sbr.wedge_max_distance_m},
-        {"wedge_max_candidates", config.sbr.wedge_max_candidates}
+        {"wedge_max_candidates", config.sbr.wedge_max_candidates},
+        {"deterministic_interaction_split", config.sbr.deterministic_interaction_split},
+        {"disable_no_new_hit_early_stop", config.sbr.disable_no_new_hit_early_stop},
+        {"max_paths_per_ray", config.sbr.max_paths_per_ray},
+        {"max_paths_per_rx", config.sbr.max_paths_per_rx},
+        {"enable_dynamic_rx_radius", config.sbr.enable_dynamic_rx_radius},
+        {"ray_tube_angle_rad", config.sbr.ray_tube_angle_rad},
+        {"ray_tube_radius_scale", config.sbr.ray_tube_radius_scale},
+        {"ray_tube_min_radius_m", config.sbr.ray_tube_min_radius_m},
+        {"ray_tube_max_radius_m", config.sbr.ray_tube_max_radius_m},
+        {"enable_wedge_tube_coupling", config.sbr.enable_wedge_tube_coupling},
+        {"wedge_tube_radius_scale", config.sbr.wedge_tube_radius_scale},
+        {"diffraction_rays_per_event", config.sbr.diffraction_rays_per_event},
+        {"enable_path_dedup", config.sbr.enable_path_dedup},
+        {"enable_path_similarity_pruning", config.sbr.enable_path_similarity_pruning},
+        {"path_similarity_length_tol_m", config.sbr.path_similarity_length_tol_m},
+        {"path_top_n_per_rx", config.sbr.path_top_n_per_rx},
+        {"enable_path_residual_filter", config.sbr.enable_path_residual_filter},
+        {"path_geometry_residual_tol", config.sbr.path_geometry_residual_tol},
+        {"reflection_residual_tol_m", config.sbr.reflection_residual_tol_m},
+        {"snell_residual_tol", config.sbr.snell_residual_tol},
+        {"keller_residual_tol", config.sbr.keller_residual_tol}
     };
 
-    // em_solver
+    // em_solver (v10.2: APS and MEG fields)
     root["em_solver"] = {
         {"frequency_hz", config.em_solver.frequency_hz},
-        {"solver_mode", config.em_solver.solver_mode}
+        {"solver_mode", config.em_solver.solver_mode},
+        {"aps_theta_bins", config.em_solver.aps_theta_bins},
+        {"aps_phi_bins", config.em_solver.aps_phi_bins},
+        {"aps_export_2d_grid", config.em_solver.aps_export_2d_grid},
+        {"compute_meg", config.em_solver.compute_meg}
     };
 
     // output
@@ -413,8 +482,6 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
         {"enable_basic_validation", config.validation.enable_basic_validation},
         {"enable_reference_compare", config.validation.enable_reference_compare},
         {"run_module1_self_check", config.validation.run_module1_self_check},
-        {"module1_invalid_transmission_case_file", config.validation.module1_invalid_transmission_case_file},
-        {"module1_invalid_diffraction_case_file", config.validation.module1_invalid_diffraction_case_file},
         {"power_tolerance_db", config.validation.power_tolerance_db}
     };
 
@@ -430,25 +497,8 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
         {"enable_pvs", config.pipeline.enable_pvs},
         {"enable_edge_adjacency", config.pipeline.enable_edge_adjacency},
         {"enable_angular_grid", config.pipeline.enable_angular_grid},
-        {"enable_stage1_coarse_sbr", config.pipeline.enable_stage1_coarse_sbr},
-        {"enable_stage2_constrained_search", config.pipeline.enable_stage2_constrained_search},
-        {"enable_stage3_path_reuse", config.pipeline.enable_stage3_path_reuse},
         {"enable_stage4_precise_em", config.pipeline.enable_stage4_precise_em},
-        {"enable_legacy_sbr_power", config.pipeline.enable_legacy_sbr_power},
-        {"seed_rx_count", config.pipeline.seed_rx_count},
-        {"seed_spatial_stride", config.pipeline.seed_spatial_stride},
-        {"bidirectional_split_depth", config.pipeline.bidirectional_split_depth},
-        {"max_paths_per_rx", config.pipeline.max_paths_per_rx},
-        {"reuse_max_distance", config.pipeline.reuse_max_distance},
-        {"reuse_verify_last_hop", config.pipeline.reuse_verify_last_hop}
-    };
-
-    // acceleration (v8)
-    root["acceleration"] = {
-        {"backend", config.acceleration.backend},
-        {"gpu_device_id", config.acceleration.gpu_device_id},
-        {"gpu_batch_size", config.acceleration.gpu_batch_size},
-        {"gpu_use_rt_core", config.acceleration.gpu_use_rt_core}
+        {"max_paths_per_rx", config.pipeline.max_paths_per_rx}
     };
 
     // v9 C: frequency_sweep

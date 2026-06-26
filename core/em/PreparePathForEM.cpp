@@ -14,7 +14,7 @@ namespace rt {
 /// </summary>
 /// <param name="input">Solver input bundle to validate (mutates transmission_semantic_complete fields).</param>
 /// <returns>true if the path passes all pre-checks and can enter the EM pipeline.</returns>
-bool PreparePathForEM(const EMSolverInput& input)
+bool PreparePathForEM(EMSolverInput& input)  // v10.2 B6修复: 非const引用，合法修改诊断标志
 {
     // Null-pointer guard: all three core references must be valid
     if (input.config == nullptr || input.scene == nullptr || input.path == nullptr)
@@ -76,10 +76,10 @@ bool PreparePathForEM(const EMSolverInput& input)
         }
     }
 
-    // Write transmission completeness flags back to input for downstream use
-    const_cast<EMSolverInput&>(input).transmission_semantic_complete = transmissionSemanticComplete;
-    const_cast<EMSolverInput&>(input).first_transmission_medium_in_id = firstTransmissionMediumIn;
-    const_cast<EMSolverInput&>(input).first_transmission_medium_out_id = firstTransmissionMediumOut;
+    // v10.2 B6修复: 直接写入，无需const_cast
+    input.transmission_semantic_complete = transmissionSemanticComplete;
+    input.first_transmission_medium_in_id = firstTransmissionMediumIn;
+    input.first_transmission_medium_out_id = firstTransmissionMediumOut;
 
     // Block path if any transmission node lacks complete semantics
     if (!transmissionSemanticComplete)

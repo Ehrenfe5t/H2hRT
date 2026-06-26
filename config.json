@@ -1,0 +1,27 @@
+{
+  "run_id": "v11_meeting_BaseLine",
+  "scene": {
+    "obj_file": "G:/RT/H2hRT-7.1-SBR-/Scene&Material/meeting.obj",
+    "material_binding_file": "G:/RT/H2hRT-7.1-SBR-/Scene&Material/material_map-meeting.json",
+    "material_database_file": "G:/RT/H2hRT-7.1-SBR-/Scene&Material/ItuMaterial.csv"
+  },
+  "antenna_file": "configs/antennas/antenna_meeting.json",
+  "simulation": {
+    "enable_p2p": true,
+    "enable_coverage": false
+  },
+  "p2p": {
+    "tx_ids": [ "Tx01" ],
+    "rx_ids": [ "Rx01", "Rx02", "Rx03" ],
+    "ray_count": 1000000,
+    "max_depth": 8,
+    "max_reflection": 4,
+    "max_transmission": 2,
+    "max_diffraction": 1,
+    "power_threshold_dB": -180.0,
+    "rx_sphere_radius_m": 0.1
+  },
+  "em": {
+    "frequency_list_hz": [ 2400000000.0 ]
+  }
+}

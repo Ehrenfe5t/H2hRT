@@ -1,9 +1,5 @@
-// ───────────────────────────────────────────────────────────────────
-// 文件: main.cpp
-// 用途: RT射线追踪管线控制台入口。解析命令行配置路径，委托RtPipeline执行，
-//       返回统一退出码供脚本/CI使用。
-// 所属模块: 应用层入口
-// ───────────────────────────────────────────────────────────────────
+﻿// main.cpp
+// 程序入口：读取配置文件路径，委托 RtPipeline 执行 v11 P2P 主链，并返回统一退出码。
 
 #include "RtPipeline.h"
 
@@ -15,21 +11,18 @@
 #include <windows.h>
 #endif
 
-/// <summary>
-/// 程序入口。从 argv[1] 解析可选配置文件路径，委托 RtPipeline::Run，
-/// 返回统一退出码（0=成功，非0=失败）。
-/// </summary>
+/// Program entry. argv[1] is an optional config path; default is config.json.
 int main(int argc, char* argv[])
 {
 #ifdef _WIN32
-    SetConsoleOutputCP(CP_UTF8);  // v7: 修复控制台中文乱码
+    SetConsoleOutputCP(CP_UTF8);
 #endif
     try
     {
-        // 解析配置路径: 命令行参数优先, 否则回退到默认配置
-        const std::string configPath = (argc > 1) ? argv[1] : "configs/app/meeting_412_v9_full.json";
+        // Prefer the command-line config path; otherwise use the v11 baseline config.
+        const std::string configPath = (argc > 1) ? argv[1] : "config.json";
 
-        // 启动完整管线 (配置→校验→批次→A1生产链→SBR覆盖)
+        // Run the v11 P2P main chain.
         rt::RtPipeline pipeline;
         const rt::PipelineRunResult result = pipeline.Run(configPath);
 

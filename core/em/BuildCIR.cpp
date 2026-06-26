@@ -36,8 +36,7 @@ CIRResult BuildCIR(const EMPathResultSet& pathResults, const EMSolveProfile& pro
             auto& bin = bins[binIdx];
             bin.centerDelay = (binIdx + 0.5) * profile.delay_bin_s;
             // 复振幅 = amplitude * exp(j*phase)
-            Complex alpha(item.amplitude_real * std::cos(item.phase_rad),
-                          item.amplitude_real * std::sin(item.phase_rad));
+            Complex alpha(item.amplitude_real, item.amplitude_imag);
             bin.sum = bin.sum + alpha;
             bin.ids.push_back(item.path_id);
         }
@@ -61,8 +60,8 @@ CIRResult BuildCIR(const EMPathResultSet& pathResults, const EMSolveProfile& pro
 
         CIRTap tap;
         tap.delay_s = item.delay_s;
-        tap.amplitude_real = item.amplitude_real * std::cos(item.phase_rad);
-        tap.amplitude_imag = item.amplitude_real * std::sin(item.phase_rad);
+        tap.amplitude_real = item.amplitude_real;
+        tap.amplitude_imag = item.amplitude_imag;
         tap.power_linear = item.power_linear;
         tap.contributing_path_ids.push_back(item.path_id);
         result.taps.push_back(tap);

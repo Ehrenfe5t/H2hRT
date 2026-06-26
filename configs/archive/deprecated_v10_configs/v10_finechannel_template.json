@@ -1,0 +1,162 @@
+﻿{
+    "app_runtime":  {
+                        "mode":  "debug",
+                        "log_level":  "INFO",
+                        "run_id":  "compareH2hRT-SBR"
+                    },
+    "scene_import":  {
+                         "source_file":  "demo/412/412-6k.obj",
+                         "source_format":  "obj",
+                         "scene_material_map_file":  "configs/scenes/scene_material_map-412.json"
+                     },
+    "scene_preprocess":  {
+                             "enable_wedge_build":  true,
+                             "enable_scene_cache":  false,
+                             "bvh_leaf_size":  16
+                         },
+    "material":  {
+                     "material_database_file":  "demo/ItuMaterial.csv",
+                     "missing_material_policy":  "strict"
+                 },
+    "antenna":  {
+                    "source_type":  "Ideal",
+                    "pattern_file":  "",
+                    "polarization_file":  "",
+                    "forward_x":  1.0,
+                    "forward_y":  0.0,
+                    "forward_z":  0.0,
+                    "up_x":  0.0,
+                    "up_y":  0.0,
+                    "up_z":  1.0
+                },
+    "tx_antenna":  {
+                       "source_type":  "",
+                       "pattern_file":  "",
+                       "polarization_file":  "",
+                       "forward_x":  1.0,
+                       "forward_y":  0.0,
+                       "forward_z":  0.0,
+                       "up_x":  0.0,
+                       "up_y":  0.0,
+                       "up_z":  1.0
+                   },
+    "rx_antenna":  {
+                       "source_type":  "",
+                       "pattern_file":  "",
+                       "polarization_file":  "",
+                       "forward_x":  0.0,
+                       "forward_y":  0.0,
+                       "forward_z":  0.0,
+                       "up_x":  0.0,
+                       "up_y":  0.0,
+                       "up_z":  1.0
+                   },
+    "path_search":  {
+                        "max_path_depth":  8,
+                        "max_reflection_count":  3,
+                        "max_transmission_count":  2,
+                        "max_diffraction_count":  1,
+                        "max_scattering_count":  0,
+                        "max_consecutive_same_interaction":  5,
+                        "enable_los":  true,
+                        "per_expander_keep_limit":  8,
+                        "per_state_keep_limit":  16,
+                        "exhaustive_debug_mode":  false,
+                        "snell_residual_tol":  1E-06,
+                        "direction_closure_angle_tol_deg":  2.0,
+                        "wedge_max_distance_m":  50.0,
+                        "wedge_max_candidates":  64,
+                        "tx_x":  2.38,
+                        "tx_y":  1.5,
+                        "tx_z":  -9.61,
+                        "rx_list":  [
+                                        {
+                                            "id":  "rx1",
+                                            "x":  1.58,
+                                            "y":  1.5,
+                                            "z":  -8.81
+                                        }
+                                    ]
+                    },
+    "sbr":  {
+                "enabled":  true,
+                "trace_profile":  "FineChannel",
+                "ray_count":  200000,
+                "max_ray_depth":  8,
+                "max_reflection_count":  3,
+                "max_transmission_count":  2,
+                "max_diffraction_count":  1,
+                "ray_power_threshold_dB":  -120.0,
+                "rx_sphere_radius_m":  0.06,
+                "auto_grid_bounds":  false,
+                "rx_grid_min_x":  0.0,
+                "rx_grid_max_x":  6.5,
+                "rx_grid_min_y":  0.0,
+                "rx_grid_max_y":  3.0,
+                "rx_grid_min_z":  -10.3,
+                "rx_grid_max_z":  0.0,
+                "rx_grid_step_x":  0.1,
+                "rx_grid_step_y":  0.1,
+                "rx_grid_step_z":  0.1,
+                "tx_power_dBm":  10.0,
+                "store_paths":  true,
+                "wedge_max_distance_m":  3.0,
+                "wedge_max_candidates":  16,
+                "deterministic_interaction_split":  true,
+                "disable_no_new_hit_early_stop":  true,
+                "max_paths_per_ray":  8,
+                "max_paths_per_rx":  0,
+                "enable_dynamic_rx_radius":  true,
+                "ray_tube_angle_rad":  0.0,
+                "ray_tube_radius_scale":  0.5,
+                "ray_tube_min_radius_m":  0.0,
+                "ray_tube_max_radius_m":  0.20,
+                "enable_wedge_tube_coupling":  true,
+                "wedge_tube_radius_scale":  1.0,
+                "diffraction_rays_per_event":  8,
+                "enable_path_dedup":  true,
+                "enable_path_similarity_pruning":  true,
+                "path_similarity_length_tol_m":  0.05,
+                "path_top_n_per_rx":  0,
+                "enable_path_residual_filter":  true,
+                "path_geometry_residual_tol":  0.25,
+                "reflection_residual_tol_m":  0.25,
+                "snell_residual_tol":  0.001,
+                "keller_residual_tol":  0.001
+            },
+    "em_solver":  {
+                      "frequency_hz":  3000000000.0,
+                      "solver_mode":  "Precise"
+                  },
+    "output":  {
+                   "export_paths":  true,
+                   "export_cir":  true,
+                   "export_pdp":  true,
+                   "export_aps":  true,
+                   "export_config_snapshot":  true
+               },
+    "validation":  {
+                       "enable_basic_validation":  true,
+                       "enable_reference_compare":  false,
+                       "run_module1_self_check":  false,
+                       "power_tolerance_db":  0.1
+                   },
+    "experiment":  {
+                       "experiment_tag":  "v10_finechannel",
+                       "dataset_tag":  "chapter3_412_single_rx"
+                   },
+    "numeric_tolerance":  {
+                              "eps_length":  1E-06,
+                              "eps_intersection":  1E-07,
+                              "eps_deduplicate":  1E-05,
+                              "self_hit_ignore_distance":  1E-05,
+                              "visibility_origin_offset":  1E-05,
+                              "visibility_target_shrink":  1E-05
+                          },
+    "acceleration":  {
+                         "backend":  "CPU_FaceBVH",
+                         "gpu_device_id":  0,
+                         "gpu_batch_size":  1000000,
+                         "gpu_use_rt_core":  true
+                     }
+}

@@ -49,7 +49,7 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
 
     // ── v9 Stage D: 复矢量接收 (共轭匹配 + Rx gain) ──
     if (field.vector_field_valid && path.nodes.size() >= 2) {
-        double totalScale = fsplAmp * mediaLoss;
+        double totalScale = fsplAmp;
         ComplexVec3 E_inc = Scale(field.electric_field_world, totalScale);
 
         // Stage D: Rx Jones response — per-angle antenna polarization + gain
@@ -57,32 +57,45 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
         Vec3 rxPolImVec = MakeVec3(0.0, 0.0, 0.0);
         double rxGainLin = 1.0;
 
-        if (input.config) {
+        AntennaModel fallbackRxAnt;
+        const AntennaModel* rxAntPtr = input.rx_antenna;
+        if (!rxAntPtr && input.config) {
             const Point3 rxPos = !path.nodes.empty() ? path.nodes.back().point : Point3{};
-            AntennaModel rxAnt = BuildRxAntennaModel(*input.config, rxPos, "rx-finalize");
+            fallbackRxAnt = BuildRxAntennaModel(*input.config, rxPos, "rx-finalize");
+            rxAntPtr = &fallbackRxAnt;
+        }
+        if (rxAntPtr) {
+            const AntennaModel& rxAnt = *rxAntPtr;
             // Rx天线独立极化矢量
             if (Length(rxAnt.polarization_vector) > 0.5) {
                 rxPolVec = rxAnt.polarization_vector;
                 rxPolImVec = MakeVec3(0.0, 0.0, 0.0);
             }
-            // Per-angle Jones response (polarization + gain)
-            if (rxAnt.pattern.loaded) {
+            // ── v9 B-8: 天线局部球坐标基矢量 (始终计算, 用于 co/cross-pol 分解) ──
+            Vec3 thetaHat, phiHat;
+            // Compute incident direction from path geometry
+            if (path.nodes.size() >= 2) {
                 Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-1].point,
                                                   path.nodes[path.nodes.size()-2].point));
                 double thetaRad, phiRad;
                 WorldToAntennaSpherical(incDir, rxAnt.forward, rxAnt.right, rxAnt.up,
                                         thetaRad, phiRad);
-                double gainDBi = rxAnt.pattern.QueryGainDBi(thetaRad * 180.0 / kPi,
-                                                             phiRad * 180.0 / kPi);
-                rxGainLin = std::pow(10.0, gainDBi / 10.0);
-                // Per-angle polarization if available
+                // Always compute spherical basis vectors (for co/cross-pol)
+                AntennaSphericalBasisToWorld(rxAnt.forward, rxAnt.right, rxAnt.up,
+                                              thetaRad, phiRad, thetaHat, phiHat);
+
+                // Per-angle gain pattern (if loaded)
+                if (rxAnt.pattern.loaded) {
+                    double gainDBi = rxAnt.pattern.QueryGainDBi(thetaRad * 180.0 / kPi,
+                                                                 phiRad * 180.0 / kPi);
+                    rxGainLin = std::pow(10.0, gainDBi / 10.0);
+                }
+
+                // Per-angle Jones polarization (if loaded, overrides fixed polarization)
                 if (rxAnt.pattern.polarization_loaded) {
                     double ptR, ptI, ppR, ppI;
                     rxAnt.pattern.QueryPolarization(thetaRad * 180.0 / kPi, phiRad * 180.0 / kPi,
                                                      ptR, ptI, ppR, ppI);
-                    Vec3 thetaHat, phiHat;
-                    AntennaSphericalBasisToWorld(rxAnt.forward, rxAnt.right, rxAnt.up,
-                                                  thetaRad, phiRad, thetaHat, phiHat);
                     rxPolVec = MakeVec3(ptR*thetaHat.x + ppR*phiHat.x,
                                         ptR*thetaHat.y + ppR*phiHat.y,
                                         ptR*thetaHat.z + ppR*phiHat.z);
@@ -90,10 +103,21 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
                                           ptI*thetaHat.y + ppI*phiHat.y,
                                           ptI*thetaHat.z + ppI*phiHat.z);
                 }
+
+                // v9 B-8: Co/cross-pol power decomposition (always, for any antenna type)
+                Complex co_vr = ComplexDot(E_inc, thetaHat);
+                Complex cx_vr = ComplexDot(E_inc, phiHat);
+                result.co_pol_power_linear = co_vr.NormSq() * rxGainLin;
+                result.cross_pol_power_linear = cx_vr.NormSq() * rxGainLin;
+                // XPR guard: avoid log10(0)=inf and log10(inf)=inf
+                if (result.co_pol_power_linear > 1e-30 && result.cross_pol_power_linear > 1e-30)
+                    result.xpr_dB = 10.0 * std::log10(result.co_pol_power_linear / result.cross_pol_power_linear);
+                else if (result.cross_pol_power_linear > 1e-30)
+                    result.xpr_dB = -300.0; // pure cross-pol
+                else
+                    result.xpr_dB = 300.0;  // pure co-pol or zero power
             }
         }
-
-        // Stage D: 共轭匹配 — vr = E_inc · conj(h_rx)
         ComplexVec3 h_rx(Complex(rxPolVec.x, rxPolImVec.x),
                          Complex(rxPolVec.y, rxPolImVec.y),
                          Complex(rxPolVec.z, rxPolImVec.z));
@@ -120,8 +144,9 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
         result.source_tag = "search_engine_real_output_vector";
         result.contains_transmission = path.contains_transmission;
         result.transmission_semantic_consumed = field.transmission_semantic_consumed;
-        result.first_transmission_medium_in_id = field.last_transmission_medium_in_id;
-        result.first_transmission_medium_out_id = field.last_transmission_medium_out_id;
+        // v10.2 B1修复: first_transmission从EMSolverInput读取(PreparePathForEM已捕获)
+        result.first_transmission_medium_in_id = input.first_transmission_medium_in_id;
+        result.first_transmission_medium_out_id = input.first_transmission_medium_out_id;
         result.last_transmission_medium_in_id = field.last_transmission_medium_in_id;
         result.last_transmission_medium_out_id = field.last_transmission_medium_out_id;
 
@@ -141,9 +166,15 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     // ── 旧标量路径 (兼容) ──
     // v8: Rx天线增益 (天线姿态 + 局部球坐标查询)
     double rxGainLin = 1.0;
-    if (input.config) {
+    AntennaModel fallbackRxAnt;
+    const AntennaModel* rxAntPtr = input.rx_antenna;
+    if (!rxAntPtr && input.config) {
         const Point3 rxPos = !path.nodes.empty() ? path.nodes.back().point : Point3{};
-        AntennaModel rxAnt = BuildRxAntennaModel(*input.config, rxPos, "rx-finalize");
+        fallbackRxAnt = BuildRxAntennaModel(*input.config, rxPos, "rx-finalize");
+        rxAntPtr = &fallbackRxAnt;
+    }
+    if (rxAntPtr) {
+        const AntennaModel& rxAnt = *rxAntPtr;
         if (rxAnt.pattern.loaded && path.nodes.size() >= 2) {
             Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-1].point,
                                               path.nodes[path.nodes.size()-2].point));

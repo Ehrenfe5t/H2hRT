@@ -60,18 +60,22 @@ bool Logger::Initialize(const AppRuntimeConfig& runtimeConfig)
         if (!fileStream_.is_open())
         {
             fileEnabled_ = false;
-            LogError("Module1", RtError::Create(
+            LogError("日志", RtError::Create(
                 ErrorCode::LoggerInitializationFailed,
-                "Module1",
+                "日志",
                 "Failed to open log file. Logging will continue on console only.",
                 runtimeConfig.log_file_path,
                 "Check output directory permissions.",
                 false));
             return false;
         }
+        if (fileStream_.tellp() == std::streampos(0))
+        {
+            fileStream_ << "\xEF\xBB\xBF";
+        }
     }
 
-    Log(LogLevel::Info, "Module1", "Logger initialized.");
+    Log(LogLevel::Info, "运行时", "日志系统初始化完成。");
     return true;
 }
 
