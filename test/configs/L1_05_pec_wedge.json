@@ -1,7 +1,7 @@
 {
   "app_runtime": { "mode": "debug", "log_level": "INFO", "run_id": "L1_05_pec_wedge" },
   "scene_import": {
-    "source_file": "test/scenes/L1_canonical/L1_05_pec_wedge.obj",
+    "source_file": "test/scenes/L1_canonical/L1_05_pec_wedge_shared.obj",
     "source_format": "obj",
     "scene_material_map_file": "test/configs/L1_wedge_map.json"
   },
@@ -19,7 +19,25 @@
     "tx_x": 0.0, "tx_y": 2.0, "tx_z": 1.0,
     "rx_x": 4.0, "rx_y": -2.0, "rx_z": 1.0
   },
-  "sbr": { "enabled": false },
+  "sbr": {
+    "enabled": true,
+    "trace_profile": "FineChannel",
+    "ray_count": 20000,
+    "max_ray_depth": 3,
+    "max_reflection_count": 1,
+    "max_transmission_count": 0,
+    "max_diffraction_count": 1,
+    "ray_power_threshold_dB": -120.0,
+    "rx_sphere_radius_m": 0.08,
+    "store_paths": true,
+    "deterministic_interaction_split": true,
+    "enable_dynamic_rx_radius": true,
+    "ray_tube_radius_scale": 0.5,
+    "ray_tube_min_radius_m": 0.08,
+    "ray_tube_max_radius_m": 0.3,
+    "enable_path_dedup": true,
+    "enable_path_similarity_pruning": false
+  },
   "em_solver": { "frequency_hz": 3500000000.0, "solver_mode": "Precise" },
   "output": { "export_paths": true, "export_cir": true, "export_pdp": true, "export_aps": true, "export_config_snapshot": true },
   "validation": { "enable_basic_validation": true, "enable_reference_compare": false, "run_module1_self_check": false },

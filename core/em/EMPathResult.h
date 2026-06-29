@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../path/GeometricPath.h"
+#include "FieldAccumulator.h"
 
 #include <string>
 #include <vector>
@@ -25,6 +26,9 @@ struct EMPathResult {
     double amplitude_real = 0.0;        ///< Real part of the complex received field amplitude.
     double amplitude_imag = 0.0;        ///< Imaginary part of the complex received field amplitude.
     double power_linear = 0.0;          ///< Received linear power = |amplitude|^2.
+    double incident_power_linear = 0.0; ///< Power at Rx before Rx gain/polarization filtering.
+    double sampling_weight = 1.0;       ///< SBR launch-power fraction represented by the path.
+    int candidate_support_count = 1;    ///< Number of launch rays that discovered this physical topology.
     double free_space_amplitude_scale = 0.0; ///< FSPL amplitude factor = wavelength / (4 * pi * d).
     double free_space_power_scale = 0.0;     ///< FSPL power factor = (amplitude_scale)^2.
     double wavelength_m = 0.0;          ///< Free-space wavelength used for this path.
@@ -54,6 +58,12 @@ struct EMPathResult {
     double co_pol_power_linear = 0.0;    ///< Co-polarized received power.
     double cross_pol_power_linear = 0.0; ///< Cross-polarized received power.
     double xpr_dB = 0.0;                  ///< Cross-Polarization Ratio = 10*log10(co/cross).
+    // v11.1: Tx power fields for absolute received power semantics
+    double tx_power_dBm = 0.0;           ///< Transmit power in dBm (from antenna.json tx.power_dBm).
+    double power_dBm = 0.0;              ///< Received power in dBm = 10*log10(power_linear * 1000).
+    ComplexVec3 incident_electric_field_world_v_per_m; ///< Physical RMS incident E-field at Rx [V/m].
+    Complex channel_coefficient;         ///< Dimensionless received power-wave / sqrt(Tx power W).
+    std::vector<NodeFieldTrace> node_field_trace; ///< Node-by-node complex polarization evolution.
 };
 
 /// <summary>

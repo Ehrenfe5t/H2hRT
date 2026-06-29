@@ -28,20 +28,29 @@ bool ValidateSbrPathForEmReady(const GeometricPath& path, const Scene& scene, st
     if (path.path_signature == 0) { if (reason) *reason = "signature=0"; return false; }
     if (path.path_id < 0) { if (reason) *reason = "path_id<0"; return false; }
     if (path.total_length <= 0.0) { if (reason) *reason = "total_length<=0"; return false; }
+    if (!path.geometry_refined) { if (reason) *reason = "geometry not refined"; return false; }
+    if (path.geometry_residual > 2.0e-5) { if (reason) *reason = "geometry residual exceeds tolerance"; return false; }
 
+    double segmentSum = 0.0;
     for (size_t i = 0; i < path.nodes.size(); ++i) {
         auto& n = path.nodes[i];
         if (!n.valid) { if (reason) *reason = "node[" + std::to_string(i) + "].valid=false"; return false; }
         if (i > 0 && n.segment_length_from_previous <= 0.0) {
             if (reason) *reason = "node[" + std::to_string(i) + "].segment_length<=0"; return false;
         }
+        if (i > 0) segmentSum += n.segment_length_from_previous;
+    }
+    if (std::fabs(segmentSum - path.total_length) > 1.0e-7 * std::max(1.0, path.total_length)) {
+        if (reason) *reason = "segment lengths do not sum to total_length";
+        return false;
     }
 
     // Reflection nodes: face_id must be in range
     for (auto& n : path.nodes) {
-        if (n.interaction_type == InteractionType::Reflection) {
+        if (n.interaction_type == InteractionType::Reflection ||
+            n.interaction_type == InteractionType::Transmission) {
             if (n.face_id < 0 || n.face_id >= static_cast<int>(scene.faces.size())) {
-                if (reason) *reason = "reflection face_id out of range: " + std::to_string(n.face_id);
+                if (reason) *reason = "surface interaction face_id out of range: " + std::to_string(n.face_id);
                 return false;
             }
         }
@@ -93,32 +102,18 @@ bool ValidateSbrPathForEmReady(const GeometricPath& path, const Scene& scene, st
     return true;
 }
 
-namespace {
-    Point3 ReflectPointAcrossPlane(const Point3& p, const Point3& planePoint, const Vec3& normal) {
-        Vec3 v = Subtract(p, planePoint);
-        double d = Dot(v, normal);
-        return Add(p, Scale(normal, -2.0 * d));
-    }
-} // namespace
-
 void EvaluatePathGeometryResidual(GeometricPath& path) {
     double maxSnellResidual = 0.0;
     double maxKellerResidual = 0.0;
     double maxReflectionResidual = 0.0;
 
-    // For single-bounce reflection paths: check specular point vs hit point via Image Method
-    int reflCount = CountInteractionNodes(path, InteractionType::Reflection);
-    if (reflCount == 1 && path.nodes.size() >= 3) {
-        for (size_t i = 1; i + 1 < path.nodes.size(); ++i) {
-            if (path.nodes[i].interaction_type == InteractionType::Reflection) {
-                Point3 mirrorRx = ReflectPointAcrossPlane(
-                    path.nodes.back().point,
-                    path.nodes[i].point,
-                    path.nodes[i].surface_normal);
-                maxReflectionResidual = 0.0;
-                break;
-            }
-        }
+    // Reflection residual is directional: zero only when the stored outgoing
+    // direction equals the specular direction reconstructed from the geometry.
+    for (const auto& n : path.nodes) {
+        if (n.interaction_type != InteractionType::Reflection) continue;
+        const Vec3 expected = Normalize(Reflect(n.incident_direction, n.surface_normal));
+        maxReflectionResidual = std::max(maxReflectionResidual,
+                                         Length(Subtract(Normalize(n.direction), expected)));
     }
 
     // Transmission Snell residuals
@@ -141,6 +136,7 @@ void EvaluatePathGeometryResidual(GeometricPath& path) {
     path.max_snell_residual = maxSnellResidual;
     path.max_keller_residual = maxKellerResidual;
     path.reflection_residual_m = maxReflectionResidual;
+    path.max_reflection_residual = maxReflectionResidual;
     path.geometry_residual = std::max({maxReflectionResidual, maxSnellResidual, maxKellerResidual});
 }
 

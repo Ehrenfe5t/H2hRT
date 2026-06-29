@@ -1,0 +1,22 @@
+﻿{
+    "schema_version":  "v11.5",
+    "session_id":  "20260627T185227Z",
+    "started_utc":  "2026-06-27T18:52:27.7991324Z",
+    "selected_groups":  [
+                            "E1",
+                            "E2",
+                            "E3",
+                            "C1",
+                            "C2",
+                            "C3",
+                            "X1"
+                        ],
+    "executable":  "G:\\RT\\H2hRT-7.1-SBR-\\x64\\Release\\RT.exe",
+    "executable_sha256":  "58A49062CC3F9A5309F52F33D5BF097EE4A03C9D6E09B9AF2043BCDC70398F5B",
+    "git_commit":  "d748c5cf134d5aee15bf20ee210950dcbbaa32b1",
+    "git_dirty":  true,
+    "case_count":  27,
+    "completed_case_count":  27,
+    "failed_case_count":  0,
+    "finished_utc":  "2026-06-27T18:53:06.8023652Z"
+}

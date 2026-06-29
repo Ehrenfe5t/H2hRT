@@ -1,0 +1,197 @@
+{
+  "schema_version": "v11.5",
+  "primary_scene": "412-6k",
+  "frequency_hz": 3000000000.0,
+  "case_count": 27,
+  "cases": [
+    {
+      "group": "E1",
+      "case_id": "ideal",
+      "run_id": "v11_e1_ideal_412",
+      "config": "configs/v11_experiments/e1_antenna_model/config_ideal.json",
+      "purpose": "Isolate gain-pattern effects with fixed co-polarization."
+    },
+    {
+      "group": "E1",
+      "case_id": "dipole",
+      "run_id": "v11_e1_dipole_412",
+      "config": "configs/v11_experiments/e1_antenna_model/config_dipole.json",
+      "purpose": "Isolate gain-pattern effects with fixed co-polarization."
+    },
+    {
+      "group": "E1",
+      "case_id": "patch",
+      "run_id": "v11_e1_patch_412",
+      "config": "configs/v11_experiments/e1_antenna_model/config_patch.json",
+      "purpose": "Isolate gain-pattern effects with fixed co-polarization."
+    },
+    {
+      "group": "E1",
+      "case_id": "horn",
+      "run_id": "v11_e1_horn_412",
+      "config": "configs/v11_experiments/e1_antenna_model/config_horn.json",
+      "purpose": "Isolate gain-pattern effects with fixed co-polarization."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw000",
+      "run_id": "v11_e2_yaw000_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw000.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw030",
+      "run_id": "v11_e2_yaw030_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw030.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw060",
+      "run_id": "v11_e2_yaw060_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw060.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw090",
+      "run_id": "v11_e2_yaw090_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw090.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw120",
+      "run_id": "v11_e2_yaw120_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw120.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw150",
+      "run_id": "v11_e2_yaw150_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw150.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E2",
+      "case_id": "yaw180",
+      "run_id": "v11_e2_yaw180_412",
+      "config": "configs/v11_experiments/e2_pose_yaw/config_yaw180.json",
+      "purpose": "Rotate Rx around world +Y while all other variables remain fixed."
+    },
+    {
+      "group": "E3",
+      "case_id": "fixed_fixed",
+      "run_id": "v11_e3_fixed_fixed_412",
+      "config": "configs/v11_experiments/e3_polarization/config_fixed_fixed.json",
+      "purpose": "Pair paths by signature and isolate Tx/Rx Jones polarization effects."
+    },
+    {
+      "group": "E3",
+      "case_id": "jones_fixed",
+      "run_id": "v11_e3_jones_fixed_412",
+      "config": "configs/v11_experiments/e3_polarization/config_jones_fixed.json",
+      "purpose": "Pair paths by signature and isolate Tx/Rx Jones polarization effects."
+    },
+    {
+      "group": "E3",
+      "case_id": "fixed_jones",
+      "run_id": "v11_e3_fixed_jones_412",
+      "config": "configs/v11_experiments/e3_polarization/config_fixed_jones.json",
+      "purpose": "Pair paths by signature and isolate Tx/Rx Jones polarization effects."
+    },
+    {
+      "group": "E3",
+      "case_id": "jones_jones",
+      "run_id": "v11_e3_jones_jones_412",
+      "config": "configs/v11_experiments/e3_polarization/config_jones_jones.json",
+      "purpose": "Pair paths by signature and isolate Tx/Rx Jones polarization effects."
+    },
+    {
+      "group": "C1",
+      "case_id": "050k",
+      "run_id": "v11_c1_050k_412",
+      "config": "configs/v11_experiments/c1_ray_convergence/config_050k.json",
+      "purpose": "Test convergence of weighted channel metrics against the 500k reference."
+    },
+    {
+      "group": "C1",
+      "case_id": "100k",
+      "run_id": "v11_c1_100k_412",
+      "config": "configs/v11_experiments/c1_ray_convergence/config_100k.json",
+      "purpose": "Test convergence of weighted channel metrics against the 500k reference."
+    },
+    {
+      "group": "C1",
+      "case_id": "200k",
+      "run_id": "v11_c1_200k_412",
+      "config": "configs/v11_experiments/c1_ray_convergence/config_200k.json",
+      "purpose": "Test convergence of weighted channel metrics against the 500k reference."
+    },
+    {
+      "group": "C1",
+      "case_id": "500k",
+      "run_id": "v11_c1_500k_412",
+      "config": "configs/v11_experiments/c1_ray_convergence/config_500k.json",
+      "purpose": "Test convergence of weighted channel metrics against the 500k reference."
+    },
+    {
+      "group": "C2",
+      "case_id": "off",
+      "run_id": "v11_c2_diff_off_412",
+      "config": "configs/v11_experiments/c2_diffraction/config_off.json",
+      "purpose": "Compare the current analytical diffraction branch off versus on."
+    },
+    {
+      "group": "C2",
+      "case_id": "on",
+      "run_id": "v11_c2_diff_on_412",
+      "config": "configs/v11_experiments/c2_diffraction/config_on.json",
+      "purpose": "Compare the current analytical diffraction branch off versus on."
+    },
+    {
+      "group": "C3",
+      "case_id": "r003",
+      "run_id": "v11_c3_r003_412",
+      "config": "configs/v11_experiments/c3_rx_radius/config_r003.json",
+      "purpose": "Fixed reception-sphere sensitivity with dynamic radius disabled."
+    },
+    {
+      "group": "C3",
+      "case_id": "r006",
+      "run_id": "v11_c3_r006_412",
+      "config": "configs/v11_experiments/c3_rx_radius/config_r006.json",
+      "purpose": "Fixed reception-sphere sensitivity with dynamic radius disabled."
+    },
+    {
+      "group": "C3",
+      "case_id": "r010",
+      "run_id": "v11_c3_r010_412",
+      "config": "configs/v11_experiments/c3_rx_radius/config_r010.json",
+      "purpose": "Fixed reception-sphere sensitivity with dynamic radius disabled."
+    },
+    {
+      "group": "C3",
+      "case_id": "r020",
+      "run_id": "v11_c3_r020_412",
+      "config": "configs/v11_experiments/c3_rx_radius/config_r020.json",
+      "purpose": "Fixed reception-sphere sensitivity with dynamic radius disabled."
+    },
+    {
+      "group": "X1",
+      "case_id": "meeting_ideal",
+      "run_id": "v11_x1_meeting_ideal",
+      "config": "configs/v11_experiments/x1_cross_scene/config_meeting_ideal.json",
+      "purpose": "Cross-scene check of the principal ideal-versus-patch trend."
+    },
+    {
+      "group": "X1",
+      "case_id": "meeting_patch",
+      "run_id": "v11_x1_meeting_patch",
+      "config": "configs/v11_experiments/x1_cross_scene/config_meeting_patch.json",
+      "purpose": "Cross-scene check of the principal ideal-versus-patch trend."
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 // 程序入口：读取配置文件路径，委托 RtPipeline 执行 v11 P2P 主链，并返回统一退出码。
 
 #include "RtPipeline.h"
+#include "../test/v11_validation.h"
 
 #include <exception>
 #include <iostream>
@@ -19,6 +20,10 @@ int main(int argc, char* argv[])
 #endif
     try
     {
+        if (argc > 1 && std::string(argv[1]) == "--self-test-v11")
+        {
+            return rt::RunV11Validation();
+        }
         // Prefer the command-line config path; otherwise use the v11 baseline config.
         const std::string configPath = (argc > 1) ? argv[1] : "config.json";
 

@@ -14,6 +14,8 @@
 #include "../core/em/BuildCoverageResult.h"
 #include "../core/em/BuildISACFeatureSet.h"
 #include "../core/em/BuildPDP.h"
+#include "../core/em/BuildXPRStatistics.h"
+#include "../core/em/ComputeMEG.h"
 #include "../core/em/CoverageEMProfile.h"
 #include "../core/em/EMSolverInput.h"
 #include "../core/em/FinalizeAtReceiver.h"
@@ -35,36 +37,62 @@ namespace rt {
 
 namespace {
 
-} // namespace
-
-// Public single-path EM solve entry. It consumes one GeometricPath and returns
-// the corresponding EMPathResult.
-bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result, const MaterialDatabase* materialDb)
+NodeFieldTrace MakeNodeFieldTrace(const GeometricPath& path, std::size_t nodeIndex,
+                                  const FieldAccumulator& field,
+                                  const ComplexVec3& incoming,
+                                  const ComplexVec3& outgoing)
 {
-    return SolveSinglePathEM(config, scene, path, result, materialDb, nullptr);
+    const PathNode& node = path.nodes[nodeIndex];
+    NodeFieldTrace trace;
+    trace.node_index = static_cast<int>(nodeIndex);
+    trace.interaction_type = node.interaction_type;
+    trace.face_id = node.face_id;
+    trace.surface_patch_id = node.surface_patch_id;
+    trace.wedge_id = node.wedge_id;
+    trace.point = node.point;
+    trace.segment_length_m = node.segment_length_from_previous;
+    trace.cumulative_length_m = field.total_length_m;
+    trace.delay_s = field.delay_s;
+    trace.medium_in_id = node.medium_in_id;
+    trace.medium_out_id = node.medium_out_id;
+    trace.active_medium_id = field.current_medium_id;
+    trace.incoming_power_wave_world = incoming;
+    trace.outgoing_power_wave_world = outgoing;
+    trace.incoming_power_linear = NormSq(incoming);
+    trace.outgoing_power_linear = NormSq(outgoing);
+    if (node.interaction_type == InteractionType::Diffraction) {
+        trace.diffraction = field.last_diffraction;
+    }
+    return trace;
 }
 
-// Variant used when the caller provides a per-Rx antenna override.
+} // namespace
+
+// Public single-path EM solve entry. Builds antennas from config (for single-path use).
+bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path, EMPathResult& result, const MaterialDatabase* materialDb)
+{
+    const Point3 txPos = !path.nodes.empty() ? path.nodes.front().point : Point3{};
+    const Point3 rxPos = !path.nodes.empty() ? path.nodes.back().point : Point3{};
+    const AntennaModel tx = BuildTxAntennaModel(config, txPos, "a1-realchain-tx");
+    const AntennaModel rx = BuildRxAntennaModel(config, rxPos, "a1-realchain-rx");
+    if (!tx.load_succeeded || !rx.load_succeeded) return false;
+    return SolveSinglePathEM(config, scene, path, result, materialDb, &tx, &rx);
+}
+
+// Variant used when the caller provides pre-built antenna models (v11.3 perf fix).
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
                        EMPathResult& result, const MaterialDatabase* materialDb,
-                       const RxTarget* rxTarget)
+                       const AntennaModel* txAntenna, const AntennaModel* rxAntenna)
 {
     EMSolverInput input;
     input.config = &config;
     input.scene = &scene;
     input.path = &path;
     input.material_db = materialDb;
-    const Point3 txPosition = !path.nodes.empty() ? path.nodes.front().point : Point3{};
-    const Point3 rxPosition = !path.nodes.empty() ? path.nodes.back().point : Point3{};
-    const AntennaModel tx = BuildTxAntennaModel(config, txPosition, "a1-realchain-tx");
-    AntennaModel rx;
-    if (rxTarget) {
-        rx = BuildRxAntennaModelWithOverride(config, *rxTarget, rxPosition, "a1-realchain-rx");
-    } else {
-        rx = BuildRxAntennaModel(config, rxPosition, "a1-realchain-rx");
-    }
-    input.tx_antenna = &tx;
-    input.rx_antenna = &rx;
+    // v11.1: pass Tx power from config into EM initial field scaling
+    input.tx_power_dBm = config.sbr.tx_power_dBm;
+    input.tx_antenna = txAntenna;
+    input.rx_antenna = rxAntenna;
 
     if (!PreparePathForEM(input))
     {
@@ -77,6 +105,9 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
         return false;
     }
 
+    field.node_field_trace.push_back(MakeNodeFieldTrace(
+        path, 0, field, field.electric_field_world, field.electric_field_world));
+
     for (std::size_t i = 1; i < path.nodes.size(); ++i)
     {
         const PathNode& node = path.nodes[i];
@@ -84,6 +115,7 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
         {
             return false;
         }
+        const ComplexVec3 incomingAtNode = field.electric_field_world;
 
         if (node.interaction_type == InteractionType::Reflection)
         {
@@ -106,6 +138,8 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
                 return false;
             }
         }
+        field.node_field_trace.push_back(MakeNodeFieldTrace(
+            path, i, field, incomingAtNode, field.electric_field_world));
     }
 
     result = FinalizeAtReceiver(field, path, input);
@@ -116,6 +150,8 @@ bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const Geomet
 namespace {
 
 // Solve all geometric paths independently and collect valid EM path results.
+// v11.3 perf fix: build antenna models ONCE outside the per-path loop to avoid
+// reloading CSV pattern files for every path.
 EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& scene, const SearchEngineResult& searchResult, Logger& logger, const MaterialDatabase* materialDb, const RxTarget* rxTarget = nullptr)
 {
     EMPathResultSet set;
@@ -124,6 +160,24 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     set.input_path_count = nPaths;
     set.source_tag = searchResult.source_tag;
 
+    // Pre-build antennas once (expensive CSV load happens here, not per-path)
+    const Point3 txPos = !searchResult.path_set.paths.empty() ? searchResult.path_set.paths.front().nodes.front().point : Point3{};
+    const Point3 rxPos = !searchResult.path_set.paths.empty() ? searchResult.path_set.paths.front().nodes.back().point : Point3{};
+    const AntennaModel txAnt = BuildTxAntennaModel(config, txPos, "a1-realchain-tx");
+    AntennaModel rxAnt;
+    if (rxTarget) {
+        rxAnt = BuildRxAntennaModelWithOverride(config, *rxTarget, rxPos, "a1-realchain-rx");
+    } else {
+        rxAnt = BuildRxAntennaModel(config, rxPos, "a1-realchain-rx");
+    }
+    if (!txAnt.load_succeeded || !rxAnt.load_succeeded) {
+        std::string error = txAnt.load_error;
+        if (!error.empty() && !rxAnt.load_error.empty()) error += "; ";
+        error += rxAnt.load_error;
+        logger.Log(LogLevel::Error, "Antenna", error);
+        return set;
+    }
+
     const auto& paths = searchResult.path_set.paths;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic)
@@ -131,7 +185,7 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
     for (int i = 0; i < nPaths; ++i)
     {
         EMPathResult result;
-        if (SolveSinglePathEM(config, scene, paths[i], result, materialDb, rxTarget))
+        if (SolveSinglePathEM(config, scene, paths[i], result, materialDb, &txAnt, &rxAnt))
         {
             result.source_tag = searchResult.source_tag;
 #ifdef _OPENMP
@@ -146,17 +200,27 @@ EMPathResultSet BuildRealPathResultSet(const AppConfig& config, const Scene& sce
 }
 
 // Aggregate per-path EM results into CIR/PDP/APS/channel/coverage/ISAC outputs.
-EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile)
+// v11.3: adds 2D APS, XPR statistics, MEG computation.
+EMAggregateResult BuildAggregateResult(const EMPathResultSet& pathResults, const EMSolveProfile& profile, const AppConfig& config)
 {
     EMAggregateResult result;
     result.profile = profile;
     result.path_results = pathResults;
     result.cir = BuildCIR(pathResults, profile);
-    result.pdp = BuildPDP(pathResults);
-    result.aps = BuildAPS(pathResults);
+    result.pdp = BuildPDP(pathResults, profile);
+    // v11.3: 2D APS grid using config bin settings
+    result.aps = BuildAPS(pathResults, config);
     result.statistics = BuildChannelStatistics(pathResults);
     result.coverage = BuildCoverageResult(pathResults, profile);
     result.isac_features = BuildISACFeatureSet(pathResults);
+    // v11.3: XPR statistics and MEG
+    result.xpr_stats = BuildXPRStatistics(pathResults);
+    if (config.em_solver.compute_meg && result.aps.has_2d_grid) {
+        const AntennaModel rxAntenna = BuildRxAntennaModel(config, Point3{}, "meg-rx");
+        auto megPair = ComputeMEG(result.aps, rxAntenna.load_succeeded ? &rxAntenna : nullptr);
+        result.meg_linear = megPair.first;
+        result.meg_dB = megPair.second;
+    }
     return result;
 }
 
@@ -183,8 +247,8 @@ A1RealChainRunResult RunA1RealChain(
         return runResult;
     }
 
-    runResult.precise_result = BuildAggregateResult(runResult.path_result_set, BuildPreciseEMProfile());
-    runResult.coverage_result = BuildAggregateResult(runResult.path_result_set, BuildCoverageEMProfile());
+    runResult.precise_result = BuildAggregateResult(runResult.path_result_set, BuildPreciseEMProfile(), config);
+    runResult.coverage_result = BuildAggregateResult(runResult.path_result_set, BuildCoverageEMProfile(), config);
 
     if (config.frequency_sweep.enabled) {
         if (config.frequency_sweep.mode == "frequency_sweep_em") {
@@ -237,7 +301,7 @@ A1RealChainRunResult RunA1RealChain(
     exportSucceeded = ExportRegressionReport(runResult.regression_report, context, runResult.export_bundle) && exportSucceeded;
 
     runResult.export_bundle.succeeded = exportSucceeded;
-    runResult.succeeded = !runResult.path_result_set.results.empty();
+    runResult.succeeded = !runResult.path_result_set.results.empty() && exportSucceeded;
 
     std::ostringstream stream;
     stream << "电磁计算与结果导出完成：输入路径 " << runResult.export_bundle.search_path_count

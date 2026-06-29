@@ -13,6 +13,12 @@
 
 namespace rt {
 
+/// Classify a consistently oriented manifold edge relative to the solid
+/// bounded by its two outward-facing triangles.
+WedgeConvexity ClassifySharedEdgeConvexity(const Scene& scene,
+                                           const Edge& edge,
+                                           double* signedNormalTurnDeg = nullptr);
+
 /// <summary>
 /// 根据 Edge 集合构建 Scene 楔边集合。
 /// </summary>

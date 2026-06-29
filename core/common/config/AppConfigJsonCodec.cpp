@@ -67,6 +67,7 @@ AppConfigJsonDecodeResult PopulateFromJson(const json& root) {
         auto& o = root["scene_preprocess"];
         ReadJsonField(o, "rebuild_normals", result.config.scene_preprocess.rebuild_normals);
         ReadJsonField(o, "enable_wedge_build", result.config.scene_preprocess.enable_wedge_build);
+        ReadJsonField(o, "convex_wedges_only", result.config.scene_preprocess.convex_wedges_only);
         ReadJsonField(o, "enable_scene_cache", result.config.scene_preprocess.enable_scene_cache);
         ReadJsonField(o, "bvh_leaf_size", result.config.scene_preprocess.bvh_leaf_size);
     }
@@ -346,6 +347,7 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
     root["scene_preprocess"] = {
         {"rebuild_normals", config.scene_preprocess.rebuild_normals},
         {"enable_wedge_build", config.scene_preprocess.enable_wedge_build},
+        {"convex_wedges_only", config.scene_preprocess.convex_wedges_only},
         {"enable_scene_cache", config.scene_preprocess.enable_scene_cache},
         {"bvh_leaf_size", config.scene_preprocess.bvh_leaf_size}
     };
@@ -368,6 +370,18 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
         {"up_y", config.antenna.up_y},
         {"up_z", config.antenna.up_z}
     };
+    auto encodeAntenna = [](const AntennaConfig& antenna) {
+        return json{
+            {"source_type", antenna.source_type},
+            {"pattern_file", antenna.pattern_file},
+            {"polarization_file", antenna.polarization_file},
+            {"forward_x", antenna.forward_x}, {"forward_y", antenna.forward_y},
+            {"forward_z", antenna.forward_z}, {"up_x", antenna.up_x},
+            {"up_y", antenna.up_y}, {"up_z", antenna.up_z}
+        };
+    };
+    root["tx_antenna"] = encodeAntenna(config.tx_antenna);
+    root["rx_antenna"] = encodeAntenna(config.rx_antenna);
 
     // path_search (v9: includes new fields)
     root["path_search"] = {
@@ -404,7 +418,13 @@ std::string EncodeAppConfigToJsonString(const AppConfig& config) {
                 {"id", rx.id},
                 {"x", rx.x},
                 {"y", rx.y},
-                {"z", rx.z}
+                {"z", rx.z},
+                {"rx_source_type", rx.rx_source_type},
+                {"rx_pattern_file", rx.rx_pattern_file},
+                {"rx_polarization_file", rx.rx_polarization_file},
+                {"rx_forward_x", rx.rx_forward_x}, {"rx_forward_y", rx.rx_forward_y},
+                {"rx_forward_z", rx.rx_forward_z}, {"rx_up_x", rx.rx_up_x},
+                {"rx_up_y", rx.rx_up_y}, {"rx_up_z", rx.rx_up_z}
             });
         }
         root["path_search"]["rx_list"] = rxArr;

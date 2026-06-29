@@ -27,17 +27,30 @@ PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 RT_EXE_DEBUG = ROOT / "x64" / "Debug" / "RT.exe"
 RT_EXE_RELEASE = ROOT / "x64" / "Release" / "RT.exe"
-RT_EXE = RT_EXE_RELEASE if RT_EXE_RELEASE.exists() else RT_EXE_DEBUG
+RT_EXE_DEFAULT = RT_EXE_RELEASE if RT_EXE_RELEASE.exists() else RT_EXE_DEBUG
+RT_EXE = Path(os.environ.get("H2HRT_RT_EXE", str(RT_EXE_DEFAULT))).resolve()
 C0 = 299792458.0; EPS0 = 8.8541878128e-12; PI = math.pi
 
 # Critical suites: skipped = blocks paper_ready
 CRITICAL_SUITES = {"geometry", "em", "wideband", "backend", "sbr"}
 
-def safe_run_rt(cfg_path, timeout=60, cwd=None):
+def safe_run_rt(cfg_path, timeout=60, cwd=None, isolated_run=False):
     """Run RT.exe with proper UTF-8 encoding."""
     if cwd is None: cwd = str(ROOT)
+    runtime_cfg = cfg_path
+    temporary_cfg = None
     try:
-        proc = subprocess.run([str(RT_EXE), str(cfg_path)], cwd=cwd,
+        cfg = Path(cfg_path)
+        if isolated_run and cfg.exists() and cfg.suffix.lower() == ".json":
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            app_runtime = data.setdefault("app_runtime", {})
+            base_run_id = app_runtime.get("run_id", cfg.stem)
+            app_runtime["run_id"] = f"{base_run_id}_validation_{time.time_ns()}"
+            temporary_cfg = ROOT / "tmp" / "validation_runtime" / f"{cfg.stem}_{time.time_ns()}.json"
+            temporary_cfg.parent.mkdir(parents=True, exist_ok=True)
+            temporary_cfg.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            runtime_cfg = temporary_cfg
+        proc = subprocess.run([str(RT_EXE), str(runtime_cfg)], cwd=cwd,
                               capture_output=True, timeout=timeout,
                               encoding="utf-8", errors="replace")
         return proc.returncode, proc.stdout or "", proc.stderr or ""
@@ -47,6 +60,9 @@ def safe_run_rt(cfg_path, timeout=60, cwd=None):
         return -2, "", f"timeout after {timeout}s"
     except Exception as e:
         return -3, "", str(e)
+    finally:
+        if temporary_cfg is not None:
+            temporary_cfg.unlink(missing_ok=True)
 
 # ═══════════════════════════════════════════════
 # ValidationCase
@@ -200,8 +216,8 @@ def run_geometry_suite(backend, skip_rt):
         ("G-2", "PEC reflection", "test/configs/L1_02_pec_reflection.json", "m"),
         ("G-3", "Transmission slab", "test/configs/L1_04_transmission.json", "sm"),
         ("G-4", "TIR reject", "test/configs/L1_04_double_sided_slab.json", "smt"),
-        ("G-5-prod", "Diffraction (412 production)", "output/412/rx1/paths/precise_paths.json", "md"),
-        ("G-6", "Diffraction wedge", "output/G6/rx1/paths/precise_paths.json", "md"),
+        ("G-5-prod", "Diffraction (412 production)", "output/v11_c2_diff_on_412/Tx01-Rx01/paths/precise_paths.json", "md"),
+        ("G-6", "Diffraction wedge", "test/configs/L1_05_pec_wedge.json", "md"),
     ]
 
     for cid, cname, cfg_rel, flags in test_cases:
@@ -216,13 +232,13 @@ def run_geometry_suite(backend, skip_rt):
         # G-5: Direct JSON check (production output, no RT.exe re-run needed)
         if cfg_rel.startswith("output/") and cfg_rel.endswith(".json") and cfg.exists():
             json_paths = [cfg]
-            rc = 0; out = "direct-json"; full_out = "direct-json"
+            rc = 0; out = "direct-json"; err = ""; full_out = "direct-json"
         else:
             if not cfg.exists():
                 c.mark_skipped(f"config not found: {cfg_rel}", critical=True)
                 cases.append(c)
                 continue
-            rc, out, err = safe_run_rt(cfg, timeout=120)
+            rc, out, err = safe_run_rt(cfg, timeout=120, isolated_run=True)
             full_out = out + err
         full_out = out + err
 
@@ -332,44 +348,42 @@ def run_geometry_suite(backend, skip_rt):
 
         cases.append(c)
 
-    # ── Top-K monotonic (Stage C): read precise_paths.json from temp runs ──
-    c = ValidationCase("G-TK", "top-K monotonic", "geometry", backend, "core/search", "rt_executable_output")
+    # The v11 P2P main chain no longer consumes legacy path_search top-K knobs.
+    # Validate the replacement contract: sampled candidates become unique,
+    # physically refined SBR topologies before entering EM.
+    c = ValidationCase("G-TK", "SBR refined topology integrity", "geometry", backend, "core/search", "rt_executable_output")
     c.frequency_hz = 2.4e9
     base_cfg_path = ROOT / "test/configs/L1_04_transmission.json"
     if base_cfg_path.exists():
         try:
-            import copy
             base = json.load(open(base_cfg_path))
-            results = {}
-
-            for label, keep_val, exhaustive in [("K1",1,False),("K8",8,False),("KX",8,True)]:
-                ck = copy.deepcopy(base)
-                if exhaustive: ck["path_search"]["exhaustive_debug_mode"] = True
-                else: ck["path_search"]["per_expander_keep_limit"] = keep_val
-                ck["path_search"]["per_state_keep_limit"] = keep_val
-                ck["app_runtime"]["run_id"] = f"TK_{label}"
-                # Also set per_state_keep_limit
-                tf = ROOT / f"test/configs/_tk_{label}.json"
-                json.dump(ck, open(tf,'w'))
-                rc,o,e = safe_run_rt(tf, timeout=90)
-                # Find precise_paths.json in output
-                out_dir = ROOT / "output" / f"TK_{label}"
-                jps = list(out_dir.rglob("precise_paths.json")) if out_dir.exists() else []
-                n = len(json.load(open(str(jps[0]),encoding='utf-8')).get('paths',[])) if jps else 0
-                if n == 0:  # check if in subdir
-                    for sd in out_dir.iterdir() if out_dir.exists() else []:
-                        if sd.is_dir():
-                            jps = list(sd.rglob("precise_paths.json"))
-                            if jps: n = len(json.load(open(str(jps[0]),encoding='utf-8')).get('paths',[])); break
-                results[label] = n
-                tf.unlink(missing_ok=True)
-
-            n1 = results.get('K1',0); n8 = results.get('K8',0); nx = results.get('KX',0)
-            ok = (n1 <= n8) and (nx >= n8) if n8 > 0 else False
+            base["app_runtime"]["run_id"] = "TK_PHYSICAL"
+            base["sbr"] = {
+                "enabled": True, "trace_profile": "FineChannel", "ray_count": 20000,
+                "max_ray_depth": 2, "max_reflection_count": 0,
+                "max_transmission_count": 1, "max_diffraction_count": 0,
+                "ray_power_threshold_dB": -120.0, "rx_sphere_radius_m": 0.08,
+                "store_paths": True, "deterministic_interaction_split": True,
+                "enable_dynamic_rx_radius": True, "ray_tube_radius_scale": 0.5,
+                "ray_tube_min_radius_m": 0.08, "ray_tube_max_radius_m": 0.3,
+                "enable_path_dedup": True, "enable_path_similarity_pruning": False
+            }
+            tf = ROOT / "test/configs/_tk_physical.json"
+            json.dump(base, open(tf, 'w'))
+            rc, o, e = safe_run_rt(tf, timeout=90)
+            tf.unlink(missing_ok=True)
+            jps = list((ROOT / "output/TK_PHYSICAL").rglob("precise_paths.json"))
+            data = json.load(open(str(jps[0]), encoding='utf-8')) if jps else {}
+            paths = data.get("paths", [])
+            signatures = [p.get("source_path_signature") for p in paths]
+            ok = bool(paths) and len(signatures) == len(set(signatures)) and all(
+                p.get("geometry_refined") is True and
+                p.get("geometry_residual", 1.0) <= 2.0e-5 and
+                p.get("candidate_support_count", 0) > 0 for p in paths)
             c.check(1.0 if ok else 0.0, 1.0, 0.0,
-                    f"K1={n1} <= K8={n8} <= KX(exhaustive)={nx}")
+                    f"paths={len(paths)} unique={len(set(signatures))} refined={sum(1 for p in paths if p.get('geometry_refined'))}")
         except Exception as e:
-            c.mark_skipped(f"top-K error: {str(e)[:80]}", critical=True)
+            c.mark_skipped(f"physical-topology error: {str(e)[:80]}", critical=True)
     else:
         c.mark_skipped("base config missing", critical=True)
     cases.append(c)
@@ -429,6 +443,29 @@ def run_wideband_suite(backend, skip_rt):
         if base.exists():
             try:
                 cfg = _json.load(open(str(base), encoding="utf-8"))
+                # The legacy L1 config predates the v11 SBR main chain. Make
+                # this a real stored-path SBR run instead of silently using
+                # defaults with transmission disabled.
+                cfg["sbr"] = {
+                    "enabled": True,
+                    "trace_profile": "FineChannel",
+                    "ray_count": 20000,
+                    "max_ray_depth": 2,
+                    "max_reflection_count": 0,
+                    "max_transmission_count": 1,
+                    "max_diffraction_count": 0,
+                    "ray_power_threshold_dB": -120.0,
+                    "rx_sphere_radius_m": 0.08,
+                    "store_paths": True,
+                    "deterministic_interaction_split": True,
+                    "enable_dynamic_rx_radius": True,
+                    "ray_tube_radius_scale": 0.5,
+                    "ray_tube_min_radius_m": 0.08,
+                    "ray_tube_max_radius_m": 0.3,
+                    "enable_path_dedup": True,
+                    "enable_path_similarity_pruning": False
+                }
+                cfg["em_solver"]["frequency_hz"] = 3e9
                 cfg["frequency_sweep"] = {"enabled":True,"center_hz":3e9,"bandwidth_hz":2e8,"point_count":51,"spacing":"linear","retrace_per_frequency":False,"mode":"fixed_gain"}
                 cfg["channel_observation"] = {"export_ideal_delta_cir":True,"export_sampled_cfr":True,"export_observed_cir_ifft":True,"delay_bin_s":1e-9,"window_type":"hann","ifft_convention":"vna_like"}
                 cfg["app_runtime"]["run_id"] = "WB4"
@@ -530,7 +567,7 @@ def run_sbr_suite(backend, skip_rt):
     # SBR-1: Verify SBR coverage output from 412 production scene
     c = ValidationCase("SBR-1", "SBR coverage output", "sbr", backend, "core/search", "rt_executable_output")
     c.frequency_hz = 3e9
-    cov_path = ROOT / "output" / "412" / "rx1" / "coverage" / "coverage_summary.json"
+    cov_path = ROOT / "output" / "v11_c2_diff_on_412" / "Tx01-Rx01" / "coverage" / "coverage_summary.json"
     if cov_path.exists():
         try:
             data = _json.load(open(str(cov_path), encoding="utf-8"))
@@ -543,7 +580,7 @@ def run_sbr_suite(backend, skip_rt):
             c.mark_skipped(str(e)[:80], critical=True)
     else:
         # Try fallback: any rx with coverage
-        rx_dirs = sorted((ROOT / "output" / "412").glob("rx*"))
+        rx_dirs = sorted((ROOT / "output" / "v11_c2_diff_on_412").glob("*"))
         found = False
         for rd in rx_dirs[:5]:
             cp = rd / "coverage" / "coverage_summary.json"

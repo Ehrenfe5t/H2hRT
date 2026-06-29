@@ -25,9 +25,10 @@ EMSolveProfile BuildCoverageEMProfile()
     profile.enable_coherent_sum = false;      // no coherent summation for CIR
     profile.enable_noncoherent_power_sum = true; // sum powers non-coherently: P_total = sum(P_i)
     profile.max_paths_per_receiver = 16;      // smaller path budget for faster coverage
-    // Minimum power threshold: filter paths below 1e-6 linear (1 uW relative)
-    // to reduce noise in coverage maps.
-    profile.min_power_threshold_linear = 1.0e-6;
+    // Path search already applies the configured relative power threshold.
+    // A hard-coded 1 uW cutoff erased valid indoor links (for a 0 dBm Tx it
+    // can remove every path), so coverage aggregation keeps all valid paths.
+    profile.min_power_threshold_linear = 0.0;
     return profile;
 }
 

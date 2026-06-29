@@ -33,6 +33,8 @@ struct PathNode {
     InteractionType interaction_type = InteractionType::None;
     int object_id = -1;
     int face_id = -1;
+    // Connected coplanar physical surface. Multiple mesh triangles may share one patch.
+    int surface_patch_id = -1;
     int wedge_id = -1;
     int medium_in_id = -1;
     int medium_out_id = -1;

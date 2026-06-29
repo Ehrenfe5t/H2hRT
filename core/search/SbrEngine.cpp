@@ -6,6 +6,7 @@
 #include "SbrPathDeduplicator.h"      // v11: strict dedup & post-process
 #include "SbrPathValidator.h"          // v11: EM-ready validation & residual eval
 #include "SbrDiffractionTracer.h"      // v11: analytical Fermat diffraction
+#include "SbrPathRefiner.h"            // v11.6: candidate topology -> exact physical path
 #include "../common/math/Vec3.h"
 #include "../common/math/Complex.h"
 #include "../common/math/MathConstants.h"
@@ -555,7 +556,7 @@ for(auto& n:p.nodes){m((uint64_t)((int)n.interaction_type+257));if(n.face_id>=0)
 m((uint64_t)SbrQ(n.point.x,pT));m((uint64_t)SbrQ(n.point.y,pT));m((uint64_t)SbrQ(n.point.z,pT));}return h;}
 static void SbrPP(std::vector<rt::GeometricPath>& paths,const rt::AppConfig& cfg){if(paths.empty())return;const double kLT=1e-3,kPT=1e-5;
 if(cfg.sbr.enable_path_dedup){std::unordered_map<uint64_t,std::vector<size_t>> b;for(size_t i=0;i<paths.size();++i)b[SbrSig(paths[i],kLT,kPT)].push_back(i);
-std::vector<rt::GeometricPath> k;for(auto&[s,ix]:b){for(size_t j=0;j<ix.size();++j){bool d=false;for(size_t kk=0;kk<j;++kk)if(SbrEq(paths[ix[kk]],paths[ix[j]],kLT,kPT)){d=true;break;}if(!d)k.push_back(std::move(paths[ix[j]]));}}paths=std::move(k);}
+std::vector<rt::GeometricPath> k;for(auto&[s,ix]:b){std::vector<size_t> kept;for(size_t j=0;j<ix.size();++j){size_t match=k.size();for(size_t kk:kept)if(SbrEq(k[kk],paths[ix[j]],kLT,kPT)){match=kk;break;}if(match<k.size()){k[match].sampling_weight+=paths[ix[j]].sampling_weight;k[match].candidate_support_count+=paths[ix[j]].candidate_support_count;}else{kept.push_back(k.size());k.push_back(std::move(paths[ix[j]]));}}}paths=std::move(k);}
 for(auto&p:paths)p.path_signature=SbrSig(p,kLT,kPT);double pC=std::max(cfg.sbr.path_similarity_length_tol_m,0.05);
 if(cfg.sbr.enable_path_similarity_pruning&&paths.size()>1){std::unordered_map<uint64_t,size_t> best;for(size_t i=0;i<paths.size();++i){uint64_t key=SbrSK(paths[i],cfg.sbr.path_similarity_length_tol_m,pC);
 auto it=best.find(key);if(it==best.end()||SbrPS(paths[i])>SbrPS(paths[it->second]))best[key]=i;}std::vector<rt::GeometricPath> pr;for(auto&kv:best)pr.push_back(std::move(paths[kv.second]));paths=std::move(pr);for(auto&p:paths)p.path_signature=SbrSig(p,kLT,kPT);}
@@ -665,8 +666,8 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
     std::vector<std::vector<int>> threadHits(threadCount, std::vector<int>(rxCount, 0));
     std::vector<std::vector<std::vector<GeometricPath>>> threadPaths(
         threadCount, std::vector<std::vector<GeometricPath>>(rxCount));
-    std::vector<std::vector<std::unordered_set<uint64_t>>> threadSeen(
-        threadCount, std::vector<std::unordered_set<uint64_t>>(rxCount));
+    std::vector<std::vector<std::unordered_map<uint64_t, std::size_t>>> threadSeen(
+        threadCount, std::vector<std::unordered_map<uint64_t, std::size_t>>(rxCount));
 
     const double powerThreshold = std::pow(10.0, cfg.ray_power_threshold_dB / 10.0);
     const int maxDepth = std::min(cfg.max_ray_depth,
@@ -791,9 +792,17 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
                     path.nodes.push_back(rxNode);
                     path.total_length = state.cumulative_length + lenToClosest;
                     path.valid = true;
+                    path.sampling_weight = normFactor;
+                    path.candidate_support_count = 1;
                     path.path_signature = SbrSig(path, 1.0e-3, 1.0e-5);
-                    if (threadSeen[tid][rxIndex].insert(path.path_signature).second) {
+                    auto& seen = threadSeen[tid][rxIndex];
+                    auto seenIt = seen.find(path.path_signature);
+                    if (seenIt == seen.end()) {
+                        seen[path.path_signature] = threadPaths[tid][rxIndex].size();
                         threadPaths[tid][rxIndex].push_back(std::move(path));
+                    } else {
+                        threadPaths[tid][rxIndex][seenIt->second].sampling_weight += normFactor;
+                        ++threadPaths[tid][rxIndex][seenIt->second].candidate_support_count;
                     }
                 }
             }
@@ -895,6 +904,8 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
     long long rawPathCount = 0;
     long long finalPathCount = 0;
     long long rejectedForEm = 0;
+    long long topologyGroupCount = 0;
+    long long geometricallyRefinedCount = 0;
     AppConfig p2pPostConfig = config;
     p2pPostConfig.sbr.enable_path_similarity_pruning = false;
     p2pPostConfig.sbr.path_top_n_per_rx = 0;
@@ -920,6 +931,12 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
 
         TracePointToPointDiffraction(scene, config, context.tx_point, rec.rx_position, rxIndex, query, rec.paths);
         rawPathCount += static_cast<long long>(rec.paths.size());
+
+        const SbrPathRefineStats refineStats = RefineSbrCandidatesForEm(
+            rec.paths, scene, query, context.material_db, config.em_solver.frequency_hz);
+        topologyGroupCount += refineStats.topology_groups;
+        geometricallyRefinedCount += refineStats.refined_paths;
+        rejectedForEm += refineStats.rejected_paths;
 
         SbrPP(rec.paths, p2pPostConfig);
 
@@ -954,6 +971,14 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
             if (!duplicate) {
                 bucket.push_back(finalUnique.size());
                 finalUnique.push_back(std::move(path));
+            } else {
+                for (std::size_t keptIndex : bucket) {
+                    if (SbrEq(finalUnique[keptIndex], path, 1.0e-3, 1.0e-5)) {
+                        finalUnique[keptIndex].sampling_weight += path.sampling_weight;
+                        finalUnique[keptIndex].candidate_support_count += path.candidate_support_count;
+                        break;
+                    }
+                }
             }
         }
 
@@ -965,7 +990,7 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
         rec.total_power_linear = 0.0;
         rec.ray_hit_count = static_cast<int>(rec.paths.size());
         for (const GeometricPath& path : rec.paths) {
-            rec.total_power_linear += std::exp(SbrPS(path));
+            rec.total_power_linear += std::exp(SbrPS(path)) * path.sampling_weight;
         }
         rec.total_power_dBm = context.tx_power_dBm +
             10.0 * std::log10(std::max(1.0e-30, rec.total_power_linear));
@@ -978,12 +1003,16 @@ SbrCoverageResult SbrEngine::RunPointToPoint(const SbrContext& context) const
 
     result.succeeded = true;
     result.rx_paths_recorded = rawPathCount;
+    result.physical_topology_group_count = topologyGroupCount;
+    result.geometrically_refined_path_count = geometricallyRefinedCount;
+    result.geometry_refinement_reject_count = rejectedForEm;
     result.paths_after_postprocess = finalPathCount;
     result.paths_pruned_by_post_dedup = std::max(0LL, rawPathCount - finalPathCount - rejectedForEm);
     result.paths_pruned_by_residual = rejectedForEm;
     oss.str("");
     oss << "SBR 后处理完成：有效 Rx " << result.active_rx_count << "/" << rxCount
-        << "，原始路径 " << rawPathCount << "，严格去重后 " << finalPathCount
+        << "，原始候选 " << rawPathCount << "，物理拓扑组 " << topologyGroupCount
+        << "，精修成功 " << geometricallyRefinedCount << "，严格去重后 " << finalPathCount
         << "，相似压缩=关闭，TopN=关闭，EM-ready 拒绝 " << rejectedForEm;
     result.trace_lines.push_back(oss.str());
     return result;

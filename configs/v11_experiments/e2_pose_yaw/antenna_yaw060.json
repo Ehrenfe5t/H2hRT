@@ -1,0 +1,51 @@
+{
+  "schema_version": "v11.5",
+  "coordinate_system": "right-handed Y-up world; forward is boresight; up is Ludwig-3 co-pol reference",
+  "model_id": "patch",
+  "model_source": "synthetic parametric model",
+  "tx_list": [
+    {
+      "id": "Tx01",
+      "position_m": [
+        2.38,
+        1.5,
+        -9.61
+      ],
+      "power_dBm": 0.0,
+      "pattern_file": "../../antennas/patch_gain.csv",
+      "polarization_file": "../../antennas/patch_jones.csv",
+      "forward": [
+        -0.7071067811865479,
+        0.0,
+        0.7071067811865471
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ],
+  "rx_list": [
+    {
+      "id": "Rx01",
+      "position_m": [
+        1.58,
+        1.5,
+        -8.81
+      ],
+      "pattern_file": "../../antennas/patch_gain.csv",
+      "polarization_file": "../../antennas/patch_jones.csv",
+      "forward": [
+        -0.25881904510252013,
+        -0.0,
+        -0.9659258262890684
+      ],
+      "up": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    }
+  ]
+}

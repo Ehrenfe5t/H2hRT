@@ -35,6 +35,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
 {
     const std::string jsonPath = context.export_root_directory + "/paths/precise_paths.json";
     const std::string csvPath = context.export_root_directory + "/paths/precise_paths.csv";
+    const std::string nodeFieldCsvPath = context.export_root_directory + "/paths/path_node_fields.csv";
     const std::string manifestPath = context.export_root_directory + "/paths/path_manifest.json";
     if (!EnsureResultDirectory(context.export_root_directory + "/paths"))
     {
@@ -68,7 +69,16 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
         json << "    { \"path_id\": " << item.path_id
              << ", \"delay_s\": " << item.delay_s
              << ", \"phase_rad\": " << item.phase_rad
+             << ", \"amplitude_real\": " << item.amplitude_real
+             << ", \"amplitude_imag\": " << item.amplitude_imag
              << ", \"power_linear\": " << item.power_linear
+             << ", \"incident_power_linear\": " << item.incident_power_linear
+             << ", \"sampling_weight\": " << item.sampling_weight
+             << ", \"candidate_support_count\": " << item.candidate_support_count
+             << ", \"channel_coefficient\": [" << item.channel_coefficient.re << "," << item.channel_coefficient.im << "]"
+             << ", \"incident_electric_field_v_per_m\": [[" << item.incident_electric_field_world_v_per_m.x.re << "," << item.incident_electric_field_world_v_per_m.x.im
+             << "],[" << item.incident_electric_field_world_v_per_m.y.re << "," << item.incident_electric_field_world_v_per_m.y.im
+             << "],[" << item.incident_electric_field_world_v_per_m.z.re << "," << item.incident_electric_field_world_v_per_m.z.im << "]]"
              << ", \"free_space_loss_db\": " << item.free_space_loss_db
              << ", \"polarization_magnitude\": " << item.polarization_magnitude
              << ", \"polarization_vector\": [" << item.polarization_vector.x << "," << item.polarization_vector.y << "," << item.polarization_vector.z << "]"
@@ -83,6 +93,9 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << ", \"co_pol_power_linear\": " << SafeJsonDouble(item.co_pol_power_linear)
              << ", \"cross_pol_power_linear\": " << SafeJsonDouble(item.cross_pol_power_linear)
              << ", \"xpr_dB\": " << SafeJsonDouble(item.xpr_dB)
+             // v11.1: absolute power fields
+             << ", \"tx_power_dBm\": " << item.tx_power_dBm
+             << ", \"power_dBm\": " << item.power_dBm
              << ", \"source_tag\": \"" << item.source_tag << "\""
              << ", \"tx_antenna_id\": \"" << item.tx_antenna_id << "\""
              << ", \"tx_antenna_source_type\": \"" << item.tx_antenna_source_type << "\""
@@ -90,7 +103,11 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << ", \"rx_antenna_source_type\": \"" << item.rx_antenna_source_type << "\""
              << ", \"source_path_signature\": \"0x" << std::hex << item.source_path_signature << std::dec << "\""
              << ", \"geometry_residual\": " << (sourcePath ? sourcePath->geometry_residual : 0.0)
+             << ", \"geometry_refined\": " << (sourcePath && sourcePath->geometry_refined ? "true" : "false")
+             << ", \"refinement_method\": \"" << (sourcePath ? sourcePath->refinement_method : std::string()) << "\""
+             << ", \"refinement_iterations\": " << (sourcePath ? sourcePath->refinement_iterations : 0)
              << ", \"reflection_residual_m\": " << (sourcePath ? sourcePath->reflection_residual_m : 0.0)
+             << ", \"max_reflection_residual\": " << (sourcePath ? sourcePath->max_reflection_residual : 0.0)
              << ", \"max_snell_residual\": " << (sourcePath ? sourcePath->max_snell_residual : 0.0)
              << ", \"max_keller_residual\": " << (sourcePath ? sourcePath->max_keller_residual : 0.0)
              << ", \"residual_reject_reason\": \"" << (sourcePath ? sourcePath->residual_reject_reason : std::string()) << "\""
@@ -119,6 +136,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
                 json << "{ \"interaction_type\": " << static_cast<int>(node.interaction_type)
                      << ", \"object_id\": " << node.object_id
                      << ", \"face_id\": " << node.face_id
+                     << ", \"surface_patch_id\": " << node.surface_patch_id
                      << ", \"wedge_id\": " << node.wedge_id
                      << ", \"x\": " << node.point.x
                      << ", \"y\": " << node.point.y
@@ -167,6 +185,41 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
             }
         }
         json << "]"
+             << ", \"node_field_trace\": [";
+        for (std::size_t traceIndex = 0; traceIndex < item.node_field_trace.size(); ++traceIndex) {
+            const NodeFieldTrace& trace = item.node_field_trace[traceIndex];
+            const ComplexVec3& in = trace.incoming_power_wave_world;
+            const ComplexVec3& out = trace.outgoing_power_wave_world;
+            json << "{\"node_index\":" << trace.node_index
+                 << ",\"interaction_type\":" << static_cast<int>(trace.interaction_type)
+                 << ",\"active_medium_id\":" << trace.active_medium_id
+                 << ",\"cumulative_length_m\":" << trace.cumulative_length_m
+                 << ",\"delay_s\":" << trace.delay_s
+                 << ",\"incoming_sqrt_w\":[[" << in.x.re << "," << in.x.im << "],[" << in.y.re << "," << in.y.im << "],[" << in.z.re << "," << in.z.im << "]]"
+                 << ",\"outgoing_sqrt_w\":[[" << out.x.re << "," << out.x.im << "],[" << out.y.re << "," << out.y.im << "],[" << out.z.re << "," << out.z.im << "]]"
+                 << ",\"incoming_power_linear\":" << trace.incoming_power_linear
+                 << ",\"outgoing_power_linear\":" << trace.outgoing_power_linear;
+            if (trace.diffraction.valid) {
+                const DiffractionFieldDiagnostics& d = trace.diffraction;
+                json << ",\"diffraction_em\":{"
+                     << "\"model\":\"" << d.model << "\""
+                     << ",\"face0_material\":\"" << d.face0_material_name << "\""
+                     << ",\"facen_material\":\"" << d.facen_material_name << "\""
+                     << ",\"face0_material_resolved\":" << (d.face0_material_resolved ? "true" : "false")
+                     << ",\"facen_material_resolved\":" << (d.facen_material_resolved ? "true" : "false")
+                     << ",\"face0_reflection_te\":[" << d.face0_reflection_te.re << "," << d.face0_reflection_te.im << "]"
+                     << ",\"face0_reflection_tm\":[" << d.face0_reflection_tm.re << "," << d.face0_reflection_tm.im << "]"
+                     << ",\"facen_reflection_te\":[" << d.facen_reflection_te.re << "," << d.facen_reflection_te.im << "]"
+                     << ",\"facen_reflection_tm\":[" << d.facen_reflection_tm.re << "," << d.facen_reflection_tm.im << "]"
+                     << ",\"jones\":[[[" << d.jones_00.re << "," << d.jones_00.im << "],["
+                     << d.jones_01.re << "," << d.jones_01.im << "]],[["
+                     << d.jones_10.re << "," << d.jones_10.im << "],["
+                     << d.jones_11.re << "," << d.jones_11.im << "]]]}";
+            }
+            json << "}";
+            if (traceIndex + 1U < item.node_field_trace.size()) json << ",";
+        }
+        json << "]"
              << " }";
         if (i + 1U < context.precise_result->path_results.results.size())
         {
@@ -185,7 +238,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
     };
 
     std::ostringstream csv;
-    csv << "path_id,delay_s,phase_rad,power_linear,free_space_loss_db,polarization_magnitude,is_los,contains_transmission,transmission_semantic_consumed,first_transmission_medium_in_id,first_transmission_medium_out_id,source_tag,tx_antenna_id,tx_antenna_source_type,rx_antenna_id,rx_antenna_source_type,source_path_signature,geometry_residual,reflection_residual_m,max_snell_residual,max_keller_residual,residual_reject_reason,co_pol_power_linear,cross_pol_power_linear,xpr_dB,node_count\n";
+    csv << "path_id,delay_s,phase_rad,amplitude_real,amplitude_imag,power_linear,incident_power_linear,sampling_weight,candidate_support_count,channel_h_real,channel_h_imag,incident_Ex_real_vpm,incident_Ex_imag_vpm,incident_Ey_real_vpm,incident_Ey_imag_vpm,incident_Ez_real_vpm,incident_Ez_imag_vpm,free_space_loss_db,polarization_magnitude,is_los,contains_transmission,transmission_semantic_consumed,first_transmission_medium_in_id,first_transmission_medium_out_id,source_tag,tx_antenna_id,tx_antenna_source_type,rx_antenna_id,rx_antenna_source_type,source_path_signature,geometry_refined,refinement_method,refinement_iterations,geometry_residual,max_reflection_residual,max_snell_residual,max_keller_residual,residual_reject_reason,co_pol_power_linear,cross_pol_power_linear,xpr_dB,tx_power_dBm,power_dBm,node_count\n";
     for (const EMPathResult& item : context.precise_result->path_results.results)
     {
         std::size_t nodeCount = 0;
@@ -202,7 +255,14 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
                 }
             }
         }
-        csv << item.path_id << "," << item.delay_s << "," << item.phase_rad << "," << item.power_linear << "," << item.free_space_loss_db << "," << item.polarization_magnitude << ","
+        csv << item.path_id << "," << item.delay_s << "," << item.phase_rad << ","
+            << item.amplitude_real << "," << item.amplitude_imag << ","
+            << item.power_linear << "," << item.incident_power_linear << "," << item.sampling_weight << ","
+            << item.candidate_support_count << "," << item.channel_coefficient.re << "," << item.channel_coefficient.im << ","
+            << item.incident_electric_field_world_v_per_m.x.re << "," << item.incident_electric_field_world_v_per_m.x.im << ","
+            << item.incident_electric_field_world_v_per_m.y.re << "," << item.incident_electric_field_world_v_per_m.y.im << ","
+            << item.incident_electric_field_world_v_per_m.z.re << "," << item.incident_electric_field_world_v_per_m.z.im << ","
+            << item.free_space_loss_db << "," << item.polarization_magnitude << ","
             << (item.is_los ? "true" : "false") << ","
             << (item.contains_transmission ? "true" : "false") << ","
             << (item.transmission_semantic_consumed ? "true" : "false") << ","
@@ -214,13 +274,47 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
             << csvEscape(item.rx_antenna_id) << ","
             << csvEscape(item.rx_antenna_source_type) << ","
             << item.source_path_signature << ","
+            << (sourcePath && sourcePath->geometry_refined ? "true" : "false") << ","
+            << csvEscape(sourcePath ? sourcePath->refinement_method : std::string()) << ","
+            << (sourcePath ? sourcePath->refinement_iterations : 0) << ","
             << (sourcePath ? sourcePath->geometry_residual : 0.0) << ","
-            << (sourcePath ? sourcePath->reflection_residual_m : 0.0) << ","
+            << (sourcePath ? sourcePath->max_reflection_residual : 0.0) << ","
             << (sourcePath ? sourcePath->max_snell_residual : 0.0) << ","
             << (sourcePath ? sourcePath->max_keller_residual : 0.0) << ","
             << csvEscape(sourcePath ? sourcePath->residual_reject_reason : std::string()) << ","
             << item.co_pol_power_linear << "," << item.cross_pol_power_linear << "," << item.xpr_dB << ","
+            // v11.1: absolute power fields
+            << item.tx_power_dBm << "," << item.power_dBm << ","
             << nodeCount << "\n";
+    }
+
+    std::ostringstream nodeFieldCsv;
+    nodeFieldCsv << "path_id,node_index,interaction_type,face_id,surface_patch_id,wedge_id,x,y,z,segment_length_m,cumulative_length_m,delay_s,medium_in_id,medium_out_id,active_medium_id,in_Ex_real_sqrtW,in_Ex_imag_sqrtW,in_Ey_real_sqrtW,in_Ey_imag_sqrtW,in_Ez_real_sqrtW,in_Ez_imag_sqrtW,out_Ex_real_sqrtW,out_Ex_imag_sqrtW,out_Ey_real_sqrtW,out_Ey_imag_sqrtW,out_Ez_real_sqrtW,out_Ez_imag_sqrtW,in_power_linear,out_power_linear,diffraction_model,face0_material,facen_material,face0_material_resolved,facen_material_resolved,face0_rte_real,face0_rte_imag,face0_rtm_real,face0_rtm_imag,facen_rte_real,facen_rte_imag,facen_rtm_real,facen_rtm_imag,D00_real,D00_imag,D01_real,D01_imag,D10_real,D10_imag,D11_real,D11_imag\n";
+    for (const EMPathResult& item : context.precise_result->path_results.results) {
+        for (const NodeFieldTrace& trace : item.node_field_trace) {
+            const ComplexVec3& in = trace.incoming_power_wave_world;
+            const ComplexVec3& out = trace.outgoing_power_wave_world;
+            nodeFieldCsv << item.path_id << "," << trace.node_index << "," << static_cast<int>(trace.interaction_type) << ","
+                << trace.face_id << "," << trace.surface_patch_id << "," << trace.wedge_id << ","
+                << trace.point.x << "," << trace.point.y << "," << trace.point.z << ","
+                << trace.segment_length_m << "," << trace.cumulative_length_m << "," << trace.delay_s << ","
+                << trace.medium_in_id << "," << trace.medium_out_id << "," << trace.active_medium_id << ","
+                << in.x.re << "," << in.x.im << "," << in.y.re << "," << in.y.im << "," << in.z.re << "," << in.z.im << ","
+                << out.x.re << "," << out.x.im << "," << out.y.re << "," << out.y.im << "," << out.z.re << "," << out.z.im << ","
+                << trace.incoming_power_linear << "," << trace.outgoing_power_linear << ",";
+            const DiffractionFieldDiagnostics& d = trace.diffraction;
+            nodeFieldCsv << csvEscape(d.model) << "," << csvEscape(d.face0_material_name) << ","
+                << csvEscape(d.facen_material_name) << "," << (d.face0_material_resolved ? 1 : 0) << ","
+                << (d.facen_material_resolved ? 1 : 0) << ","
+                << d.face0_reflection_te.re << "," << d.face0_reflection_te.im << ","
+                << d.face0_reflection_tm.re << "," << d.face0_reflection_tm.im << ","
+                << d.facen_reflection_te.re << "," << d.facen_reflection_te.im << ","
+                << d.facen_reflection_tm.re << "," << d.facen_reflection_tm.im << ","
+                << d.jones_00.re << "," << d.jones_00.im << ","
+                << d.jones_01.re << "," << d.jones_01.im << ","
+                << d.jones_10.re << "," << d.jones_10.im << ","
+                << d.jones_11.re << "," << d.jones_11.im << "\n";
+        }
     }
 
     std::ostringstream manifest;
@@ -231,6 +325,7 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << "  \"primary_input_source\": \"" << context.primary_input_source << "\",\n"
              << "  \"path_file\": \"paths/precise_paths.json\",\n"
              << "  \"csv_file\": \"paths/precise_paths.csv\",\n"
+             << "  \"node_field_csv_file\": \"paths/path_node_fields.csv\",\n"
              << "  \"path_count\": " << context.precise_result->path_results.results.size() << ",\n"
              << "  \"source_path_count\": " << (context.search_result != nullptr ? context.search_result->path_set.paths.size() : 0) << "\n"
              << "}\n";
@@ -251,20 +346,22 @@ bool ExportPaths(const ResultExportContext& context, ExportBundle& bundle)
              << ",\n  \"accepted_state_count\": " << context.search_result->accepted_state_count
              << "\n}\n";
         std::string diagPath = context.export_root_directory + "/paths/search_diagnostics.json";
-        WriteTextFile(diagPath, diag.str());
+        if (!WriteTextFile(diagPath, diag.str())) return false;
         bundle.exported_files.push_back(diagPath);
     }
 
-    if (!WriteTextFile(jsonPath, json.str()) || !WriteTextFile(csvPath, csv.str()) || !WriteTextFile(manifestPath, manifest.str()))
+    if (!WriteTextFile(jsonPath, json.str()) || !WriteTextFile(csvPath, csv.str()) ||
+        !WriteTextFile(nodeFieldCsvPath, nodeFieldCsv.str()) || !WriteTextFile(manifestPath, manifest.str()))
     {
         return false;
     }
 
     bundle.exported_files.push_back(jsonPath);
     bundle.exported_files.push_back(csvPath);
+    bundle.exported_files.push_back(nodeFieldCsvPath);
     bundle.exported_files.push_back(manifestPath);
     ++bundle.exported_json_file_count;
-    ++bundle.exported_csv_file_count;
+    bundle.exported_csv_file_count += 2;
     return true;
 }
 

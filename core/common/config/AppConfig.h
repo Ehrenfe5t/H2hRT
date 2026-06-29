@@ -48,6 +48,7 @@ struct SceneImportConfig {
 struct ScenePreprocessConfig {
     bool rebuild_normals = false;
     bool enable_wedge_build = true;
+    bool convex_wedges_only = true; // Use the exterior-domain UTD model on solid-convex edges only.
     bool enable_scene_cache = false;
     // v6: removed enable_bvh_bruteforce, filter_non_manifold, skip_coplanar, wedge_angles, preprocess_mode, cache_versions, bvh_bruteforce_sample
     int bvh_leaf_size = 16;
@@ -291,8 +292,8 @@ struct AppConfig {
     ScenePreprocessConfig scene_preprocess;
     MaterialConfig material;
     AntennaConfig antenna;              // v10.2: 全局天线回退配置 (向后兼容)
-    AntennaConfig tx_antenna;           // v10.2: 发射天线独立配置 (source_type非空时优先)
-    AntennaConfig rx_antenna;           // v10.2: 接收天线独立配置 (source_type非空时优先)
+    AntennaConfig tx_antenna = AntennaConfig{"", "", "", 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+    AntennaConfig rx_antenna = AntennaConfig{"", "", "", 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
     PathSearchConfig path_search;
     SbrConfig sbr;
     EMSolverConfig em_solver;

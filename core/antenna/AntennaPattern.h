@@ -52,6 +52,22 @@ inline void AntennaSphericalBasisToWorld(const Vec3& antennaForward,
         -sp*antennaRight.z + cp*antennaUp.z);
 }
 
+// Ludwig-3 co/cross basis with antennaUp as the boresight co-polar reference.
+// Unlike the raw spherical basis, this remains independent of phi at theta=0.
+inline void AntennaLudwig3BasisToWorld(const Vec3& antennaForward,
+    const Vec3& antennaRight, const Vec3& antennaUp,
+    double thetaRad, double phiRad,
+    Vec3& coHatWorld, Vec3& crossHatWorld)
+{
+    Vec3 thetaHat, phiHat;
+    AntennaSphericalBasisToWorld(antennaForward, antennaRight, antennaUp,
+                                 thetaRad, phiRad, thetaHat, phiHat);
+    const double cp = std::cos(phiRad);
+    const double sp = std::sin(phiRad);
+    coHatWorld = Normalize(Add(Scale(thetaHat, sp), Scale(phiHat, cp)));
+    crossHatWorld = Normalize(Subtract(Scale(thetaHat, cp), Scale(phiHat, sp)));
+}
+
 struct AntennaPattern {
     // ── Gain pattern ──
     std::vector<double> thetaDeg, phiDeg, gainDBi;
@@ -102,6 +118,12 @@ struct AntennaPattern {
         }
         // 验证phi覆盖[0, 360) — 至少首尾相接
         if (outPhi.front() < 0.0 || outPhi.back() > 360.0) return false;
+        for (int i = 1; i < nTheta; ++i) {
+            for (int j = 0; j < nPhi; ++j) {
+                if (std::fabs(rows[i*nPhi + j].theta - outTheta[i]) > 0.01) return false;
+                if (std::fabs(rows[i*nPhi + j].phi - outPhi[j]) > 0.01) return false;
+            }
+        }
         // 填充排序索引
         for (int i = 0; i < total; ++i) sortedIdx[i] = rows[i].origIdx;
         return true;
@@ -119,7 +141,7 @@ struct AntennaPattern {
             std::string tok; std::vector<double> row;
             while (std::getline(ss, tok, ',')) {
                 try { row.push_back(std::stod(tok)); }
-                catch (...) { row.push_back(0.0); }
+                catch (...) { return false; }
             }
             if (row.size() >= 3) { tT.push_back(row[0]); pP.push_back(row[1]); gG.push_back(row[2]); }
         }
@@ -128,39 +150,29 @@ struct AntennaPattern {
         // v10.2 B7修复: 排序+验证矩形网格 (替代旧脆弱的顺序依赖推断)
         std::vector<double> sortedPhi;
         std::vector<int> sortedIdx;
-        if (!BuildSortedGrid(tT, pP, thetaDeg, sortedPhi, Ntheta, Nphi, sortedIdx)) {
-            // 网格推断失败 — 回退到旧方法作为兼容fallback
-            thetaDeg.clear();
-            for (auto& v : tT) {
-                if (thetaDeg.empty() || std::fabs(v - thetaDeg.back()) > 0.01)
-                    thetaDeg.push_back(v);
-            }
-            Ntheta = (int)thetaDeg.size();
-            Nphi = (int)tT.size() / Ntheta;
-            if (Nphi < 1) return false;
-            sortedPhi.resize(Nphi);
-            for (int j = 0; j < Nphi; ++j) sortedPhi.push_back(pP[j]);
-            sortedIdx.resize(tT.size());
-            for (size_t i = 0; i < sortedIdx.size(); ++i) sortedIdx[i] = (int)i;
-        }
+        if (!BuildSortedGrid(tT, pP, thetaDeg, sortedPhi, Ntheta, Nphi, sortedIdx)) return false;
         phiDeg = sortedPhi;
         gainDBi.resize(Ntheta * Nphi, 0.0);
-        for (int i = 0; i < (int)tT.size(); ++i) {
-            int idx = (i < (int)sortedIdx.size()) ? sortedIdx[i] : i;
-            if (idx < (int)gainDBi.size()) gainDBi[idx] = gG[i];
+        for (int sortedPos = 0; sortedPos < (int)tT.size(); ++sortedPos) {
+            const int sourcePos = (sortedPos < (int)sortedIdx.size()) ? sortedIdx[sortedPos] : sortedPos;
+            if (sourcePos >= 0 && sourcePos < (int)gG.size()) gainDBi[sortedPos] = gG[sourcePos];
         }
         loaded = true;
         return true;
     }
 
     // v8: Load per-angle complex polarization CSV.
-    // Format: Theta[deg],Phi[deg],Gain_dBi,PolTheta_re,PolTheta_im,PolPhi_re,PolPhi_im
+    // Accepted formats:
+    // theta,phi,PolTheta_re,PolTheta_im,PolPhi_re,PolPhi_im
+    // theta,phi,Gain_dBi,PolTheta_re,PolTheta_im,PolPhi_re,PolPhi_im
     // Ludwig-3 definition: polTheta = E·theta_hat, polPhi = E·phi_hat (both complex, normalized to unity max)
     // v10.2 B7修复: 排序+验证矩形网格, 替代旧脆弱的顺序依赖推断
     bool LoadPolarizationCsv(const std::string& path) {
         std::ifstream f(path);
         if (!f.is_open()) return false;
         std::vector<double> tT, pP, gG, ptR, ptI, ppR, ppI;
+        bool hasEmbeddedGain = false;
+        int dataColumnCount = 0;
         std::string line;
         std::getline(f, line); // skip header
         while (std::getline(f, line)) {
@@ -169,48 +181,45 @@ struct AntennaPattern {
             std::string tok; std::vector<double> row;
             while (std::getline(ss, tok, ',')) {
                 try { row.push_back(std::stod(tok)); }
-                catch (...) { row.push_back(0.0); }
+                catch (...) { return false; }
             }
-            if (row.size() >= 7) {
-                tT.push_back(row[0]); pP.push_back(row[1]); gG.push_back(row[2]);
+            if (row.size() != 6 && row.size() != 7) return false;
+            const int columns = static_cast<int>(row.size());
+            if (dataColumnCount == 0) dataColumnCount = columns;
+            if (columns != dataColumnCount) return false;
+            hasEmbeddedGain = columns == 7;
+            tT.push_back(row[0]); pP.push_back(row[1]);
+            if (hasEmbeddedGain) {
+                gG.push_back(row[2]);
                 ptR.push_back(row[3]); ptI.push_back(row[4]);
                 ppR.push_back(row[5]); ppI.push_back(row[6]);
+            } else {
+                ptR.push_back(row[2]); ptI.push_back(row[3]);
+                ppR.push_back(row[4]); ppI.push_back(row[5]);
             }
         }
         if (tT.empty()) return false;
-        thetaDeg.clear(); phiDeg.clear(); gainDBi.clear();
 
         // v10.2 B7修复: 排序+验证
+        std::vector<double> parsedTheta;
         std::vector<double> sortedPhi;
         std::vector<int> sortedIdx;
         int nTh, nPh;
-        if (!BuildSortedGrid(tT, pP, thetaDeg, sortedPhi, nTh, nPh, sortedIdx)) {
-            // fallback to old method
-            for (auto& v : tT) {
-                if (thetaDeg.empty() || std::fabs(v - thetaDeg.back()) > 0.01)
-                    thetaDeg.push_back(v);
-            }
-            nTh = (int)thetaDeg.size();
-            nPh = (int)tT.size() / nTh;
-            if (nPh < 1) return false;
-            sortedPhi.resize(nPh);
-            for (int j = 0; j < nPh; ++j) sortedPhi.push_back(pP[j]);
-            sortedIdx.resize(tT.size());
-            for (size_t i = 0; i < sortedIdx.size(); ++i) sortedIdx[i] = (int)i;
-        }
-        Ntheta = nTh; Nphi = nPh; phiDeg = sortedPhi;
+        if (!BuildSortedGrid(tT, pP, parsedTheta, sortedPhi, nTh, nPh, sortedIdx)) return false;
+        if ((loaded || polarization_loaded) &&
+            (Ntheta != nTh || Nphi != nPh || thetaDeg != parsedTheta || phiDeg != sortedPhi)) return false;
+        Ntheta = nTh; Nphi = nPh; thetaDeg = parsedTheta; phiDeg = sortedPhi;
         int N = Ntheta * Nphi;
-        gainDBi.resize(N, 0.0); polThetaRe.resize(N, 0.0); polThetaIm.resize(N, 0.0);
+        if (hasEmbeddedGain && !loaded) gainDBi.resize(N, 0.0);
+        polThetaRe.resize(N, 0.0); polThetaIm.resize(N, 0.0);
         polPhiRe.resize(N, 0.0); polPhiIm.resize(N, 0.0);
-        for (int i = 0; i < (int)tT.size() && i < N; ++i) {
-            int idx = (i < (int)sortedIdx.size()) ? sortedIdx[i] : i;
-            if (idx < N) {
-                gainDBi[idx] = gG[i];
-                polThetaRe[idx] = ptR[i]; polThetaIm[idx] = ptI[i];
-                polPhiRe[idx] = ppR[i];   polPhiIm[idx] = ppI[i];
-            }
+        for (int sortedPos = 0; sortedPos < N; ++sortedPos) {
+            const int sourcePos = sortedIdx[sortedPos];
+            if (hasEmbeddedGain && !loaded) gainDBi[sortedPos] = gG[sourcePos];
+            polThetaRe[sortedPos] = ptR[sourcePos]; polThetaIm[sortedPos] = ptI[sourcePos];
+            polPhiRe[sortedPos] = ppR[sourcePos];   polPhiIm[sortedPos] = ppI[sourcePos];
         }
-        loaded = true;
+        if (hasEmbeddedGain) loaded = true;
         polarization_loaded = true;
         return true;
     }
@@ -225,11 +234,31 @@ struct AntennaPattern {
         int ti1 = std::min(ti + 1, Ntheta - 1);
         double tFrac = (thetaDeg[ti1] != thetaDeg[ti])
             ? (thetaDegVal - thetaDeg[ti])/(thetaDeg[ti1] - thetaDeg[ti]) : 0.0;
-        int pi = 0; for (int j = 0; j < Nphi - 1; ++j)
-            if (phiDegVal >= phiDeg[j] && phiDegVal <= phiDeg[j+1]) { pi = j; break; }
-        int pi1 = (pi + 1) % Nphi;
-        double pFrac = (phiDeg[pi1] != phiDeg[pi])
-            ? (phiDegVal - phiDeg[pi])/(phiDeg[pi1] - phiDeg[pi]) : 0.0;
+        // v11.2: phi periodic-interval search with wrap-gap handling.
+        // When phi samples don't cover full [0,360), the gap [phiDeg.back(),360)U[0,phiDeg.front())
+        // must be interpolated across the 0/360 boundary.
+        int pi, pi1;
+        double phiLower, phiUpper;
+        if (phiDegVal < phiDeg.front()) {
+            // Left periodic gap: value is between (phiDeg.back()-360) and phiDeg.front()
+            pi = Nphi - 1; pi1 = 0;
+            phiLower = phiDeg.back() - 360.0;
+            phiUpper = phiDeg.front();
+        } else if (phiDegVal >= phiDeg.back()) {
+            // Right periodic gap: value is between phiDeg.back() and (phiDeg.front()+360)
+            pi = Nphi - 1; pi1 = 0;
+            phiLower = phiDeg.back();
+            phiUpper = phiDeg.front() + 360.0;
+        } else {
+            pi = 0; pi1 = 1;
+            for (int j = 0; j < Nphi - 1; ++j) {
+                if (phiDegVal >= phiDeg[j] && phiDegVal <= phiDeg[j+1]) { pi = j; pi1 = j+1; break; }
+            }
+            phiLower = phiDeg[pi];
+            phiUpper = phiDeg[pi1];
+        }
+        double pFrac = (phiUpper != phiLower)
+            ? (phiDegVal - phiLower) / (phiUpper - phiLower) : 0.0;
         double g00 = gainDBi[ti*Nphi + pi],   g10 = gainDBi[ti1*Nphi + pi];
         double g01 = gainDBi[ti*Nphi + pi1], g11 = gainDBi[ti1*Nphi + pi1];
         double g0 = g00 + tFrac*(g10 - g00), g1 = g01 + tFrac*(g11 - g01);
@@ -252,11 +281,27 @@ struct AntennaPattern {
         int ti1 = std::min(ti + 1, Ntheta - 1);
         double tFrac = (thetaDeg[ti1] != thetaDeg[ti])
             ? (thetaDegVal - thetaDeg[ti])/(thetaDeg[ti1] - thetaDeg[ti]) : 0.0;
-        int pi = 0; for (int j = 0; j < Nphi - 1; ++j)
-            if (phiDegVal >= phiDeg[j] && phiDegVal <= phiDeg[j+1]) { pi = j; break; }
-        int pi1 = (pi + 1) % Nphi;
-        double pFrac = (phiDeg[pi1] != phiDeg[pi])
-            ? (phiDegVal - phiDeg[pi])/(phiDeg[pi1] - phiDeg[pi]) : 0.0;
+        // v11.2: phi periodic-interval search with wrap-gap handling (same as QueryGainDBi).
+        int pi, pi1;
+        double phiLower, phiUpper;
+        if (phiDegVal < phiDeg.front()) {
+            pi = Nphi - 1; pi1 = 0;
+            phiLower = phiDeg.back() - 360.0;
+            phiUpper = phiDeg.front();
+        } else if (phiDegVal >= phiDeg.back()) {
+            pi = Nphi - 1; pi1 = 0;
+            phiLower = phiDeg.back();
+            phiUpper = phiDeg.front() + 360.0;
+        } else {
+            pi = 0; pi1 = 1;
+            for (int j = 0; j < Nphi - 1; ++j) {
+                if (phiDegVal >= phiDeg[j] && phiDegVal <= phiDeg[j+1]) { pi = j; pi1 = j+1; break; }
+            }
+            phiLower = phiDeg[pi];
+            phiUpper = phiDeg[pi1];
+        }
+        double pFrac = (phiUpper != phiLower)
+            ? (phiDegVal - phiLower) / (phiUpper - phiLower) : 0.0;
         auto interp = [&](const std::vector<double>& arr) {
             double v00=arr[ti*Nphi+pi], v10=arr[ti1*Nphi+pi];
             double v01=arr[ti*Nphi+pi1], v11=arr[ti1*Nphi+pi1];
@@ -265,6 +310,12 @@ struct AntennaPattern {
         };
         ptR = interp(polThetaRe); ptI = interp(polThetaIm);
         ppR = interp(polPhiRe);   ppI = interp(polPhiIm);
+        const double norm = std::sqrt(ptR*ptR + ptI*ptI + ppR*ppR + ppI*ppI);
+        if (norm > 1e-12) {
+            ptR /= norm; ptI /= norm; ppR /= norm; ppI /= norm;
+        } else {
+            ptR=1.0; ptI=0.0; ppR=0.0; ppI=0.0;
+        }
     }
 };
 

@@ -103,7 +103,16 @@ void SbrPostProcess(std::vector<GeometricPath>& paths, const AppConfig& config) 
                         dup = true; break;
                     }
                 }
-                if (!dup) kept.push_back(std::move(paths[indices[j]]));
+                if (!dup) {
+                    kept.push_back(std::move(paths[indices[j]]));
+                } else {
+                    for (GeometricPath& existing : kept) {
+                        if (SbrPathExactEqual(existing, paths[indices[j]], kLengthTol, kPointTol)) {
+                            existing.candidate_support_count += paths[indices[j]].candidate_support_count;
+                            break;
+                        }
+                    }
+                }
             }
         }
         paths = std::move(kept);

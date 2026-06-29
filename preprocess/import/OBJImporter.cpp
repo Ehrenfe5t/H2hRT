@@ -248,30 +248,28 @@ OBJImportResult ImportSceneFromOBJ(const std::string& filePath,
                     face.face_id = static_cast<int>(result.scene.faces.size());
                     face.object_id = currentObjectId;
                     face.object_name = currentObjectName;
+                    Vec3 authoredNormal;
+                    bool hasAuthoredNormal = false;
                     if (face.normal_index >= 0 && face.normal_index < static_cast<int>(result.scene.normals.size()))
                     {
-                        face.normal = result.scene.normals[face.normal_index];
+                        authoredNormal = Normalize(result.scene.normals[face.normal_index]);
+                        hasAuthoredNormal = Length(authoredNormal) > 0.5;
                     }
                     else if (face.normal_index >= 0)
                     {
                         sawOutOfRangeNormalIndex = true;
                     }
-                    else
-                    {
-                        // v9 step23: 无法向量时从几何计算 (cross product of edges)
-                        if (face.vertex_index0 >= 0 && face.vertex_index1 >= 0 && face.vertex_index2 >= 0 &&
-                            face.vertex_index0 < static_cast<int>(result.scene.vertices.size()) &&
-                            face.vertex_index1 < static_cast<int>(result.scene.vertices.size()) &&
-                            face.vertex_index2 < static_cast<int>(result.scene.vertices.size()))
-                        {
-                            const Vec3& v0 = result.scene.vertices[face.vertex_index0];
-                            const Vec3& v1 = result.scene.vertices[face.vertex_index1];
-                            const Vec3& v2 = result.scene.vertices[face.vertex_index2];
-                            Vec3 e1 = Subtract(v1, v0);
-                            Vec3 e2 = Subtract(v2, v0);
-                            face.normal = Normalize(Cross(e1, e2));
-                        }
-                    }
+                    // Propagation geometry must use the triangle plane normal,
+                    // never an interpolated/smoothed OBJ shading normal. The
+                    // authored normal is used only to orient the geometric
+                    // normal toward the scene-defined outward side.
+                    const Vec3& v0 = result.scene.vertices[face.vertex_index0];
+                    const Vec3& v1 = result.scene.vertices[face.vertex_index1];
+                    const Vec3& v2 = result.scene.vertices[face.vertex_index2];
+                    Vec3 geometricNormal = Normalize(Cross(Subtract(v1, v0), Subtract(v2, v0)));
+                    if (hasAuthoredNormal && Dot(geometricNormal, authoredNormal) < 0.0)
+                        geometricNormal = Scale(geometricNormal, -1.0);
+                    face.normal = geometricNormal;
 
                     result.scene.faces.push_back(face);
                     if (currentObjectId >= 0 && currentObjectId < static_cast<int>(result.scene.objects.size()))

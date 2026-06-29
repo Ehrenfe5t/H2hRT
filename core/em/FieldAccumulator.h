@@ -6,8 +6,49 @@
 #include "../path/InteractionType.h"
 #include "../scene/Face.h"
 #include "../common/math/ComplexVec3.h"
+#include <string>
+#include <vector>
 
 namespace rt {
+
+struct DiffractionFieldDiagnostics {
+    bool valid = false;
+    bool face0_material_resolved = false;
+    bool facen_material_resolved = false;
+    std::string model;
+    std::string face0_material_name;
+    std::string facen_material_name;
+    Complex face0_reflection_te;
+    Complex face0_reflection_tm;
+    Complex facen_reflection_te;
+    Complex facen_reflection_tm;
+    Complex jones_00;
+    Complex jones_01;
+    Complex jones_10;
+    Complex jones_11;
+};
+
+// Node-level evolution of the solver's complex power-wave state. The vector
+// quantity has units sqrt(W); it is converted to physical V/m at the receiver.
+struct NodeFieldTrace {
+    int node_index = -1;
+    InteractionType interaction_type = InteractionType::None;
+    int face_id = -1;
+    int surface_patch_id = -1;
+    int wedge_id = -1;
+    Point3 point;
+    double segment_length_m = 0.0;
+    double cumulative_length_m = 0.0;
+    double delay_s = 0.0;
+    int medium_in_id = -1;
+    int medium_out_id = -1;
+    int active_medium_id = -1;
+    ComplexVec3 incoming_power_wave_world;
+    ComplexVec3 outgoing_power_wave_world;
+    double incoming_power_linear = 0.0;
+    double outgoing_power_linear = 0.0;
+    DiffractionFieldDiagnostics diffraction;
+};
 
 /// <summary>
 /// v9 B-6: 天线姿态结构体 — 定义天线本地坐标系
@@ -44,6 +85,7 @@ struct FieldAccumulator {
     double amplitude_real = 1.0;         ///< v9 B1-b: 降级为派生兼容输出.
     double amplitude_imag = 0.0;         ///< v9 B1-b: 降级为派生兼容输出.
     double power_linear = 1.0;           ///< v9 B1-b: 降级为派生 = |Ex|²+|Ey|²+|Ez|².
+    double tx_power_w = 0.0;             ///< Configured transmitter power, independent of ray sampling.
     double free_space_amplitude_scale = 1.0;  ///< FSPL amplitude scale, applied once at FinalizeAtReceiver (not per segment).
     double free_space_power_scale = 1.0;      ///< FSPL power scale = (amplitude_scale)^2.
     double last_segment_length_m = 0.0;  ///< Length of the most recent propagation segment (used in diffraction distance parameter L).
@@ -63,8 +105,10 @@ struct FieldAccumulator {
     bool valid = false;                  ///< Set to true after successful InitializeTxField; false aborts the path.
 
     // ── v9 B1-b: 复矢量电场主状态 ──
-    ComplexVec3 electric_field_world;    ///< 世界坐标复电场矢量 [Ex,Ey,Ez].
+    ComplexVec3 electric_field_world;    ///< Complex power-wave vector [sqrt(W)], not physical V/m.
     bool vector_field_valid = false;     ///< 复矢量场是否已初始化.
+    std::vector<NodeFieldTrace> node_field_trace;
+    DiffractionFieldDiagnostics last_diffraction;
 
     /// <summary>
     /// v9 B1-b: 从复矢量电场派生旧标量兼容字段。

@@ -19,23 +19,23 @@
 #include "../core/scene/Scene.h"
 #include "../core/search/SearchResult.h"
 
-namespace rt { struct GeometricPath; struct EMPathResult; struct EMSolverInput; }
+namespace rt { struct GeometricPath; struct EMPathResult; struct EMSolverInput; struct AntennaModel; }
 
 namespace rt {
 
 /// <summary>
-/// v8: 公开的单路径EM求解入口 — SBR路径可复用此函数获得精确复振幅+相位+极化
+/// v8: 公开的单路径EM求解入口 — 从 config 构建天线，适合单次调用。
 /// </summary>
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
                        EMPathResult& result, const MaterialDatabase* matDb);
 
 /// <summary>
-/// v10.2: 单路径EM求解 (支持 per-Rx 天线覆盖)。
-/// 若 rxTarget 非空且有天线覆盖字段，优先使用；否则回退到全局 rx_antenna/antenna。
+/// v11.3: 单路径EM求解 (传入预构建的天线模型)。
+/// 避免 per-path 重建天线（避免重复 LoadCsv 加载方向图文件）。
 /// </summary>
 bool SolveSinglePathEM(const AppConfig& config, const Scene& scene, const GeometricPath& path,
                        EMPathResult& result, const MaterialDatabase* matDb,
-                       const RxTarget* rxTarget);
+                       const AntennaModel* txAntenna, const AntennaModel* rxAntenna);
 
 /// <summary>
 /// 单次 A1 真实生产链运行的完整结果。

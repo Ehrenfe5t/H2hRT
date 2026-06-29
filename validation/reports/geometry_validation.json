@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-01T02:01:02.944180",
+  "timestamp": "2026-06-29T00:36:19.746175",
   "suite": "geometry",
   "backend": "cpu",
   "total": 7,
@@ -13,7 +13,7 @@
   "_note": "overall_passed/technical_passed means zero failures. paper_ready means zero failures AND zero critical skipped. Final acceptance uses paper_ready ONLY.",
   "rt_executable_cases": 7,
   "analytic_formula_cases": 0,
-  "allow_skip": false,
+  "allow_skip": true,
   "cases": [
     {
       "case_id": "G-1",
@@ -76,7 +76,7 @@
       "tolerance": 0.0,
       "passed": true,
       "failure_reason": "",
-      "detail": "OK: paths=1 tx=1",
+      "detail": "OK: paths=55959 tx=73846 diff=4",
       "skipped": false,
       "skip_reason": "",
       "critical_skip": false
@@ -110,7 +110,7 @@
       "backend": "cpu",
       "related_module": "core/search",
       "source": "rt_executable_output",
-      "input_config": "output/412/rx1/paths/precise_paths.json",
+      "input_config": "output/v11_c2_diff_on_412/Tx01-Rx01/paths/precise_paths.json",
       "scene": "",
       "frequency_hz": 2400000000.0,
       "reference_value": 1.0,
@@ -120,7 +120,7 @@
       "tolerance": 0.0,
       "passed": true,
       "failure_reason": "",
-      "detail": "OK: paths=2544 diff=2469",
+      "detail": "OK: paths=108 tx=20 diff=52",
       "skipped": false,
       "skip_reason": "",
       "critical_skip": false
@@ -132,7 +132,7 @@
       "backend": "cpu",
       "related_module": "core/search",
       "source": "rt_executable_output",
-      "input_config": "output/G6/rx1/paths/precise_paths.json",
+      "input_config": "test/configs/L1_05_pec_wedge.json",
       "scene": "",
       "frequency_hz": 2400000000.0,
       "reference_value": 1.0,
@@ -142,14 +142,14 @@
       "tolerance": 0.0,
       "passed": true,
       "failure_reason": "",
-      "detail": "OK: paths=7538 diff=17810",
+      "detail": "OK: paths=1 diff=1",
       "skipped": false,
       "skip_reason": "",
       "critical_skip": false
     },
     {
       "case_id": "G-TK",
-      "case_name": "top-K monotonic",
+      "case_name": "SBR refined topology integrity",
       "suite": "geometry",
       "backend": "cpu",
       "related_module": "core/search",
@@ -164,7 +164,7 @@
       "tolerance": 0.0,
       "passed": true,
       "failure_reason": "",
-      "detail": "K1=1 <= K8=1 <= KX(exhaustive)=1",
+      "detail": "paths=1 unique=1 refined=1",
       "skipped": false,
       "skip_reason": "",
       "critical_skip": false

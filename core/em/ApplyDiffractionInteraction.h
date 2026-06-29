@@ -7,8 +7,25 @@
 #include "FieldAccumulator.h"
 #include "EMSolverInput.h"
 #include "../path/PathNode.h"
+#include "../common/math/Complex.h"
+#include <cmath>
 
 namespace rt {
+
+// Compensation required when the solver applies lambda/(4*pi*(s1+s2)) once
+// at the receiver, while spherical-wave UTD uses
+// D*sqrt(s1/(s2*(s1+s2))) on the field incident at the edge.
+inline double UtdSphericalSpreadingCompensation(double s1, double s2) {
+    return (s1 > 0.0 && s2 > 0.0)
+        ? std::sqrt((s1 + s2) / (s1 * s2)) : 0.0;
+}
+
+inline double UtdWedgeIndexFromExteriorAngle(double exteriorAngleDeg) {
+    return exteriorAngleDeg / 180.0;
+}
+
+// Kouyoumjian-Pathak UTD transition function F(x), x >= 0.
+Complex EvaluateUtdTransition(double x);
 
 /// <summary>
 /// Apply UTD edge diffraction at a wedge-diffraction path node.

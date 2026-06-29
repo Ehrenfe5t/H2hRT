@@ -80,10 +80,11 @@ std::string BuildPreprocessConfigSignature(const AppConfig& config)
 {
     std::ostringstream stream;
     stream << config.scene_preprocess.enable_wedge_build << "|"
+           << config.scene_preprocess.convex_wedges_only << "|"
            << config.scene_preprocess.enable_scene_cache << "|"
            << config.scene_import.coordinate_transform << "|"   // v7 H7: 坐标变换变更触发缓存失效
            << config.scene_preprocess.bvh_leaf_size << "|"
-           << "v7";
+           << "v8";
     return stream.str();
 }
 

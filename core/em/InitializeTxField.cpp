@@ -28,17 +28,34 @@ bool InitializeTxField(const EMSolverInput& input, FieldAccumulator& field)
 {
     if (input.config == nullptr || input.path == nullptr) return false;
 
-    const AntennaModel fallbackTx = BuildTxAntennaModel(*input.config, ResolveTxPosition(*input.path), "tx-ideal-default");
-    const AntennaModel fallbackRx = BuildRxAntennaModel(*input.config, ResolveRxPosition(*input.path), "rx-ideal-default");
-    const AntennaModel& txAnt = (input.tx_antenna != nullptr) ? *input.tx_antenna : fallbackTx;
-    const AntennaModel& rxAnt = (input.rx_antenna != nullptr) ? *input.rx_antenna : fallbackRx;
+    AntennaModel fallbackTx;
+    AntennaModel fallbackRx;
+    const AntennaModel* txAntPtr = input.tx_antenna;
+    const AntennaModel* rxAntPtr = input.rx_antenna;
+    if (txAntPtr == nullptr) {
+        fallbackTx = BuildTxAntennaModel(*input.config, ResolveTxPosition(*input.path), "tx-ideal-default");
+        txAntPtr = &fallbackTx;
+    }
+    if (rxAntPtr == nullptr) {
+        fallbackRx = BuildRxAntennaModel(*input.config, ResolveRxPosition(*input.path), "rx-ideal-default");
+        rxAntPtr = &fallbackRx;
+    }
+    if (!txAntPtr->load_succeeded || !rxAntPtr->load_succeeded) return false;
+    const AntennaModel& txAnt = *txAntPtr;
+    const AntennaModel& rxAnt = *rxAntPtr;
 
     field.frequency_hz = input.config->em_solver.frequency_hz;
     if (field.frequency_hz <= 0.0) return false;
     field.wavelength_m = kC0 / field.frequency_hz;
 
     field.total_length_m = 0.0; field.delay_s = 0.0; field.phase_rad = 0.0;
-    field.amplitude_real = 1.0; field.amplitude_imag = 0.0; field.power_linear = 1.0;
+    // The propagated vector is a complex power wave [sqrt(W)]. A specular
+    // path is deterministic after refinement, so launch-ray support must not
+    // scale Tx power.
+    double txPowerW = std::pow(10.0, (input.tx_power_dBm - 30.0) / 10.0);
+    field.tx_power_w = txPowerW;
+    double txAmpScale = std::sqrt(std::max(0.0, txPowerW));
+    field.amplitude_real = txAmpScale; field.amplitude_imag = 0.0; field.power_linear = txPowerW;
     field.free_space_amplitude_scale = 1.0; field.free_space_power_scale = 1.0;
     field.last_segment_length_m = 0.0;
 
@@ -82,8 +99,8 @@ bool InitializeTxField(const EMSolverInput& input, FieldAccumulator& field)
         WorldToAntennaSpherical(launchDir, txAnt.forward, txAnt.right, txAnt.up,
                                 thetaRad, phiRad);
         Vec3 thetaHat, phiHat;
-        AntennaSphericalBasisToWorld(txAnt.forward, txAnt.right, txAnt.up,
-                                     thetaRad, phiRad, thetaHat, phiHat);
+        AntennaLudwig3BasisToWorld(txAnt.forward, txAnt.right, txAnt.up,
+                                   thetaRad, phiRad, thetaHat, phiHat);
 
         // Jones vector in world coords: E = polTheta*theta_hat + polPhi*phi_hat
         field.polarization_vector = MakeVec3(

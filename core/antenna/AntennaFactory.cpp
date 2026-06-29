@@ -21,13 +21,15 @@ namespace rt {
 const AntennaConfig& ResolveTxAntennaConfig(const AppConfig& config)
 {
     // 优先使用 tx_antenna (若 source_type 非空)；否则回退到全局 antenna
-    if (!config.tx_antenna.source_type.empty()) return config.tx_antenna;
+    if (!config.tx_antenna.source_type.empty() || !config.tx_antenna.pattern_file.empty() ||
+        !config.tx_antenna.polarization_file.empty()) return config.tx_antenna;
     return config.antenna;
 }
 
 const AntennaConfig& ResolveRxAntennaConfig(const AppConfig& config)
 {
-    if (!config.rx_antenna.source_type.empty()) return config.rx_antenna;
+    if (!config.rx_antenna.source_type.empty() || !config.rx_antenna.pattern_file.empty() ||
+        !config.rx_antenna.polarization_file.empty()) return config.rx_antenna;
     return config.antenna;
 }
 
@@ -69,8 +71,17 @@ AntennaModel BuildAntennaFromBlock(const AntennaConfig& antCfg, const AppConfig&
         upv = MakeVec3(0.0, 0.0, 1.0);
     }
     m.forward = fwd;
-    m.up = upv;
-    m.right = Normalize(Cross(fwd, upv)); // right = forward × up
+    m.right = Normalize(Cross(fwd, upv));
+    m.up = Normalize(Cross(m.right, m.forward));
+
+    // Load gain first so a six-column Jones file can share and validate its grid.
+    if (!antCfg.pattern_file.empty()) {
+        m.pattern_file = antCfg.pattern_file;
+        if (!m.pattern.LoadCsv(antCfg.pattern_file)) {
+            m.load_succeeded = false;
+            m.load_error = "Unable to load antenna gain pattern: " + antCfg.pattern_file;
+        }
+    }
 
     // v8: 极化方向图加载 (优先 polarization_file, 若含 PolTheta/PolPhi 列则为逐角度极化)
     if (!antCfg.polarization_file.empty()) {
@@ -79,15 +90,17 @@ AntennaModel BuildAntennaFromBlock(const AntennaConfig& antCfg, const AppConfig&
             // v7 兼容: 若极化CSV加载失败, 回退为固定极化向量文件
             std::ifstream pf(antCfg.polarization_file);
             double px, py, pz;
-            if (pf >> px >> py >> pz) { pol = Normalize(MakeVec3(px, py, pz)); }
+            if (pf >> px >> py >> pz) {
+                pol = Normalize(MakeVec3(px, py, pz));
+            } else {
+                m.load_succeeded = false;
+                if (!m.load_error.empty()) m.load_error += "; ";
+                m.load_error += "Unable to load antenna polarization: " + antCfg.polarization_file;
+            }
         }
     }
     m.polarization_vector = pol;
-    // 若配置了方向图文件则加载 (仅增益, 不含极化)
-    if (!antCfg.pattern_file.empty()) {
-        m.pattern_file = antCfg.pattern_file;
-        if (!m.pattern.loaded) m.pattern.LoadCsv(antCfg.pattern_file);
-    }
+    m.is_ideal = antCfg.pattern_file.empty() && antCfg.polarization_file.empty();
     return m;
 }
 

@@ -24,6 +24,9 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     result.delay_s = field.delay_s;
     result.phase_rad = field.phase_rad;
     result.wavelength_m = field.wavelength_m;
+    result.sampling_weight = path.sampling_weight;
+    result.candidate_support_count = path.candidate_support_count;
+    result.node_field_trace = field.node_field_trace;
 
     // v9 step2: 零长度保护 — 防止除零导致inf/NaN
     if (field.total_length_m <= kEpsLength) {
@@ -51,6 +54,10 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     if (field.vector_field_valid && path.nodes.size() >= 2) {
         double totalScale = fsplAmp;
         ComplexVec3 E_inc = Scale(field.electric_field_world, totalScale);
+        result.incident_power_linear = NormSq(E_inc);
+        const double powerWaveToField = (field.wavelength_m > 0.0)
+            ? (4.0 * kPi * std::sqrt(30.0) / field.wavelength_m) : 0.0;
+        result.incident_electric_field_world_v_per_m = Scale(E_inc, powerWaveToField);
 
         // Stage D: Rx Jones response — per-angle antenna polarization + gain
         Vec3 rxPolVec = MakeVec3(0.0, 1.0, 0.0); // default: vertical (Y-up)
@@ -75,14 +82,16 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
             Vec3 thetaHat, phiHat;
             // Compute incident direction from path geometry
             if (path.nodes.size() >= 2) {
-                Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-1].point,
-                                                  path.nodes[path.nodes.size()-2].point));
+                // Rx patterns are queried in the direction from which the wave arrives
+                // (Rx toward the previous node), opposite to propagation direction.
+                Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-2].point,
+                                                  path.nodes[path.nodes.size()-1].point));
                 double thetaRad, phiRad;
                 WorldToAntennaSpherical(incDir, rxAnt.forward, rxAnt.right, rxAnt.up,
                                         thetaRad, phiRad);
                 // Always compute spherical basis vectors (for co/cross-pol)
-                AntennaSphericalBasisToWorld(rxAnt.forward, rxAnt.right, rxAnt.up,
-                                              thetaRad, phiRad, thetaHat, phiHat);
+                AntennaLudwig3BasisToWorld(rxAnt.forward, rxAnt.right, rxAnt.up,
+                                           thetaRad, phiRad, thetaHat, phiHat);
 
                 // Per-angle gain pattern (if loaded)
                 if (rxAnt.pattern.loaded) {
@@ -129,6 +138,13 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
         result.amplitude_real = vr.re;
         result.amplitude_imag = vr.im;
         result.power_linear = vr.NormSq();
+        if (field.tx_power_w > 0.0) result.channel_coefficient = vr / std::sqrt(field.tx_power_w);
+        // v11.1: phase_rad must reflect the final received complex voltage, not the pre-receiver field phase
+        result.phase_rad = std::atan2(result.amplitude_imag, result.amplitude_real);
+        // v11.1: absolute power fields
+        result.tx_power_dBm = input.tx_power_dBm;
+        result.power_dBm = (result.power_linear > 0.0)
+            ? 10.0 * std::log10(result.power_linear * 1000.0) : -300.0;
         result.polarization_vector = field.polarization_vector;
         result.polarization_imag = field.polarization_imag;
         result.polarization_magnitude = std::sqrt(Dot(field.polarization_vector, field.polarization_vector)
@@ -156,7 +172,7 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
             result.aod_theta_deg = std::acos(Clamp(aodDir.y, -1.0, 1.0)) * 180.0 / kPi;
             result.aod_phi_deg   = std::atan2(aodDir.z, aodDir.x) * 180.0 / kPi;
             std::size_t nIdx = path.nodes.size() - 1;
-            Vec3 aoaDir = Normalize(Subtract(path.nodes[nIdx].point, path.nodes[nIdx-1].point));
+            Vec3 aoaDir = Normalize(Subtract(path.nodes[nIdx-1].point, path.nodes[nIdx].point));
             result.aoa_theta_deg = std::acos(Clamp(aoaDir.y, -1.0, 1.0)) * 180.0 / kPi;
             result.aoa_phi_deg   = std::atan2(aoaDir.z, aoaDir.x) * 180.0 / kPi;
         }
@@ -176,8 +192,8 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     if (rxAntPtr) {
         const AntennaModel& rxAnt = *rxAntPtr;
         if (rxAnt.pattern.loaded && path.nodes.size() >= 2) {
-            Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-1].point,
-                                              path.nodes[path.nodes.size()-2].point));
+            Vec3 incDir = Normalize(Subtract(path.nodes[path.nodes.size()-2].point,
+                                              path.nodes[path.nodes.size()-1].point));
             double thetaRad, phiRad;
             WorldToAntennaSpherical(incDir, rxAnt.forward, rxAnt.right, rxAnt.up,
                                     thetaRad, phiRad);
@@ -193,6 +209,11 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
     result.amplitude_imag = field.amplitude_imag * totalScale;
     result.power_linear = result.amplitude_real * result.amplitude_real
                         + result.amplitude_imag * result.amplitude_imag;
+    result.incident_power_linear = result.power_linear / std::max(rxGainLin, 1e-30);
+    // v11.1: absolute power fields (scalar path)
+    result.tx_power_dBm = input.tx_power_dBm;
+    result.power_dBm = (result.power_linear > 0.0)
+        ? 10.0 * std::log10(result.power_linear * 1000.0) : -300.0;
 
     // 极化信息 (v5 Jones: 实部+虚部)
     result.polarization_vector = field.polarization_vector;
@@ -209,7 +230,7 @@ EMPathResult FinalizeAtReceiver(const FieldAccumulator& field, const GeometricPa
 
         // AoA: 到达方向 倒数第二个节点 → Rx(node[last])
         std::size_t nIdx = path.nodes.size() - 1;
-        Vec3 aoaDir = Normalize(Subtract(path.nodes[nIdx].point, path.nodes[nIdx-1].point));
+        Vec3 aoaDir = Normalize(Subtract(path.nodes[nIdx-1].point, path.nodes[nIdx].point));
         result.aoa_theta_deg = std::acos(Clamp(aoaDir.y, -1.0, 1.0)) * 180.0 / kPi;
         result.aoa_phi_deg   = std::atan2(aoaDir.z, aoaDir.x) * 180.0 / kPi;
     }

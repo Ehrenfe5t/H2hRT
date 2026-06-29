@@ -26,6 +26,7 @@
 #include "../preprocess/build/SceneImporter.h"
 #include "../preprocess/build/SceneTopologyBuilder.h"
 #include "../preprocess/build/SceneQueryBuilder.h"
+#include "../preprocess/build/WedgeBuilder.h"
 #include "../preprocess/accel/SceneVisibilityBuilder.h"
 
 #include <sstream>
@@ -395,6 +396,11 @@ bool ExportSbrGeometryPaths(
     manifest << "{\n"
              << "  \"source\": \"sbr_v11_p2p_geometry_paths\",\n"
              << "  \"trace_profile\": \"" << JsonEscape(result.trace_profile) << "\",\n"
+             << "  \"launched_ray_count\": " << result.total_rays << ",\n"
+             << "  \"raw_candidate_count\": " << result.rx_paths_recorded << ",\n"
+             << "  \"physical_topology_group_count\": " << result.physical_topology_group_count << ",\n"
+             << "  \"geometrically_refined_path_count\": " << result.geometrically_refined_path_count << ",\n"
+             << "  \"geometry_refinement_reject_count\": " << result.geometry_refinement_reject_count << ",\n"
              << "  \"rx_file_count\": " << fileCount << ",\n"
              << "  \"path_count\": " << exportedPathCount << ",\n"
              << "  \"files\": [";
@@ -729,6 +735,47 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
     const std::string reportDir = "output/" + config.app_runtime.run_id + "/reports";
     std::error_code ec;
     std::filesystem::create_directories(reportDir, ec);
+    int sharedEdgeCount = 0;
+    int diffractionMarkedSharedEdgeCount = 0;
+    int coplanarDiffractionEdgeRejectCount = 0;
+    int angleDiffractionEdgeRejectCount = 0;
+    int nonManifoldDiffractionEdgeRejectCount = 0;
+    int concaveDiffractionEdgeRejectCount = 0;
+    int orientationUnknownDiffractionEdgeRejectCount = 0;
+    int degenerateAdjacentDiffractionEdgeRejectCount = 0;
+    int degenerateFaceCount = 0;
+    for (const Face& face : batch4Result.scene.faces)
+        if (face.degenerate) ++degenerateFaceCount;
+    for (const Edge& edge : batch4Result.scene.edges) {
+        if (edge.face_id0 < 0 || edge.face_id1 < 0) continue;
+        ++sharedEdgeCount;
+        const Face& f0 = batch4Result.scene.faces[edge.face_id0];
+        const Face& f1 = batch4Result.scene.faces[edge.face_id1];
+        if (!f0.diffraction_candidate_enabled && !f1.diffraction_candidate_enabled) continue;
+        ++diffractionMarkedSharedEdgeCount;
+        if (edge.is_non_manifold) ++nonManifoldDiffractionEdgeRejectCount;
+        else if (edge.is_coplanar) ++coplanarDiffractionEdgeRejectCount;
+        else if (edge.dihedral_angle_deg < 3.0 || edge.dihedral_angle_deg > 177.0)
+            ++angleDiffractionEdgeRejectCount;
+        else if (f0.degenerate || f1.degenerate)
+            ++degenerateAdjacentDiffractionEdgeRejectCount;
+        else {
+            const WedgeConvexity convexity =
+                ClassifySharedEdgeConvexity(batch4Result.scene, edge);
+            if (convexity == WedgeConvexity::Unknown)
+                ++orientationUnknownDiffractionEdgeRejectCount;
+            else if (config.scene_preprocess.convex_wedges_only &&
+                     convexity == WedgeConvexity::Concave)
+                ++concaveDiffractionEdgeRejectCount;
+        }
+    }
+    int acceptedCoplanarWedgeCount = 0;
+    for (const Wedge& wedge : batch4Result.scene.wedges) {
+        if (wedge.source_edge_id >= 0 &&
+            wedge.source_edge_id < static_cast<int>(batch4Result.scene.edges.size()) &&
+            batch4Result.scene.edges[wedge.source_edge_id].is_coplanar)
+            ++acceptedCoplanarWedgeCount;
+    }
     std::ofstream pf(reportDir + "/scene_preflight_report.json");
     if (pf.is_open()) {
         pf << "{\n"
@@ -737,6 +784,17 @@ PipelineRunResult RtPipeline::Run(const std::string& configPath) const
            << "  \"vertices\": " << batch4Result.scene.vertices.size() << ",\n"
            << "  \"wedges\": " << batch4Result.scene.wedges.size() << ",\n"
            << "  \"diffractable_wedges\": " << batch4Result.scene.acceleration.wedge_acceleration.diffractable_wedge_count << ",\n"
+           << "  \"shared_edges\": " << sharedEdgeCount << ",\n"
+           << "  \"diffraction_marked_shared_edges\": " << diffractionMarkedSharedEdgeCount << ",\n"
+           << "  \"coplanar_diffraction_edges_rejected\": " << coplanarDiffractionEdgeRejectCount << ",\n"
+           << "  \"angle_filtered_diffraction_edges_rejected\": " << angleDiffractionEdgeRejectCount << ",\n"
+           << "  \"non_manifold_diffraction_edges_rejected\": " << nonManifoldDiffractionEdgeRejectCount << ",\n"
+           << "  \"concave_diffraction_edges_rejected\": " << concaveDiffractionEdgeRejectCount << ",\n"
+           << "  \"orientation_unknown_diffraction_edges_rejected\": " << orientationUnknownDiffractionEdgeRejectCount << ",\n"
+           << "  \"degenerate_adjacent_diffraction_edges_rejected\": " << degenerateAdjacentDiffractionEdgeRejectCount << ",\n"
+           << "  \"degenerate_geometry_faces\": " << degenerateFaceCount << ",\n"
+           << "  \"convex_wedges_only\": " << (config.scene_preprocess.convex_wedges_only ? "true" : "false") << ",\n"
+           << "  \"accepted_coplanar_wedges\": " << acceptedCoplanarWedgeCount << ",\n"
            << "  \"material_policy\": \"" << JsonEscape(config.material.missing_material_policy) << "\",\n"
            << "  \"material_db\": \"" << JsonEscape(config.material.material_database_file) << "\"\n"
            << "}\n";

@@ -21,6 +21,8 @@ struct AntennaModel {
     double phase_center_offset_m = 0.0;
     std::string pattern_file;
     std::string polarization_file;
+    bool load_succeeded = true;
+    std::string load_error;
     std::string custom_metadata;
     AntennaPattern pattern;
 };

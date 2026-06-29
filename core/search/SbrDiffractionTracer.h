@@ -16,8 +16,8 @@ bool SbrAnalyticalFermatPoint(const Point3& tx, const Point3& rx,
                               const Point3& edgeStart, const Point3& edgeEnd,
                               Point3& diffPoint, double& edgeT);
 
-/// Check that a point is on the "large side" of a wedge (free space, not inside solid).
-/// For wedge angles > 183°, returns false if the point is inside both faces.
+/// Check that a point is in the propagation opening selected by the two
+/// outward-facing wedge planes. Convex exterior wedges are the default.
 bool SbrPointOnLargeWedgeSide(const Scene& scene, const Wedge& wedge, const Point3& p);
 
 /// Enumerate independent Tx-D-Rx diffraction paths for one receiver.

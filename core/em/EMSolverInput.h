@@ -14,6 +14,8 @@ struct EMSolverInput {
     const AntennaModel* tx_antenna = nullptr;
     const AntennaModel* rx_antenna = nullptr;
     const MaterialDatabase* material_db = nullptr;
+    // v11.1: Tx power for absolute receive power scaling in InitializeTxField
+    double tx_power_dBm = 0.0;
     bool transmission_semantic_complete = true;
     int first_transmission_medium_in_id = -1;
     int first_transmission_medium_out_id = -1;

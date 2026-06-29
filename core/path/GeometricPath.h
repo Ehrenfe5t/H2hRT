@@ -26,8 +26,18 @@ struct GeometricPath {
     bool is_los = false;
     bool contains_transmission = false;
     uint64_t path_signature = 0;
+    // Launch-power fraction represented by this path. Ray-sampled SBR paths
+    // use 1/ray_count; deterministic LOS/analytical paths keep unit weight.
+    double sampling_weight = 1.0;
+    // Number of launch rays that discovered this deterministic path topology.
+    // This is a convergence diagnostic and must not scale specular-path power.
+    int candidate_support_count = 1;
+    bool geometry_refined = false;
+    int refinement_iterations = 0;
+    std::string refinement_method;
     double geometry_residual = 0.0;
     double reflection_residual_m = 0.0;
+    double max_reflection_residual = 0.0;
     double max_snell_residual = 0.0;
     double max_keller_residual = 0.0;
     std::string residual_reject_reason;

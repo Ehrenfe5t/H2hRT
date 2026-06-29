@@ -61,6 +61,9 @@ struct SbrCoverageResult {
     long long paths_pruned_by_similarity = 0;        // v10: near-equivalent paths removed by length/sequence key
     long long paths_pruned_by_top_n = 0;             // v10: paths dropped by final top-N
     long long paths_after_postprocess = 0;           // v10: final recorded path count after pruning
+    long long physical_topology_group_count = 0;     // v11.6: groups keyed by physical interaction topology
+    long long geometrically_refined_path_count = 0;  // v11.6: groups solved into exact paths
+    long long geometry_refinement_reject_count = 0;  // v11.6: groups with no valid exact solution
     bool path_residual_filter_enabled = false;       // v10: reject paths above residual thresholds
     long long paths_evaluated_for_residual = 0;      // v10: paths with geometry residual diagnostics computed
     long long paths_pruned_by_residual = 0;          // v10: paths rejected by geometry residual thresholds

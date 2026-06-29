@@ -7,33 +7,10 @@
 #include "../common/math/ComplexVec3.h"
 #include "../common/math/MathConstants.h"
 #include "../common/material/MaterialDatabase.h"
+#include "FresnelInterface.h"
 #include <cmath>
 
 namespace rt {
-
-namespace {
-
-Complex CalcEpsC(double epsR, double sigma, double freqHz) {
-    double omega = 6.28318530717958647693 * freqHz;
-    double imag = (omega > 0.0) ? sigma / (omega * kEpsilon0) : 0.0;
-    return Complex(epsR, -imag);
-}
-
-Complex FresnelTE(double cosI, const Complex& epsC) {
-    Complex sin2i(1.0 - cosI * cosI, 0.0);
-    Complex sqrtTerm = Sqrt(Complex(epsC.re, epsC.im) - sin2i);
-    Complex cosI_c(cosI, 0.0);
-    return (cosI_c - sqrtTerm) / (cosI_c + sqrtTerm);
-}
-
-Complex FresnelTM(double cosI, const Complex& epsC) {
-    Complex sin2i(1.0 - cosI * cosI, 0.0);
-    Complex sqrtTerm = Sqrt(Complex(epsC.re, epsC.im) - sin2i);
-    Complex e_cos(epsC.re * cosI, epsC.im * cosI);
-    return (e_cos - sqrtTerm) / (e_cos + sqrtTerm);
-}
-
-} // namespace
 
 bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input)
 {
@@ -43,13 +20,19 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     const Face& face = input.scene->faces[node.face_id];
     Vec3 kOut = Normalize(node.direction);
     Vec3 n = Normalize(node.surface_normal);
-    Vec3 kInc = Reflect(kOut, n); // v7.4 B10: 从出射恢复入射方向, eTM需用kInc
-    // v7.4 几何-EM解耦: 材质不可用→真空(ε_r=1,|Γ|=0), EM自然淘汰而非return false
-    double cosI = std::fabs(Dot(kOut, n));
-    MaterialProps props; // 默认真空
-    if (input.material_db && !input.material_db->empty() && !face.surface_material_name.empty())
-        props = input.material_db->QueryByName(face.surface_material_name, field.frequency_hz);
-    Complex epsC = CalcEpsC(props.epsilon_r, props.sigma, field.frequency_hz);
+    Vec3 kInc = Length(node.incident_direction) > 0.5
+        ? Normalize(node.incident_direction) : Normalize(Reflect(kOut, n));
+    double cosI = std::fabs(Dot(kInc, n));
+    const bool fromFront = Dot(kInc, n) < 0.0;
+    MaterialProps incidentProps, transmittedProps;
+    if (input.material_db && !input.material_db->empty()) {
+        const std::string& incidentName = fromFront ? face.front_material_name : face.back_material_name;
+        const std::string& transmittedName = fromFront ? face.back_material_name : face.front_material_name;
+        if (!incidentName.empty()) incidentProps = input.material_db->QueryByName(incidentName, field.frequency_hz);
+        if (!transmittedName.empty()) transmittedProps = input.material_db->QueryByName(transmittedName, field.frequency_hz);
+    }
+    const FresnelInterfaceCoefficients fresnel = EvaluateFresnelInterface(
+        incidentProps, transmittedProps, cosI, field.frequency_hz);
     if (cosI < 1e-9) cosI = 1e-9;
 
     Vec3 eTE = Normalize(Cross(kInc, n));
@@ -57,30 +40,31 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
         if (std::fabs(kInc.x) < 0.9) eTE = Normalize(Cross(kInc, MakeVec3(1.0, 0.0, 0.0)));
         else                       eTE = Normalize(Cross(kInc, MakeVec3(0.0, 1.0, 0.0)));
     }
-    Vec3 eTM = Normalize(Cross(eTE, kInc));
+    Vec3 eTMIn = Normalize(Cross(eTE, kInc));
+    Vec3 eTMOut = Normalize(Cross(eTE, kOut));
 
     Complex A_inc(field.amplitude_real, field.amplitude_imag);
     // v5 Jones: 复投影到TE/TM基
     Complex pTE(Dot(field.polarization_vector, eTE), Dot(field.polarization_imag, eTE));
-    Complex pTM(Dot(field.polarization_vector, eTM), Dot(field.polarization_imag, eTM));
+    Complex pTM(Dot(field.polarization_vector, eTMIn), Dot(field.polarization_imag, eTMIn));
     Complex A_TE_inc = A_inc * pTE;
     Complex A_TM_inc = A_inc * pTM;
 
-    Complex gammaTE = FresnelTE(cosI, epsC);
-    Complex gammaTM = FresnelTM(cosI, epsC);
+    Complex gammaTE = fresnel.reflection_te;
+    Complex gammaTM = fresnel.reflection_tm;
 
     // ── v9 B2-a: 复矢量路径 ──
     if (field.vector_field_valid) {
         // 投影: E_in → TE, TM 复分量
         Complex E_TE = ComplexDot(field.electric_field_world, eTE);
-        Complex E_TM = ComplexDot(field.electric_field_world, eTM);
+        Complex E_TM = ComplexDot(field.electric_field_world, eTMIn);
 
         // Fresnel: 各分量乘复系数
         Complex E_TE_ref = gammaTE * E_TE;
         Complex E_TM_ref = gammaTM * E_TM;
 
         // 重构: 从TE/TM基重新构建世界复电场
-        field.electric_field_world = ReconstructFromBasis(E_TE_ref, eTE, E_TM_ref, eTM);
+        field.electric_field_world = ReconstructFromBasis(E_TE_ref, eTE, E_TM_ref, eTMOut);
 
         field.SyncLegacyFields();
         return true;
@@ -101,12 +85,12 @@ bool ApplyReflectionInteraction(FieldAccumulator& field, const PathNode& node, c
     double ampMag = std::sqrt(std::max(0.0, power_ref));
 
     // v5 Jones: 全复极化重构 — 在世界坐标中构建复场矢量并归一化
-    double rx = A_TE_ref.re * eTE.x + A_TM_ref.re * eTM.x;
-    double ry = A_TE_ref.re * eTE.y + A_TM_ref.re * eTM.y;
-    double rz = A_TE_ref.re * eTE.z + A_TM_ref.re * eTM.z;
-    double ix = A_TE_ref.im * eTE.x + A_TM_ref.im * eTM.x;
-    double iy = A_TE_ref.im * eTE.y + A_TM_ref.im * eTM.y;
-    double iz = A_TE_ref.im * eTE.z + A_TM_ref.im * eTM.z;
+    double rx = A_TE_ref.re * eTE.x + A_TM_ref.re * eTMOut.x;
+    double ry = A_TE_ref.re * eTE.y + A_TM_ref.re * eTMOut.y;
+    double rz = A_TE_ref.re * eTE.z + A_TM_ref.re * eTMOut.z;
+    double ix = A_TE_ref.im * eTE.x + A_TM_ref.im * eTMOut.x;
+    double iy = A_TE_ref.im * eTE.y + A_TM_ref.im * eTMOut.y;
+    double iz = A_TE_ref.im * eTE.z + A_TM_ref.im * eTMOut.z;
 
     field.amplitude_real = ampMag;
     field.amplitude_imag = 0.0;

@@ -1,5 +1,5 @@
 // v9 主线C C-3: 固定路径增益CFR — 窄带近似宽带信道
-// H(f) = Σ_l α_l(f0) · exp(-j2πf·τ_l)
+// H(f) = Σ_l H_l(f0) · exp(-j2π(f-f0)·τ_l)
 // 适用: 带宽/中心频率 << 1 的场景 (如3GHz中心、200MHz带宽)
 
 #include "BuildBroadbandCFR.h"
@@ -64,10 +64,12 @@ BroadbandChannelResult BuildBroadbandCFR_FixedGain(
         }
         result.frequencies_hz[i] = f;
 
-        // ── H(f) = Σ α_l · exp(-j·2π·f·τ_l) ──
+        // The narrowband path result already contains propagation phase at
+        // the center frequency. Rotate only by the frequency offset; using f
+        // here would count the center-frequency delay phase twice.
         Complex H(0.0, 0.0);
         for (const auto& p : paths) {
-            double phase = -kTwoPi * f * p.delay_s;  // -jωτ
+            double phase = -kTwoPi * (f - sweepCfg.center_hz) * p.delay_s;
             Complex rot(std::cos(phase), std::sin(phase));
             H = H + p.alpha * rot;
         }

@@ -241,6 +241,7 @@ V11UserConfigDecodeResult DecodeV11UserConfigFromJsonFile(const std::string& fil
     config.scene_import.source_format = "obj";
     config.material.missing_material_policy = "strict";
     config.scene_preprocess.enable_scene_cache = false;
+    config.scene_preprocess.convex_wedges_only = true;
     config.scene_preprocess.bvh_leaf_size = 16;
 
     const std::string ext = Lower(std::filesystem::path(config.scene_import.source_file).extension().string());
@@ -305,6 +306,22 @@ V11UserConfigDecodeResult DecodeV11UserConfigFromJsonFile(const std::string& fil
     ReadField(p2p, "max_diffraction", config.sbr.max_diffraction_count);
     ReadField(p2p, "power_threshold_dB", config.sbr.ray_power_threshold_dB);
     ReadField(p2p, "rx_sphere_radius_m", config.sbr.rx_sphere_radius_m);
+    ReadField(p2p, "enable_dynamic_rx_radius", config.sbr.enable_dynamic_rx_radius);
+    ReadField(p2p, "ray_tube_angle_rad", config.sbr.ray_tube_angle_rad);
+    ReadField(p2p, "ray_tube_radius_scale", config.sbr.ray_tube_radius_scale);
+    ReadField(p2p, "ray_tube_min_radius_m", config.sbr.ray_tube_min_radius_m);
+    ReadField(p2p, "ray_tube_max_radius_m", config.sbr.ray_tube_max_radius_m);
+    ReadField(p2p, "enable_wedge_tube_coupling", config.sbr.enable_wedge_tube_coupling);
+    ReadField(p2p, "wedge_tube_radius_scale", config.sbr.wedge_tube_radius_scale);
+    ReadField(p2p, "diffraction_rays_per_event", config.sbr.diffraction_rays_per_event);
+    ReadField(p2p, "enable_path_dedup", config.sbr.enable_path_dedup);
+    ReadField(p2p, "enable_path_similarity_pruning", config.sbr.enable_path_similarity_pruning);
+    ReadField(p2p, "path_similarity_length_tol_m", config.sbr.path_similarity_length_tol_m);
+    ReadField(p2p, "enable_path_residual_filter", config.sbr.enable_path_residual_filter);
+    ReadField(p2p, "path_geometry_residual_tol", config.sbr.path_geometry_residual_tol);
+    ReadField(p2p, "reflection_residual_tol_m", config.sbr.reflection_residual_tol_m);
+    ReadField(p2p, "snell_residual_tol", config.sbr.snell_residual_tol);
+    ReadField(p2p, "keller_residual_tol", config.sbr.keller_residual_tol);
     config.scene_preprocess.enable_wedge_build = config.sbr.max_diffraction_count > 0;
 
     config.path_search.max_path_depth = config.sbr.max_ray_depth;
@@ -327,6 +344,9 @@ V11UserConfigDecodeResult DecodeV11UserConfigFromJsonFile(const std::string& fil
         result.error_message = "em.frequency_list_hz[0] must be numeric.";
         return result;
     }
+    ReadField(em, "aps_theta_bins", config.em_solver.aps_theta_bins);
+    ReadField(em, "aps_phi_bins", config.em_solver.aps_phi_bins);
+    ReadField(em, "compute_meg", config.em_solver.compute_meg);
 
     std::map<std::string, TxTarget> txById;
     std::map<std::string, RxTarget> rxById;

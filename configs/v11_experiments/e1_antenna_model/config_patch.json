@@ -1,0 +1,45 @@
+{
+  "schema_version": "v11.5",
+  "run_id": "v11_e1_patch_412",
+  "experiment_group": "E1",
+  "antenna_file": "antenna_patch.json",
+  "scene": {
+    "obj_file": "../../../Scene&Material/412-6k.obj",
+    "material_binding_file": "../../../Scene&Material/material_map-412.json",
+    "material_database_file": "../../../Scene&Material/ItuMaterial.csv"
+  },
+  "simulation": {
+    "enable_p2p": true,
+    "enable_coverage": false
+  },
+  "p2p": {
+    "tx_ids": [
+      "Tx01"
+    ],
+    "rx_ids": [
+      "Rx01"
+    ],
+    "ray_count": 200000,
+    "max_depth": 8,
+    "max_reflection": 3,
+    "max_transmission": 2,
+    "max_diffraction": 1,
+    "power_threshold_dB": -180.0,
+    "rx_sphere_radius_m": 0.06,
+    "enable_dynamic_rx_radius": true,
+    "ray_tube_radius_scale": 0.5,
+    "ray_tube_min_radius_m": 0.06,
+    "ray_tube_max_radius_m": 0.3,
+    "enable_path_dedup": true,
+    "enable_path_similarity_pruning": false,
+    "enable_path_residual_filter": false
+  },
+  "em": {
+    "frequency_list_hz": [
+      3000000000.0
+    ],
+    "aps_theta_bins": 36,
+    "aps_phi_bins": 72,
+    "compute_meg": true
+  }
+}

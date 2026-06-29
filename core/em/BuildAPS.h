@@ -1,5 +1,5 @@
 // Declares the APS builder: converts per-path EM results into angle-vs-power
-// entries using a placeholder angle metric (placeholder for future AoA/AoD).
+// entries and (v11.3) a 2D theta-phi angular power spectrum grid.
 
 #pragma once
 
@@ -7,13 +7,18 @@
 
 namespace rt {
 
+struct AppConfig;
+
 /// <summary>
-/// Build an Angular Power Spectrum (APS) from per-path EM results.
-/// Uses a placeholder angle metric (polarization_vector.x) as a stub
-/// for future direction-of-arrival computation.
+/// Build an Angular Power Spectrum (APS) — 1D entries only (backward compatible).
 /// </summary>
-/// <param name="pathResults">Per-path EM results from the solver.</param>
-/// <returns>APSResult with one entry per valid path.</returns>
 APSResult BuildAPS(const EMPathResultSet& pathResults);
+
+/// <summary>
+/// v11.3: Build APS with 2D theta-phi grid using config bin settings.
+/// Populates aps.has_2d_grid, power_grid_linear, power_grid_dB.
+/// Falls back to 1D-only if pathResults has no AoA information.
+/// </summary>
+APSResult BuildAPS(const EMPathResultSet& pathResults, const AppConfig& config);
 
 } // namespace rt

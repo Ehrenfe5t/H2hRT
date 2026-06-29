@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-01T01:26:41.032855",
+  "timestamp": "2026-06-29T00:30:51.123248",
   "suite": "wideband",
   "backend": "cpu",
   "total": 4,
@@ -13,7 +13,7 @@
   "_note": "overall_passed/technical_passed means zero failures. paper_ready means zero failures AND zero critical skipped. Final acceptance uses paper_ready ONLY.",
   "rt_executable_cases": 1,
   "analytic_formula_cases": 3,
-  "allow_skip": false,
+  "allow_skip": true,
   "cases": [
     {
       "case_id": "W-1",

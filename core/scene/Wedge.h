@@ -19,8 +19,8 @@ namespace rt {
 /// </summary>
 enum class WedgeConvexity {
     Unknown = 0,   // 无法判断
-    Convex  = 1,   // 凸边 (外角>180°, n<1)
-    Concave = 2,   // 凹边 (外角<180°, n>1)
+    Convex  = 1,   // 凸边 (外角>180°, n>1)
+    Concave = 2,   // 凹边 (外角<180°, n<1)
     Boundary = 3   // 边界边 (仅一个相邻面)
 };
 
@@ -52,7 +52,7 @@ struct Wedge {
     Vec3 direction;
 
     double length = 0.0;
-    double wedge_angle_deg = 0.0;    // 外角 (exterior angle for UTD n = (2π-α)/π)
+    double wedge_angle_deg = 0.0;    // 外角，UTD wedge index n = exterior_angle / 180°
     double dihedral_angle_deg = 0.0;
 
     std::string positive_material_name;

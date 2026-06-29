@@ -60,6 +60,19 @@ void AssignAdjacentEdgeToFace(Face& face, int edgeId)
     face.adjacent_edge_id2 = edgeId;
 }
 
+Vec3 OrientedGeometricNormal(const Scene& scene, const Face& face)
+{
+    if (face.vertex_index0 < 0 || face.vertex_index1 < 0 || face.vertex_index2 < 0 ||
+        face.vertex_index0 >= static_cast<int>(scene.vertices.size()) ||
+        face.vertex_index1 >= static_cast<int>(scene.vertices.size()) ||
+        face.vertex_index2 >= static_cast<int>(scene.vertices.size())) return Vec3{};
+    Vec3 normal = Normalize(Cross(
+        Subtract(scene.vertices[face.vertex_index1], scene.vertices[face.vertex_index0]),
+        Subtract(scene.vertices[face.vertex_index2], scene.vertices[face.vertex_index0])));
+    if (Dot(normal, face.normal) < 0.0) normal = Scale(normal, -1.0);
+    return normal;
+}
+
 } // namespace
 
 /// <summary>
@@ -122,11 +135,15 @@ void BuildSceneEdges(const AppConfig& config, Scene& scene)
         if (edge.face_id0 >= 0 && edge.face_id0 < static_cast<int>(scene.faces.size()) &&
             edge.face_id1 >= 0 && edge.face_id1 < static_cast<int>(scene.faces.size()))
         {
-            const Vec3 normal0 = scene.faces[edge.face_id0].normal;
-            const Vec3 normal1 = scene.faces[edge.face_id1].normal;
+            const Vec3 normal0 = OrientedGeometricNormal(scene, scene.faces[edge.face_id0]);
+            const Vec3 normal1 = OrientedGeometricNormal(scene, scene.faces[edge.face_id1]);
             const double cosine = ClampToUnit(Dot(Normalize(normal0), Normalize(normal1)));
             edge.dihedral_angle_deg = std::acos(cosine) * 180.0 / 3.14159265358979323846;
-            edge.is_coplanar = std::fabs(edge.dihedral_angle_deg) <= config.numeric_tolerance.eps_angle * 180.0;
+            const double unsignedPlaneAngle = std::min(edge.dihedral_angle_deg,
+                                                       180.0 - edge.dihedral_angle_deg);
+            const double coplanarToleranceDeg = config.numeric_tolerance.eps_angle *
+                                                180.0 / 3.14159265358979323846;
+            edge.is_coplanar = unsignedPlaneAngle <= coplanarToleranceDeg;
         }
 
         scene.edges.push_back(edge);

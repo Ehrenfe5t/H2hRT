@@ -1,239 +1,352 @@
-// ApplyDiffractionInteraction: UTD edge diffraction + Jones vector (v4 C3 + v5 D6-A)
-// C3-A: phi' computed from incident_direction | C3-B: s2 from path geometry
-// C3-C: Fresnel F(x) via 8-point Gauss-Legendre | v5: 复极化soft/hard投影
+// Finite-conductivity UTD edge diffraction with coherent Jones propagation.
 
 #include "ApplyDiffractionInteraction.h"
-#include "../common/math/Vec3.h"
+#include "FresnelInterface.h"
 #include "../common/math/Complex.h"
 #include "../common/math/ComplexVec3.h"
 #include "../common/math/MathConstants.h"
+#include "../common/math/Vec3.h"
+
 #include <cmath>
-#include <cstdlib>
+#include <string>
 
 namespace rt {
-
 namespace {
 
-// ---- C3-C: Numerical Fresnel transition function ----
-// F(x) = 2*j*sqrt(x)*exp(j*x) * integral_{sqrt(x)}^{inf} exp(-j*tau^2) dtau
-// v9 D-1: 增强数值积分精度 — 32区间 + 更大渐近切换点
-
-Complex FresnelIntegralTailNumerical(double tau0, int NIntervals = 32)
+Complex FresnelIntegralNumerical(double argument)
 {
-    static const double glX[8] = {-0.960289856497536, -0.796666477413627, -0.525532409916329, -0.183434642495650,
-                                    0.183434642495650,  0.525532409916329,  0.796666477413627,  0.960289856497536};
-    static const double glW[8] = { 0.101228536290376,  0.222381034453374,  0.313706645877887,  0.362683783378362,
-                                    0.362683783378362,  0.313706645877887,  0.222381034453374,  0.101228536290376};
+    static const double glX[8] = {
+        -0.960289856497536, -0.796666477413627, -0.525532409916329, -0.183434642495650,
+         0.183434642495650,  0.525532409916329,  0.796666477413627,  0.960289856497536};
+    static const double glW[8] = {
+         0.101228536290376,  0.222381034453374,  0.313706645877887,  0.362683783378362,
+         0.362683783378362,  0.313706645877887,  0.222381034453374,  0.101228536290376};
 
-    double step = 0.5;
-    Complex sum(0.0, 0.0);
-    for (int seg = 0; seg < NIntervals; ++seg) {
-        double a = tau0 + seg * step;
-        double b = a + step;
-        double mid = (a + b) * 0.5;
-        double half = (b - a) * 0.5;
-        for (int k = 0; k < 8; ++k) {
-            double tau = mid + half * glX[k];
-            double tau2 = tau * tau;
-            Complex f(std::cos(tau2), -std::sin(tau2));
-            sum = sum + Complex(glW[k] * f.re, glW[k] * f.im);
+    const double upper = std::sqrt(2.0 * argument / kPi);
+    const int intervalCount = std::max(1, static_cast<int>(std::ceil(upper / 0.25)));
+    const double step = upper / intervalCount;
+    Complex sum;
+    for (int segment = 0; segment < intervalCount; ++segment) {
+        const double a = segment * step;
+        const double midpoint = a + 0.5 * step;
+        for (int index = 0; index < 8; ++index) {
+            const double value = midpoint + 0.5 * step * glX[index];
+            const double phase = 0.5 * kPi * value * value;
+            sum += Complex(glW[index] * std::cos(phase),
+                           glW[index] * std::sin(phase));
         }
     }
-    return Complex(sum.re * step * 0.5, sum.im * step * 0.5);
+    return sum * (0.5 * step);
 }
 
-Complex FresnelTransitionNumerical(double x)
+int NearestInt(double value)
 {
-    if (x < 0.0) x = 0.0;
-    if (x < 1e-8) return Complex(0.0, 0.0);
-    // v9 D-1: 渐近切换点从10提升到50 (渐近误差 ~1/(4x²), 在x=50时≈1e-4)
-    if (x > 50.0) return Complex(1.0, 0.5 / x);
-    double sqrtX = std::sqrt(x);
-    Complex tail = FresnelIntegralTailNumerical(sqrtX, 32);
-    Complex prefactor(0.0, 2.0 * sqrtX);
-    Complex expJX(std::cos(x), std::sin(x));
-    Complex F = prefactor * expJX;
-    return Complex(F.re * tail.re - F.im * tail.im, F.re * tail.im + F.im * tail.re);
+    return static_cast<int>(std::floor(value + 0.5));
 }
 
-// ---- Helper functions ----
-int NearestInt(double x) { return static_cast<int>(std::floor(x + 0.5)); }
-
-double SafeCot(double x) {
-    double s = std::sin(x);
-    if (std::fabs(s) < 1e-12) return (s >= 0 ? 1e12 : -1e12);
-    return std::cos(x) / s;
-}
-
-// UTD edge-diffraction coefficient D for single polarization (soft or hard)
-Complex ComputeUTD_D(double k, double n, double sinBeta, double phi, double phip, double L, bool soft)
+double SafeCot(double value)
 {
-    double factor = -1.0 / (2.0 * n * std::sqrt(2.0 * kPi * k) * sinBeta);
-    Complex pf(0.7071067811865476 * factor, -0.7071067811865476 * factor);
+    const double sine = std::sin(value);
+    if (std::fabs(sine) < 1.0e-12) return sine >= 0.0 ? 1.0e12 : -1.0e12;
+    return std::cos(value) / sine;
+}
 
-    double pm = phi - phip, pp = phi + phip;
-    auto aFunc = [n](double beta, int sgn) {
-        double tgt = (sgn > 0) ? kPi : -kPi;
-        int N = NearestInt((beta + tgt) / (2.0 * kPi * n));
-        double a = (2.0 * kPi * n * N - beta) * 0.5;
-        double cs = std::cos(a);
-        return 2.0 * cs * cs;
+struct UtdTerms {
+    Complex d1;
+    Complex d2;
+    Complex d3;
+    Complex d4;
+};
+
+UtdTerms ComputeUtdTerms(double waveNumber, double wedgeIndex, double sinBeta,
+                         double phi, double phiPrime, double distanceParameter)
+{
+    const double scalar = -1.0 /
+        (2.0 * wedgeIndex * std::sqrt(2.0 * kPi * waveNumber) * sinBeta);
+    const Complex factor = Complex(0.7071067811865476, -0.7071067811865476) * scalar;
+    const double difference = phi - phiPrime;
+    const double sum = phi + phiPrime;
+
+    auto transitionArgument = [wedgeIndex](double beta, bool plus) {
+        const double offset = plus ? kPi : -kPi;
+        const int nearest = NearestInt((beta + offset) / (2.0 * kPi * wedgeIndex));
+        const double angle = (2.0 * kPi * wedgeIndex * nearest - beta) * 0.5;
+        const double cosine = std::cos(angle);
+        return 2.0 * cosine * cosine;
     };
 
-    double denom = 2.0 * n;
-    Complex T1 = Complex(SafeCot((kPi + pm) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pm, 1));
-    Complex T2 = Complex(SafeCot((kPi - pm) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pm, -1));
-    Complex T3 = Complex(SafeCot((kPi + pp) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pp, 1));
-    Complex T4 = Complex(SafeCot((kPi - pp) / denom), 0.0) * FresnelTransitionNumerical(k * L * aFunc(pp, -1));
+    const double denominator = 2.0 * wedgeIndex;
+    UtdTerms terms;
+    terms.d1 = factor * SafeCot((kPi + difference) / denominator) *
+        EvaluateUtdTransition(waveNumber * distanceParameter * transitionArgument(difference, true));
+    terms.d2 = factor * SafeCot((kPi - difference) / denominator) *
+        EvaluateUtdTransition(waveNumber * distanceParameter * transitionArgument(difference, false));
+    terms.d3 = factor * SafeCot((kPi + sum) / denominator) *
+        EvaluateUtdTransition(waveNumber * distanceParameter * transitionArgument(sum, true));
+    terms.d4 = factor * SafeCot((kPi - sum) / denominator) *
+        EvaluateUtdTransition(waveNumber * distanceParameter * transitionArgument(sum, false));
+    return terms;
+}
 
-    Complex sum = soft ? (T1 + T2 - T3 - T4) : (T1 + T2 + T3 + T4);
-    return Complex(pf.re * sum.re - pf.im * sum.im, pf.re * sum.im + pf.im * sum.re);
+struct ComplexMatrix2 {
+    Complex m00;
+    Complex m01;
+    Complex m10;
+    Complex m11;
+};
+
+ComplexMatrix2 Add(const ComplexMatrix2& left, const ComplexMatrix2& right)
+{
+    return {left.m00 + right.m00, left.m01 + right.m01,
+            left.m10 + right.m10, left.m11 + right.m11};
+}
+
+ComplexMatrix2 Multiply(const ComplexMatrix2& left, const ComplexMatrix2& right)
+{
+    return {
+        left.m00 * right.m00 + left.m01 * right.m10,
+        left.m00 * right.m01 + left.m01 * right.m11,
+        left.m10 * right.m00 + left.m11 * right.m10,
+        left.m10 * right.m01 + left.m11 * right.m11
+    };
+}
+
+ComplexMatrix2 Scale(const ComplexMatrix2& matrix, double scalar)
+{
+    return {matrix.m00 * scalar, matrix.m01 * scalar,
+            matrix.m10 * scalar, matrix.m11 * scalar};
+}
+
+ComplexMatrix2 JonesRotator(const Vec3& propagationDirection,
+                            const Vec3& currentFirstBasis,
+                            const Vec3& targetFirstBasis)
+{
+    const double cosine = Dot(currentFirstBasis, targetFirstBasis);
+    const double sine = Dot(propagationDirection, Cross(currentFirstBasis, targetFirstBasis));
+    return {Complex(cosine, 0.0), Complex(sine, 0.0),
+            Complex(-sine, 0.0), Complex(cosine, 0.0)};
+}
+
+struct FaceReflection {
+    bool materialResolved = false;
+    std::string materialName;
+    Complex te = Complex(-1.0, 0.0);
+    Complex tm = Complex(1.0, 0.0);
+};
+
+FaceReflection ResolveFaceReflection(const std::string& materialName,
+                                     double cosineIncident,
+                                     const FieldAccumulator& field,
+                                     const EMSolverInput& input)
+{
+    FaceReflection result;
+    result.materialName = materialName;
+    if (!input.material_db || input.material_db->empty() || materialName.empty() ||
+        !input.material_db->HasMaterial(materialName)) {
+        return result;
+    }
+
+    MaterialProps vacuum;
+    vacuum.name = "Vacuum";
+    const MaterialProps material = input.material_db->QueryByName(materialName, field.frequency_hz);
+    const FresnelInterfaceCoefficients coefficients = EvaluateFresnelInterface(
+        vacuum, material, std::max(1.0e-9, std::min(1.0, cosineIncident)), field.frequency_hz);
+    result.materialResolved = true;
+    result.te = coefficients.reflection_te;
+    result.tm = coefficients.reflection_tm;
+    return result;
+}
+
+Vec3 SafeTransverseBasis(const Vec3& propagationDirection, const Vec3& preferred)
+{
+    Vec3 result = Normalize(preferred);
+    if (Length(result) > 0.5 && std::fabs(Dot(result, propagationDirection)) < 1.0e-7) return result;
+    const Vec3 seed = std::fabs(propagationDirection.x) < 0.9
+        ? MakeVec3(1.0, 0.0, 0.0) : MakeVec3(0.0, 1.0, 0.0);
+    return Normalize(Cross(propagationDirection, seed));
+}
+
+ComplexMatrix2 BuildFaceTerm(const Vec3& incidentDirection,
+                             const Vec3& outgoingDirection,
+                             const Vec3& incidentEdgeBasis,
+                             const Vec3& outgoingEdgeBasis,
+                             const Vec3& faceNormal,
+                             const FaceReflection& reflection,
+                             const Complex& utdTerm)
+{
+    const Vec3 faceTe = SafeTransverseBasis(incidentDirection,
+                                             Cross(incidentDirection, faceNormal));
+    const ComplexMatrix2 toFace = JonesRotator(incidentDirection, incidentEdgeBasis, faceTe);
+    const ComplexMatrix2 fromFace = JonesRotator(outgoingDirection, faceTe, outgoingEdgeBasis);
+    const ComplexMatrix2 diagonal = {
+        reflection.te * utdTerm, Complex(), Complex(), reflection.tm * utdTerm};
+    return Multiply(fromFace, Multiply(diagonal, toFace));
+}
+
+ComplexVec3 BuildLegacyComplexField(const FieldAccumulator& field)
+{
+    const Complex amplitude(field.amplitude_real, field.amplitude_imag);
+    return ComplexVec3(
+        amplitude * Complex(field.polarization_vector.x, field.polarization_imag.x),
+        amplitude * Complex(field.polarization_vector.y, field.polarization_imag.y),
+        amplitude * Complex(field.polarization_vector.z, field.polarization_imag.z));
 }
 
 } // namespace
 
-bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node, const EMSolverInput& input)
+Complex EvaluateUtdTransition(double x)
 {
-    if (!field.valid || !node.valid || node.wedge_id < 0 || !input.scene) return false;
+    x = std::max(0.0, x);
+    if (x < 1.0e-12) return Complex();
+    if (x > 50.0) return Complex(1.0, 0.5 / x);
 
-    const auto& wedges = input.scene->wedges;
-    if (node.wedge_id >= static_cast<int>(wedges.size())) return false;
-    const Wedge& w = wedges[node.wedge_id];
+    // F(x)=sqrt(pi*x/2)*exp(j*x)*[(1+j)-2j*conj(C+jS)].
+    // Integrating C and S on their finite interval avoids truncating the
+    // oscillatory tail integral, whose error grows for moderate/large x.
+    const Complex fresnel = FresnelIntegralNumerical(x);
+    const Complex bracket(1.0 - 2.0 * fresnel.im,
+                          1.0 - 2.0 * fresnel.re);
+    return CExp(x) * bracket * std::sqrt(0.5 * kPi * x);
+}
 
-    Vec3 eHat = Normalize(w.direction);
-    if (Length(eHat) < 1e-9) return false;
+bool ApplyDiffractionInteraction(FieldAccumulator& field, const PathNode& node,
+                                 const EMSolverInput& input)
+{
+    field.last_diffraction = DiffractionFieldDiagnostics{};
+    if (!field.valid || !node.valid || node.wedge_id < 0 || !input.scene ||
+        field.wavelength_m <= 0.0 || field.frequency_hz <= 0.0) return false;
+    if (node.wedge_id >= static_cast<int>(input.scene->wedges.size())) return false;
 
-    Point3 dp = node.point;
-    Vec3 kOut = Normalize(node.direction);
+    const Wedge& wedge = input.scene->wedges[node.wedge_id];
+    const Vec3 edgeDirection = Normalize(wedge.direction);
+    const Vec3 outgoingDirection = Normalize(node.direction);
+    const Vec3 incidentDirection = Length(node.incident_direction) > 0.5
+        ? Normalize(node.incident_direction) : Scale(outgoingDirection, -1.0);
+    if (Length(edgeDirection) < 0.5 || Length(outgoingDirection) < 0.5 ||
+        Length(incidentDirection) < 0.5) return false;
 
-    // Keller cone: |cos(beta0)| = |k_out . e_hat|
-    double cosBeta = std::fabs(Dot(kOut, eHat));
-    double beta0 = std::acos(std::min(1.0, cosBeta));
-    double sinBeta = std::sin(beta0);
-    if (sinBeta < 1e-9) sinBeta = 1e-9;
+    const int zeroFaceId = wedge.zero_face_id >= 0 ? wedge.zero_face_id : wedge.positive_face_id;
+    const int nFaceId = zeroFaceId == wedge.positive_face_id
+        ? wedge.negative_face_id : wedge.positive_face_id;
+    if (zeroFaceId < 0 || nFaceId < 0 ||
+        zeroFaceId >= static_cast<int>(input.scene->faces.size()) ||
+        nFaceId >= static_cast<int>(input.scene->faces.size())) return false;
 
-    // ---- C3-A: Compute incident azimuth phi' from incident direction ----
-    Vec3 kInc;
-    if (Length(node.incident_direction) > 0.0)
-        kInc = Normalize(node.incident_direction);
-    else
-        kInc = MakeVec3(-kOut.x, -kOut.y, -kOut.z); // fallback
+    const Face& zeroFace = input.scene->faces[zeroFaceId];
+    const Face& nFace = input.scene->faces[nFaceId];
+    const Vec3 zeroFaceNormal = Normalize(zeroFace.normal);
+    const Vec3 nFaceNormal = Normalize(nFace.normal);
+    if (Length(zeroFaceNormal) < 0.5 || Length(nFaceNormal) < 0.5) return false;
 
-    // v7 C2修复: 边缘固定坐标系基于楔面0-face构建 (K&P 1974, Balanis Ch.12)
-    // φ和φ'必须从0-face测量，否则T3/T4的cot(π±(φ+φ'))/(2n)参数错误
-    Vec3 ez = eHat;
-    Vec3 n0face;
-    if (w.positive_face_id >= 0 && w.positive_face_id < static_cast<int>(input.scene->faces.size()))
-        n0face = Normalize(input.scene->faces[w.positive_face_id].normal);
-    else
-        n0face = MakeVec3(1.0, 0.0, 0.0);
-    // ex = 0-face内垂直于边缘的方向: Cross(n0face, ez)
-    Vec3 ex = Normalize(Cross(n0face, ez));
-    if (Length(ex) < 1e-9) {
-        // 退化保护: n0face∥ez, 用任意与ez不共线的方向构造ex
-        if (std::fabs(ez.x) < 0.9) ex = Normalize(Cross(ez, MakeVec3(1.0, 0.0, 0.0)));
-        else                     ex = Normalize(Cross(ez, MakeVec3(0.0, 1.0, 0.0)));
+    const std::string& zeroMaterial = zeroFaceId == wedge.positive_face_id
+        ? wedge.positive_material_name : wedge.negative_material_name;
+    const std::string& nMaterial = nFaceId == wedge.positive_face_id
+        ? wedge.positive_material_name : wedge.negative_material_name;
+
+    const double cosBeta = std::fabs(Dot(outgoingDirection, edgeDirection));
+    const double beta = std::acos(std::min(1.0, cosBeta));
+    const double sinBeta = std::max(1.0e-9, std::sin(beta));
+
+    const Vec3 zeroFaceTangent = Normalize(Cross(zeroFaceNormal, edgeDirection));
+    const Vec3 zeroFacePerpendicular = Normalize(Cross(edgeDirection, zeroFaceTangent));
+    if (Length(zeroFaceTangent) < 0.5 || Length(zeroFacePerpendicular) < 0.5) return false;
+
+    const Vec3 outgoingProjection = Normalize(Subtract(
+        outgoingDirection, Scale(edgeDirection, Dot(outgoingDirection, edgeDirection))));
+    const Vec3 incidentProjection = Normalize(Subtract(
+        incidentDirection, Scale(edgeDirection, Dot(incidentDirection, edgeDirection))));
+    if (Length(outgoingProjection) < 0.5 || Length(incidentProjection) < 0.5) return false;
+
+    double phi = std::atan2(Dot(outgoingProjection, zeroFacePerpendicular),
+                            Dot(outgoingProjection, zeroFaceTangent));
+    if (phi < 0.0) phi += kTwoPi;
+
+    // UTD measures phi' using the direction from the diffraction point to the source.
+    const Vec3 towardSource = Scale(incidentProjection, -1.0);
+    double phiPrime = std::atan2(Dot(towardSource, zeroFacePerpendicular),
+                                 Dot(towardSource, zeroFaceTangent));
+    if (phiPrime < 0.0) phiPrime += kTwoPi;
+
+    const double wedgeIndex = Clamp(UtdWedgeIndexFromExteriorAngle(wedge.wedge_angle_deg), 0.1, 3.0);
+    const double exteriorAngle = wedgeIndex * kPi;
+    const double waveNumber = kTwoPi / field.wavelength_m;
+    const double s1 = std::max(1.0e-9, node.segment_length_from_previous);
+    double s2 = node.diffraction_diag.s2;
+    if (s2 <= 1.0e-9 && input.path && !input.path->nodes.empty()) {
+        s2 = Length(Subtract(input.path->nodes.back().point, node.point));
     }
-    Vec3 ey = Normalize(Cross(ez, ex));
-    if (Length(ey) < 1e-9) return false;
+    if (s2 <= 1.0e-9) return false;
+    const double distanceParameter = s1 * s2 * sinBeta * sinBeta / (s1 + s2);
+    const UtdTerms terms = ComputeUtdTerms(
+        waveNumber, wedgeIndex, sinBeta, phi, phiPrime, distanceParameter);
 
-    // φ, φ' 均从0-face(ex方向)测量
-    Vec3 kOutPerp = MakeVec3(kOut.x - Dot(kOut,ez)*ez.x, kOut.y - Dot(kOut,ez)*ez.y, kOut.z - Dot(kOut,ez)*ez.z);
-    double plenO = Length(kOutPerp);
-    if (plenO < 1e-9) return false;
-    double phi = std::atan2(Dot(kOutPerp, ey), Dot(kOutPerp, ex));
-    if (phi < 0.0) phi += 2.0 * kPi;
+    const FaceReflection reflection0 = ResolveFaceReflection(
+        zeroMaterial, std::fabs(std::sin(phiPrime)), field, input);
+    const FaceReflection reflectionN = ResolveFaceReflection(
+        nMaterial, std::fabs(std::sin(exteriorAngle - phi)), field, input);
+    // Precise EM mode must never silently substitute PEC for a missing radio
+    // material. An unresolved face invalidates this path and is visible in the
+    // EM-ready path count instead of producing a plausible but wrong field.
+    if (!reflection0.materialResolved || !reflectionN.materialResolved) return false;
 
-    Vec3 kIncPerp = MakeVec3(kInc.x - Dot(kInc,ez)*ez.x, kInc.y - Dot(kInc,ez)*ez.y, kInc.z - Dot(kInc,ez)*ez.z);
-    double plenI = Length(kIncPerp);
-    double phip = kPi;
-    if (plenI > 1e-9) {
-        Vec3 kIncPerpNorm = Scale(kIncPerp, 1.0 / plenI);
-        phip = std::atan2(Dot(kIncPerpNorm, ey), Dot(kIncPerpNorm, ex));
-        if (phip < 0.0) phip += 2.0 * kPi;
-    }
+    const Vec3 incidentEdgeBasis = SafeTransverseBasis(
+        incidentDirection, Cross(incidentDirection, edgeDirection));
+    const Vec3 outgoingEdgeBasis = SafeTransverseBasis(
+        outgoingDirection, Scale(Cross(outgoingDirection, edgeDirection), -1.0));
+    const Vec3 incidentSecondBasis = Normalize(Cross(incidentDirection, incidentEdgeBasis));
+    const Vec3 outgoingSecondBasis = Normalize(Cross(outgoingDirection, outgoingEdgeBasis));
+    if (Length(incidentSecondBasis) < 0.5 || Length(outgoingSecondBasis) < 0.5) return false;
 
-    // Wavenumber
-    double k = 2.0 * kPi / field.wavelength_m;
+    const Complex d12 = (terms.d1 + terms.d2) * -1.0;
+    ComplexMatrix2 diffractionMatrix = {d12, Complex(), Complex(), d12};
+    diffractionMatrix = Add(diffractionMatrix, BuildFaceTerm(
+        incidentDirection, outgoingDirection, incidentEdgeBasis, outgoingEdgeBasis,
+        zeroFaceNormal, reflection0, terms.d4));
+    diffractionMatrix = Add(diffractionMatrix, BuildFaceTerm(
+        incidentDirection, outgoingDirection, incidentEdgeBasis, outgoingEdgeBasis,
+        nFaceNormal, reflectionN, terms.d3));
+    diffractionMatrix = Scale(diffractionMatrix, UtdSphericalSpreadingCompensation(s1, s2));
 
-    // Wedge exterior normalization
-    double alphaRad = w.wedge_angle_deg * kPi / 180.0;
-    double n = (2.0 * kPi - alphaRad) / kPi;
-    n = Clamp(n, 0.1, 3.0);
+    const ComplexVec3 incomingField = field.vector_field_valid
+        ? field.electric_field_world : BuildLegacyComplexField(field);
+    const Complex in0 = ComplexDot(incomingField, incidentEdgeBasis);
+    const Complex in1 = ComplexDot(incomingField, incidentSecondBasis);
+    const Complex out0 = diffractionMatrix.m00 * in0 + diffractionMatrix.m01 * in1;
+    const Complex out1 = diffractionMatrix.m10 * in0 + diffractionMatrix.m11 * in1;
+    const ComplexVec3 outgoingField = ReconstructFromBasis(
+        out0, outgoingEdgeBasis, out1, outgoingSecondBasis);
 
-    // ---- C3-B: Distance parameter with correct s2 ----
-    double s1 = node.segment_length_from_previous;
-    if (s1 < 1e-9) s1 = 1.0;
-    double s2 = 10.0;
-    if (input.path && !input.path->nodes.empty()) {
-        const Point3& rxPt = input.path->nodes.back().point;
-        Vec3 dp2rx = Subtract(rxPt, dp);
-        s2 = Length(dp2rx);
-    }
-    if (s2 < 1e-9) s2 = 1.0;
-    // v7 C3修复: 球面波入射距离参数需包含 sin²β₀ 因子 (K&P Eq.27)
-    double L = s1 * s2 * sinBeta * sinBeta / (s1 + s2);
+    field.last_diffraction.valid = true;
+    field.last_diffraction.face0_material_resolved = reflection0.materialResolved;
+    field.last_diffraction.facen_material_resolved = reflectionN.materialResolved;
+    field.last_diffraction.model = "finite_conductivity_utd";
+    field.last_diffraction.face0_material_name = zeroMaterial;
+    field.last_diffraction.facen_material_name = nMaterial;
+    field.last_diffraction.face0_reflection_te = reflection0.te;
+    field.last_diffraction.face0_reflection_tm = reflection0.tm;
+    field.last_diffraction.facen_reflection_te = reflectionN.te;
+    field.last_diffraction.facen_reflection_tm = reflectionN.tm;
+    field.last_diffraction.jones_00 = diffractionMatrix.m00;
+    field.last_diffraction.jones_01 = diffractionMatrix.m01;
+    field.last_diffraction.jones_10 = diffractionMatrix.m10;
+    field.last_diffraction.jones_11 = diffractionMatrix.m11;
 
-    // UTD coefficients
-    Complex Dsoft = ComputeUTD_D(k, n, sinBeta, phi, phip, L, true);
-    Complex Dhard = ComputeUTD_D(k, n, sinBeta, phi, phip, L, false);
-
-    // v7 C4修复: Soft(TE)/Hard(TM)方向与系数配对
-    // 射线固定坐标系 (与phi/phi'角度的边缘固定坐标系独立)
-    // D_soft→ê_φ (垂直于衍射面), D_hard→ê_β (在衍射面内, 垂直于kOut)
-    Vec3 eSoft_dir = Normalize(Cross(kOut, ez));          // ⟂衍射面
-    if (Length(eSoft_dir) < 1e-9) {
-        if (std::fabs(kOut.x) < 0.9) eSoft_dir = Normalize(Cross(kOut, MakeVec3(1.0, 0.0, 0.0)));
-        else                       eSoft_dir = Normalize(Cross(kOut, MakeVec3(0.0, 1.0, 0.0)));
-    }
-    Vec3 eHard_dir = Normalize(Cross(kOut, eSoft_dir));   // 在衍射面内, ⟂kOut
-
-    // ── v9 B2-c: 复矢量路径 ──
     if (field.vector_field_valid) {
-        Complex E_soft = ComplexDot(field.electric_field_world, eSoft_dir);
-        Complex E_hard = ComplexDot(field.electric_field_world, eHard_dir);
-
-        Complex E_DS = Dsoft * E_soft;
-        Complex E_DH = Dhard * E_hard;
-
-        field.electric_field_world = ReconstructFromBasis(E_DS, eSoft_dir, E_DH, eHard_dir);
-
+        field.electric_field_world = outgoingField;
         field.SyncLegacyFields();
         return true;
     }
 
-    // ── 旧标量路径 (兼容) ──
-    Complex eS(Dot(field.polarization_vector, eSoft_dir), Dot(field.polarization_imag, eSoft_dir));
-    Complex eH(Dot(field.polarization_vector, eHard_dir), Dot(field.polarization_imag, eHard_dir));
-    Complex eDS = Dsoft * eS, eDH = Dhard * eH;
-
-    // v7.4 B22: 绕射交互相位累加
-    double sw=eDS.NormSq(), hw=eDH.NormSq(), totW=sw+hw;
-    if (totW > 1e-30) field.phase_rad += std::atan2(
-        eDS.im*sw + eDH.im*hw, eDS.re*sw + eDH.re*hw);
-
-    // v7 C5修复: soft/hard正交分量不做标量加法
-    double ampIn = std::sqrt(field.amplitude_real * field.amplitude_real +
-                             field.amplitude_imag * field.amplitude_imag);
-    double diffPower = eDS.NormSq() + eDH.NormSq();
-    double ampMag = ampIn * std::sqrt(std::max(0.0, diffPower));
-
-    // v5 Jones: 全复极化重构 — 先构建世界坐标复场矢量再归一化
-    double prx = eDS.re * eSoft_dir.x + eDH.re * eHard_dir.x;
-    double pry = eDS.re * eSoft_dir.y + eDH.re * eHard_dir.y;
-    double prz = eDS.re * eSoft_dir.z + eDH.re * eHard_dir.z;
-    double pix = eDS.im * eSoft_dir.x + eDH.im * eHard_dir.x;
-    double piy = eDS.im * eSoft_dir.y + eDH.im * eHard_dir.y;
-    double piz = eDS.im * eSoft_dir.z + eDH.im * eHard_dir.z;
-
-    field.amplitude_real = ampMag;
+    const double magnitude = Norm(outgoingField);
+    field.amplitude_real = magnitude;
     field.amplitude_imag = 0.0;
-    field.power_linear = ampMag * ampMag;
-    double polLen = std::sqrt(prx*prx + pry*pry + prz*prz + pix*pix + piy*piy + piz*piz);
-    if (polLen > 1e-12) {
-        double pInv = 1.0 / polLen;
-        field.polarization_vector = MakeVec3(prx * pInv, pry * pInv, prz * pInv);
-        field.polarization_imag    = MakeVec3(pix * pInv, piy * pInv, piz * pInv);
+    field.power_linear = magnitude * magnitude;
+    if (magnitude > 1.0e-15) {
+        const double inverse = 1.0 / magnitude;
+        field.polarization_vector = MakeVec3(
+            outgoingField.x.re * inverse, outgoingField.y.re * inverse, outgoingField.z.re * inverse);
+        field.polarization_imag = MakeVec3(
+            outgoingField.x.im * inverse, outgoingField.y.im * inverse, outgoingField.z.im * inverse);
     }
     return true;
 }

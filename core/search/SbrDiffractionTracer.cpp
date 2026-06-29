@@ -36,7 +36,8 @@ bool SbrAnalyticalFermatPoint(const Point3& tx,
 }
 
 bool SbrPointOnLargeWedgeSide(const Scene& scene, const Wedge& wedge, const Point3& p) {
-    if (wedge.wedge_angle_deg < 183.0 || wedge.wedge_angle_deg > 357.0) {
+    if (wedge.wedge_angle_deg < 3.0 || wedge.wedge_angle_deg > 357.0 ||
+        std::fabs(wedge.wedge_angle_deg - 180.0) < 3.0) {
         return false;
     }
     if (wedge.positive_face_id < 0 || wedge.negative_face_id < 0 ||
@@ -49,7 +50,14 @@ bool SbrPointOnLargeWedgeSide(const Scene& scene, const Wedge& wedge, const Poin
     const Vec3& n1 = scene.faces[wedge.negative_face_id].normal;
     const double d0 = Dot(Subtract(p, wedge.center_point), n0);
     const double d1 = Dot(Subtract(p, wedge.center_point), n1);
-    return !(d0 > 0.0 && d1 > 0.0);
+    if (wedge.wedge_angle_deg > 180.0) {
+        // Convex solid edge: the exterior propagation opening is the
+        // complement of both negative half-spaces.
+        return !(d0 < -1.0e-9 && d1 < -1.0e-9);
+    }
+    // Concave solid edge: the exterior cavity is the intersection of both
+    // positive half-spaces. v11 keeps these wedges disabled by default.
+    return d0 >= -1.0e-9 && d1 >= -1.0e-9;
 }
 
 void TracePointToPointDiffraction(const Scene& scene,

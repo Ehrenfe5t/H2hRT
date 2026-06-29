@@ -97,6 +97,8 @@ struct APSResult {
     int n_theta = 36, n_phi = 72;
     std::vector<double> power_grid_linear;    ///< n_theta × n_phi, row-major (theta outer, phi inner)
     std::vector<double> power_grid_dB;        ///< same shape, dB scale (10*log10 with -200dB floor)
+    std::vector<double> incident_power_grid_linear; ///< Pre-Rx antenna bin power (propagation APS).
+    std::vector<double> incident_power_grid_dB;     ///< Pre-Rx antenna bin power in dB.
 
     /// Helper: grid index from (theta_deg, phi_deg).
     int GridIndex(int iTheta, int iPhi) const { return iTheta * n_phi + iPhi; }
@@ -115,8 +117,11 @@ struct APSResult {
 struct ChannelStatistics {
     int valid_path_count = 0;               ///< Number of valid paths contributing to the statistics.
     double total_power_linear = 0.0;         ///< Sum of linear power across all valid paths.
+    double los_power_linear = 0.0;           ///< Sum of valid line-of-sight path power.
+    double nlos_power_linear = 0.0;          ///< Sum of valid non-line-of-sight path power.
     double strongest_path_power_linear = 0.0;///< Maximum per-path linear power.
     double mean_delay_s = 0.0;               ///< Arithmetic mean of path delays.
+    double power_weighted_mean_delay_s = 0.0;///< First moment of the power delay profile.
     double mean_abs_phase_rad = 0.0;         ///< Arithmetic mean of absolute phase (placeholder, currently unset).
     int transmission_path_count = 0;         ///< Count of paths that contain at least one transmission.
     // v10.2 additions:
@@ -140,6 +145,11 @@ struct XPRStatistics {
     double max_dB = 0.0;                     ///< Maximum XPR.
     int valid_path_count = 0;                ///< Number of paths with valid XPR (excluded inf/nan).
     std::vector<double> xpr_values_dB;       ///< All valid XPR values (for CDF plot).
+    int pure_co_path_count = 0;              ///< Paths right-censored at +60 dB.
+    int pure_cross_path_count = 0;           ///< Paths left-censored at -60 dB.
+    int zero_polarized_power_count = 0;      ///< Paths with neither co nor cross power.
+    double aggregate_xpr_dB = 0.0;           ///< 10log10(sum co power / sum cross power).
+    double censor_limit_dB = 60.0;           ///< Finite limit used for pure states.
 };
 
 /// <summary>

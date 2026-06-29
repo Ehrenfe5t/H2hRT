@@ -179,6 +179,7 @@
     <ClCompile Include="core\search\SbrEngine.cpp" />
     <ClCompile Include="core\search\SbrPathDeduplicator.cpp" />     <!-- v11: strict path dedup & post-process -->
     <ClCompile Include="core\search\SbrPathValidator.cpp" />         <!-- v11: EM-ready path validation -->
+    <ClCompile Include="core\search\SbrPathRefiner.cpp" />           <!-- v11.6: exact physical path refinement -->
     <ClCompile Include="core\search\SbrDiffractionTracer.cpp" />     <!-- v11: analytical Fermat diffraction -->
     <ClCompile Include="core\em\PreparePathForEM.cpp" />
     <ClCompile Include="core\em\InitializeTxField.cpp" />
@@ -191,6 +192,8 @@
     <ClCompile Include="core\em\BuildPDP.cpp" />
     <ClCompile Include="core\em\BuildAPS.cpp" />
     <ClCompile Include="core\em\BuildChannelStatistics.cpp" />
+    <ClCompile Include="core\em\BuildXPRStatistics.cpp" />
+    <ClCompile Include="core\em\ComputeMEG.cpp" />
     <ClCompile Include="core\em\BuildCoverageResult.cpp" />
     <ClCompile Include="core\em\BuildISACFeatureSet.cpp" />
     <ClCompile Include="core\em\PreciseEMProfile.cpp" />
@@ -258,9 +261,11 @@
     <ClInclude Include="core\search\SbrEngine.h" />
     <ClInclude Include="core\search\SbrPathDeduplicator.h" />       <!-- v11 -->
     <ClInclude Include="core\search\SbrPathValidator.h" />           <!-- v11 -->
+    <ClInclude Include="core\search\SbrPathRefiner.h" />             <!-- v11.6 -->
     <ClInclude Include="core\search\SbrDiffractionTracer.h" />       <!-- v11 -->
     <ClInclude Include="core\em\EMSolverInput.h" />
     <ClInclude Include="core\em\FieldAccumulator.h" />
+    <ClInclude Include="core\em\FresnelInterface.h" />
     <ClInclude Include="core\em\EMPathResult.h" />
     <ClInclude Include="core\em\PreparePathForEM.h" />
     <ClInclude Include="core\em\InitializeTxField.h" />
